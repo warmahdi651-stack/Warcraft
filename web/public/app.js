@@ -702,7 +702,7 @@
     canvas.addEventListener("click", handleCanvasClick);
 
     // Bulletproof Multi-Method Download Setup (Blob + Direct Server URL + Iframe-Safe Copy)
-    const directUrl = new URL("./CrownOfLordaeron.w3x", window.location.href).href;
+    const directUrl = new URL("./CrownOfWarMahdi.w3x", window.location.href).href;
     const directInput = document.getElementById("directUrlInput");
     const newTabLink = document.getElementById("linkNewTabDownload");
     const statusEl = document.getElementById("dlStatusMsg");
@@ -753,14 +753,14 @@
             }
             blob = new Blob([bytes], { type: "application/octet-stream" });
           } else {
-            const resp = await fetch("./CrownOfLordaeron.w3x");
+            const resp = await fetch("./CrownOfWarMahdi.w3x");
             blob = await resp.blob();
           }
 
           const blobUrl = URL.createObjectURL(blob);
           const tmpA = document.createElement("a");
           tmpA.href = blobUrl;
-          tmpA.download = "(8)CrownOfLordaeron.w3x";
+          tmpA.download = "(8)CrownOfWarMahdi.w3x";
           document.body.appendChild(tmpA);
           tmpA.click();
           document.body.removeChild(tmpA);
@@ -770,7 +770,7 @@
             copyDirectUrlFallback();
             statusEl.textContent = "اگر مرورگر دانلود داخل کادر را مسدود کرد، لینک دانلود کپی شد — در تب جدید Paste کنید!";
           } else {
-            statusEl.textContent = "✓ دانلود فایل (8)CrownOfLordaeron.w3x آغاز شد!";
+            statusEl.textContent = "✓ دانلود فایل (8)CrownOfWarMahdi.w3x آغاز شد!";
           }
         } catch (err) {
           console.error(err);
@@ -837,18 +837,45 @@
     });
   }
 
+  function renderRaceCard(raceId) {
+    const box = document.getElementById("raceDetailBox");
+    if (!box || !state.data || !Array.isArray(state.data.races)) return;
+    const r = state.data.races.find((x) => x.id === raceId) || state.data.races[0];
+    if (!r) return;
+    box.innerHTML = `
+      <div class="race-pill">${r.badge}</div>
+      <div><strong style="color:${r.color}">${r.name}</strong></div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Lobby Pick: <code>${r.lobbyHandicap}</code></div>
+      <h4>4 Playable Heroes</h4>
+      <div>${r.heroes.map((h) => "• " + h).join("<br/>")}</div>
+      <h4>Units &amp; Siege</h4>
+      <div>${r.units.map((u) => "• " + u).join("<br/>")}</div>
+      <h4>Buildings &amp; 3-Tier Halls</h4>
+      <div>${r.buildings.map((b) => "• " + b).join("<br/>")}</div>
+    `;
+  }
+
   async function init() {
     bindEvents();
     const res = await fetch("./map_data.json");
     const data = await res.json();
     state.data = data;
 
-    document.getElementById("stPlayers").textContent = data.stats.players;
+    document.getElementById("stPlayers").textContent = `${data.stats.playableRaces || 6} Races`;
     document.getElementById("stSize").textContent = `${data.dimensions.tilesW}×${data.dimensions.tilesH}`;
     document.getElementById("stMines").textContent = data.stats.goldMines;
     document.getElementById("stCamps").textContent = data.stats.creepCamps;
     document.getElementById("stShops").textContent = data.stats.neutralBuildings;
     document.getElementById("stTrees").textContent = data.stats.trees.toLocaleString();
+
+    renderRaceCard("naga");
+    document.querySelectorAll("#raceTabs .race-tab").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#raceTabs .race-tab").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderRaceCard(btn.getAttribute("data-race"));
+      });
+    });
 
     buildOffscreenLayers(data);
     populateQuickList();

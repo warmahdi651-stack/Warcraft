@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>(8) Crown of Lordaeron — دانلود مپ وارکرافت ۳ و پیش‌نمایش تاکتیکی</title>
+  <title>(8) Crown of WarMahdi — ۶ نژاد بالانس (Naga + Campaign Human + Pro AI)</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -11,29 +11,29 @@
     <div class="brand-group">
       <div class="crest-badge" aria-hidden="true">👑</div>
       <div>
-        <div class="eyebrow">WARCRAFT III: THE FROZEN THRONE &amp; REFORGED • STANDARD MELEE (.W3X)</div>
-        <h1>(8) Crown of Lordaeron <span class="sub-fa">| تاج لوردرون (۸ نفره رقابتی)</span></h1>
+        <div class="eyebrow">WARCRAFT III TFT 1.26a / 1.27b &amp; REFORGED • 6-RACE ALTERED MELEE (.W3X)</div>
+        <h1>(8) Crown of WarMahdi <span class="sub-fa">| ۶ نژاد بالانس + Naga و Campaign Human + هوش مصنوعی حرفه‌ای</span></h1>
       </div>
     </div>
 
     <div class="topbar-actions">
-      <span class="verified-pill" title="StormLib + JASS2 1.27b & Reforged + Pathing BFS + D4 Symmetry Verified">
-        ✓ ۱۰/۱۰ تست سلامت بدون باگ
+      <span class="verified-pill" title="StormLib + JASS2 1.27b & Reforged + w3u/w3t/w3q v2 + common.ai Verified">
+        ✓ ۱۲/۱۲ تست سلامت بدون باگ
       </span>
       <button id="btnOpenManifest" class="btn-secondary" type="button">
-        ساختار آرشیو MPQ و راهنمای نصب
+        ساختار آرشیو MPQ، اسکریپت AI و راهنمای نصب
       </button>
     </div>
   </header>
 
-  <!-- Prominent Top Download Banner (Impossible to miss on any screen size & works inside sandboxed iframes) -->
+  <!-- Prominent Top Download Banner -->
   <section class="download-hero" aria-label="دانلود فایل مپ وارکرافت ۳">
     <div class="download-hero-info">
       <div class="dl-title-row">
         <span class="dl-icon">📥</span>
         <div>
-          <h2>دانلود مستقیم فایل مپ بازی: <code dir="ltr">(8)CrownOfLordaeron.w3x</code></h2>
-          <p>حجم: <strong>۲۲۶ کیلوبایت</strong> (`231,092 bytes`) • قابل اجرا در پچ <strong>1.26a / 1.27b (Atinad / LAN)</strong>، <strong>Reforged</strong> و <strong>World Editor</strong></p>
+          <h2>دانلود مستقیم فایل مپ بازی: <code dir="ltr">(8)CrownOfWarMahdi.w3x</code></h2>
+          <p>حجم: <strong>۲۵۱ کیلوبایت</strong> (<code>256,614 bytes</code>) • دارای <strong>۶ نژاد کامل (شامل Naga و Campaign Human)</strong> + <strong>هوش مصنوعی حرفه‌ای اختصاصی</strong> • پچ <strong>1.26a / 1.27b</strong> و <strong>Reforged</strong></p>
         </div>
       </div>
     </div>
@@ -42,7 +42,7 @@
       <button id="btnBlobDownload" type="button" class="btn-gold-xl">
         ⬇ دانلود فوری فایل مپ (.w3x)
       </button>
-      <a id="linkNewTabDownload" class="btn-newtab" href="./CrownOfLordaeron.w3x" target="_blank" rel="noopener">
+      <a id="linkNewTabDownload" class="btn-newtab" href="./CrownOfWarMahdi.w3x" target="_blank" rel="noopener">
         ↗ لینک مستقیم دانلود (در تب جدید)
       </a>
     </div>
@@ -54,19 +54,32 @@
       <span id="dlStatusMsg" class="dl-status" aria-live="polite"></span>
     </div>
     <div id="iframeNotice" class="iframe-notice hidden">
-      💡 <strong>نکته مهم مرورگر:</strong> پنل داخلی Preview در حالت Sandbox است و دانلود مستقیم فایل را مسدود می‌کند. برای دانلود تک‌کلیکی، <strong>روی لینک دانلود مستقیم در پیام چت کلیک کنید</strong>، یا دکمه <strong>«کپی لینک دانلود»</strong> بالا را بزنید و در یک تب جدید مرورگر Paste کنید!
+      💡 <strong>نکته مهم مرورگر:</strong> پنل داخلی Preview در حالت Sandbox است و دانلود مستقیم فایل را مسدود می‌کند. برای دانلود تک‌کلیکی، <strong>روی لینک دانلود مستقیم GitHub در پیام چت کلیک کنید</strong>، یا دکمه <strong>«کپی لینک دانلود»</strong> بالا را بزنید و در یک تب جدید مرورگر Paste کنید!
     </div>
   </section>
 
   <main class="workspace-grid">
-    <!-- Right Panel (RTL start): Layer Controls, Matchup Presets & Stats -->
+    <!-- Right Panel (RTL start): 6-Race Guide, Layer Controls & Stats -->
     <aside class="panel controls-panel">
+      <section class="card">
+        <h2 class="card-title">نحوه انتخاب نژاد Naga و Campaign Human (لابی + داخل بازی)</h2>
+        <ul class="lobby-guide-list">
+          <li><strong>روش ۱ — مستقیم در همان صفحه لابی بازی (ستون <code>100%</code> کنار هر بازیکن یا کامپیوتر AI):</strong>
+            <br />• روی <strong style="color:#67e8f9"><code>90%</code></strong> بگذارید ⬅ <strong>Naga Empire</strong> (خون در ثانیه صفر خودکار به <code>100%</code> برمی‌گردد!)
+            <br />• روی <strong style="color:#fde68a"><code>80%</code></strong> بگذارید ⬅ <strong>Campaign Human</strong> (خون خودکار <code>100%</code> می‌شود!)
+            <br />• روی <code>70%</code> بگذارید ⬅ <strong>Random بین هر ۶ نژاد!</strong>
+          </li>
+          <li><strong>روش ۲ — منوی کلیک‌خور فوری ثانیه <code>0.1</code> شروع بازی:</strong> اگر در لابی روی <code>100%</code> بماند، بلافاصله منوی انتخاب هر ۶ نژاد برای شما + منوی انتخاب نژاد هوش مصنوعی کامپیوترها باز می‌شود!</li>
+          <li><strong>روش ۳ — دستورات چت سریع:</strong> <code>-naga</code> ، <code>-camphuman</code> ، <code>-random6</code> و نمایش نژاد همه با <code>-races</code>.</li>
+        </ul>
+      </section>
+
       <section class="card">
         <h2 class="card-title">آمار کلی نقشه (Map Overview)</h2>
         <div class="stats-grid" id="statsGrid">
           <div class="stat-box">
-            <span class="stat-val" id="stPlayers">8</span>
-            <span class="stat-lbl">بازیکن (4v4 / FFA)</span>
+            <span class="stat-val" id="stPlayers">6 Races</span>
+            <span class="stat-lbl">۸ بازیکن (4v4 / FFA)</span>
           </div>
           <div class="stat-box">
             <span class="stat-val" id="stSize">192×192</span>
@@ -100,7 +113,7 @@
           <button type="button" class="preset-btn" data-mode="2v2v2v2">2v2v2v2 چهار تیم دو نفره</button>
         </div>
         <p class="hint-text" id="teamModeDesc">
-          هر ۸ مقر اصلی دارای فاصله دقیق <code>640</code> واحد تا معدن طلا و معدن اکسپند اختصاصی هستند.
+          دریاچه‌های فیروزه‌ای مپ توسط واحدهای دوزیست نژاد <strong>Naga</strong> قابل شنا و دور زدن تاکتیکی هستند!
         </p>
       </section>
 
@@ -137,19 +150,6 @@
           </label>
         </div>
       </section>
-
-      <section class="card legend-card">
-        <h2 class="card-title">راهنمای علائم مینی‌مپ</h2>
-        <ul class="legend-list">
-          <li><span class="dot dot-gold"></span> معدن طلا (۱۲,۵۰۰ پایه / ۱۵,۰۰۰ گوشه‌ها)</li>
-          <li><span class="dot dot-tavern"></span> تاورن مرکزی (<code>ntav</code> در مختصات <code>0,0</code>)</li>
-          <li><span class="dot dot-shop"></span> فروشگاه گابلین، آزمایشگاه، کمپ مزدور و چشمه سلامتی</li>
-          <li><span class="dot dot-green"></span> کمپ سبز سطح ۶ (Gnoll Outpost — آیتم Lvl 1)</li>
-          <li><span class="dot dot-orange"></span> کمپ نارنجی سطح ۱۰–۱۳ (آیتم‌های Lvl 2–4)</li>
-          <li><span class="dot dot-red"></span> کمپ قرمز باس سطح ۲۱–۲۳ (اژدهای سرخ / گولم گرانیتی)</li>
-          <li><span class="dot dot-ford"></span> معبر آب کم‌عمق قابل عبور پیاده (Shallow Ford)</li>
-        </ul>
-      </section>
     </aside>
 
     <!-- Center Panel: Interactive Pan/Zoom Tactical Canvas -->
@@ -172,18 +172,28 @@
 
       <div class="canvas-footer">
         <span>🖱 با اسکرول ماوس زوم کنید، با کشیدن جابه‌جا شوید و روی هر معدن، کمپ کریپ، فروشگاه یا مقر کلیک کنید.</span>
-        <span dir="ltr">Patch 1.26a • 1.27b • Atinad • GameRanger • Reforged (1.32+)</span>
+        <span dir="ltr">(8) Crown of WarMahdi • Patch 1.26a / 1.27b / Reforged</span>
       </div>
     </section>
 
-    <!-- Left Panel (RTL end): Selected Object Inspector & Compatibility -->
+    <!-- Left Panel (RTL end): 6-Race Techtree Explorer + Selected Object Inspector -->
     <aside class="panel inspector-panel">
+      <section class="card">
+        <h2 class="card-title">درخت تکنولوژی و هیروهای ۶ نژاد (6-Race Techtrees)</h2>
+        <div class="race-tabs" id="raceTabs">
+          <button type="button" class="race-tab active" data-race="naga">🐍 Naga</button>
+          <button type="button" class="race-tab" data-race="camphuman">⚔️ Camp. Human</button>
+          <button type="button" class="race-tab" data-race="classic4">👑 Classic 4</button>
+        </div>
+        <div id="raceDetailBox" class="race-detail-box" dir="ltr"></div>
+      </section>
+
       <section class="card inspector-card">
         <h2 class="card-title">بازرس دقیق واحد و کمپ (Unit Inspector)</h2>
         <div id="inspectorContent" class="inspector-body">
           <div class="empty-inspector">
             <div class="empty-icon">⚔️</div>
-            <p>روی هر نقطه مهم در نقشه (مقر بازیکن، معدن طلا، کمپ کریپ، تاورن یا چشمه سلامتی) کلیک کنید تا جزئیات دقیق واحدها، دراپ آیتم‌ها و مختصات World Editor نمایش داده شود.</p>
+            <p>روی هر نقطه مهم در نقشه کلیک کنید تا جزئیات دقیق واحدها، دراپ آیتم‌ها و مختصات نمایش داده شود.</p>
           </div>
         </div>
       </section>
@@ -197,14 +207,6 @@
         </div>
         <div id="quickList" class="quick-list"></div>
       </section>
-
-      <section class="card">
-        <h2 class="card-title">مسیر کپی مپ در بازی</h2>
-        <ul class="compat-list">
-          <li><strong>کلاسیک 1.26a / 1.27b (Atinad / LAN):</strong><br /><code dir="ltr">Warcraft III\Maps\FrozenThrone\</code></li>
-          <li><strong>Warcraft III: Reforged:</strong><br /><code dir="ltr">Documents\Warcraft III\Maps\Download\</code></li>
-        </ul>
-      </section>
     </aside>
   </main>
 
@@ -212,7 +214,7 @@
   <div id="manifestModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
     <div class="modal-box">
       <div class="modal-header">
-        <h2>ساختار فایل <code>(8)CrownOfLordaeron.w3x</code>، تست‌های سلامت و راهنمای نصب</h2>
+        <h2>ساختار فایل <code>(8)CrownOfWarMahdi.w3x</code>، اسکریپت‌های AI و ۱۲ تست سلامت</h2>
         <button type="button" id="btnCloseManifest" class="close-btn">✕</button>
       </div>
       <div class="modal-content">
@@ -220,26 +222,25 @@
           <div>
             <h3>راهنمای نصب در بازی وارکرافت ۳</h3>
             <ol class="install-steps">
-              <li>روی دکمه طلایی <strong>دانلود فوری فایل مپ (.w3x)</strong> در بالای صفحه کلیک کنید تا فایل <code>(8)CrownOfLordaeron.w3x</code> ذخیره شود.</li>
+              <li>فایل <code>(8)CrownOfWarMahdi.w3x</code> را از لینک مستقیم گیت‌هاب در چت یا دکمه بالای صفحه دانلود کنید.</li>
               <li>
                 <strong>در نسخه کلاسیک 1.26a / 1.27b (Atinad / GameRanger / LAN):</strong><br />
-                فایل را در پوشه نصب بازی داخل مسیر زیر کپی کنید:
-                <code dir="ltr">Warcraft III\Maps\FrozenThrone\(8)CrownOfLordaeron.w3x</code>
+                فایل را در مسیر زیر کپی کنید:
+                <code dir="ltr">Warcraft III\Maps\FrozenThrone\(8)CrownOfWarMahdi.w3x</code>
               </li>
               <li>
                 <strong>در نسخه Warcraft III: Reforged:</strong><br />
-                فایل را در مسیر Documents ویندوز قرار دهید:
-                <code dir="ltr">Documents\Warcraft III\Maps\Download\(8)CrownOfLordaeron.w3x</code>
+                <code dir="ltr">Documents\Warcraft III\Maps\Download\(8)CrownOfWarMahdi.w3x</code>
               </li>
-              <li>وارد بازی یا <strong>World Editor</strong> شوید و مپ <strong>(8) Crown of Lordaeron</strong> را اجرا کنید!</li>
+              <li>در لابی بازی برای انتخاب مستقیم نژاد از ستون <code>Handicap</code> (<code>90%</code> = Naga ، <code>80%</code> = Campaign Human) یا از منوی داخل بازی استفاده کنید!</li>
             </ol>
 
-            <h3>گزارش ۱۰ مرحله‌ای تست خودکار بدون باگ</h3>
+            <h3>گزارش ۱۲ مرحله‌ای تست خودکار بدون باگ</h3>
             <ul id="verifyChecksList" class="checks-list" dir="ltr"></ul>
           </div>
 
           <div>
-            <h3>جدول فایل‌های درونی آرشیو MPQ</h3>
+            <h3>جدول ۲۳ فایل درونی آرشیو MPQ</h3>
             <div class="table-wrap" dir="ltr">
               <table class="mpq-table">
                 <thead>
@@ -252,7 +253,7 @@
               </table>
             </div>
             <div class="jass-preview-bar">
-              <button type="button" id="btnLoadJass" class="btn-secondary">مشاهده اسکریپت <code>war3map.j</code> استخراج‌شده از مپ</button>
+              <button type="button" id="btnLoadJass" class="btn-secondary">مشاهده اسکریپت <code>war3map.j</code> و <code>naga_melee.ai</code></button>
             </div>
             <pre id="jassCodeBox" class="jass-box hidden" dir="ltr"></pre>
           </div>

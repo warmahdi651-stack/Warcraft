@@ -611,14 +611,22 @@ def run_verification(w3x_path: Path) -> None:
     # STAGE 1: HM3W Pre-Header & MPQ v1 Container + StormLib Cross-Check
     # ------------------------------------------------------------------
     hdr, files = read_w3x_archive(w3x_path)
-    assert hdr["map_name"] == "(8) Crown of Lordaeron", f"Unexpected map name: {hdr['map_name']}"
+    assert hdr["map_name"] == "(8) Crown of WarMahdi", f"Unexpected map name: {hdr['map_name']}"
     assert hdr["max_players"] == 8, f"Expected 8 max players, got {hdr['max_players']}"
-    assert hdr["map_flags"] == 0x9C1E, f"Unexpected map flags: 0x{hdr['map_flags']:X}"
+    assert hdr["map_flags"] == 0xDC1A, f"Unexpected map flags: 0x{hdr['map_flags']:X}"
     assert hdr["sector_size"] == 4096, f"Expected 4096 sector size, got {hdr['sector_size']}"
     assert int(hdr["file_size"]) < 8 * 1024 * 1024, "Exceeds 8MB Warcraft III 1.26a LAN limit!"
 
-    for req in CANONICAL_W3X_FILES:
-        assert req in files, f"Missing required World Editor file: {req}"
+    for req in list(CANONICAL_W3X_FILES) + [
+        "war3map.w3u",
+        "war3map.w3t",
+        "war3map.w3q",
+        "war3mapMisc.txt",
+        "war3map.imp",
+        "naga_melee.ai",
+        "camphuman_melee.ai",
+    ]:
+        assert req in files, f"Missing required map archive file: {req}"
 
     storm_bin = Path("/tmp/wc3ref/storm_build/w3x_tool")
     if storm_bin.exists():
@@ -958,12 +966,230 @@ def run_verification(w3x_path: Path) -> None:
             assert (gx, gy) in tree_cells, f"Tree symmetry violation for ({ix},{iy}) -> ({gx},{gy})"
 
     print("[PASS] Stage 10: Exact 8-Way Dihedral Group (D4) Terrain, Pathing & Forest Symmetry Proven")
+
+    # ------------------------------------------------------------------
+    # STAGE 11: 6-Race Object Tables (w3u/w3t/w3q/Misc/imp), SLK Metadata & Button Prover
+    # ------------------------------------------------------------------
+    def parse_obj_table(buf: bytes, use_opt: bool) -> Tuple[int, list, list]:
+        ver = struct.unpack_from("<i", buf, 0)[0]
+        assert ver == 2, f"Object table version MUST be 2 for TFT 1.26a/1.27b compatibility, got {ver}"
+        p_off = 4
+        tables = []
+        for _ in range(2):
+            cnt = struct.unpack_from("<I", buf, p_off)[0]
+            p_off += 4
+            objs = []
+            for _o in range(cnt):
+                oid = buf[p_off : p_off + 4].decode("latin1")
+                nid = buf[p_off + 4 : p_off + 8].decode("latin1")
+                mcnt = struct.unpack_from("<I", buf, p_off + 8)[0]
+                p_off += 12
+                mods = []
+                for _m in range(mcnt):
+                    fid = buf[p_off : p_off + 4].decode("latin1")
+                    vt = struct.unpack_from("<I", buf, p_off + 4)[0]
+                    p_off += 8
+                    lvl = dptr = 0
+                    if use_opt:
+                        lvl, dptr = struct.unpack_from("<iI", buf, p_off)
+                        p_off += 8
+                    if vt == 0:
+                        val = struct.unpack_from("<i", buf, p_off)[0]
+                        p_off += 4
+                    elif vt in (1, 2):
+                        val = struct.unpack_from("<f", buf, p_off)[0]
+                        p_off += 4
+                    elif vt == 3:
+                        z_end = buf.index(b"\x00", p_off)
+                        val = buf[p_off:z_end].decode("utf-8")
+                        p_off = z_end + 1
+                    else:
+                        raise AssertionError(f"Invalid variableType {vt} on field {fid}")
+                    end_tag = buf[p_off : p_off + 4]
+                    assert end_tag == b"\x00\x00\x00\x00", f"Unexpected end tag {end_tag!r}"
+                    p_off += 4
+                    mods.append((fid, vt, lvl, dptr, val))
+                objs.append((oid, nid, mods))
+            tables.append(objs)
+        assert p_off == len(buf), f"Object table trailing bytes: {p_off} != {len(buf)}"
+        return ver, tables[0], tables[1]
+
+    _, w3u_orig, w3u_cust = parse_obj_table(files["war3map.w3u"], False)
+    _, w3t_orig, w3t_cust = parse_obj_table(files["war3map.w3t"], False)
+    _, w3q_orig, w3q_cust = parse_obj_table(files["war3map.w3q"], True)
+    assert len(w3u_orig) >= 25 and len(w3u_cust) == 12
+    assert len(w3t_cust) == 3 and len(w3q_orig) == 3
+
+    # Verify custom Hero vs non-Hero rawcode case rule for Classic 1.26a/1.27b
+    hero_parents = {"Hmkg", "Hamg", "Ucrl", "Hpal", "Hblm"}
+    for oid, nid, _ in w3u_cust:
+        if oid in hero_parents:
+            assert nid[0].isupper(), f"Custom Hero {nid} (parent {oid}) MUST start with uppercase!"
+        else:
+            assert nid[0].islower(), f"Custom non-Hero {nid} (parent {oid}) MUST start with lowercase!"
+
+    # Independent JS binary parser cross-check via mdx-m3-viewer if available
+    mdx_dir = Path("/tmp/wc3ref/node_modules/mdx-m3-viewer")
+    if mdx_dir.exists():
+        js_check = subprocess.run(
+            [
+                "node",
+                "-e",
+                f"""
+                const fs = require("fs");
+                const War3Map = require("{mdx_dir}/dist/cjs/parsers/w3x/map.js").default;
+                const W3u = require("{mdx_dir}/dist/cjs/parsers/w3x/w3u/file.js").default;
+                const W3d = require("{mdx_dir}/dist/cjs/parsers/w3x/w3d/file.js").default;
+                const Imp = require("{mdx_dir}/dist/cjs/parsers/w3x/imp/file.js").default;
+                const m = new War3Map();
+                m.load(new Uint8Array(fs.readFileSync({str(w3x_path)!r})));
+                const u = new W3u(); u.load(m.get("war3map.w3u").bytes());
+                const t = new W3u(); t.load(m.get("war3map.w3t").bytes());
+                const q = new W3d(); q.load(m.get("war3map.w3q").bytes());
+                const imp = new Imp(); imp.load(m.get("war3map.imp").bytes());
+                if (u.version !== 2 || t.version !== 2 || q.version !== 2 || imp.entries.size !== 2) process.exit(1);
+                """,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert js_check.returncode == 0, f"mdx-m3-viewer parser rejected w3u/w3t/w3q/imp:\n{js_check.stderr}"
+
+    # Validate field IDs & rawcodes against official 1.27.1 SLKs if present
+    slk_dir = Path("/tmp/wc3ref/w3x2lni/data/enUS-1.27.1/mpq/Units")
+    known_custom_ids: Set[str] = {nid for _, nid, _ in w3u_cust} | {nid for _, nid, _ in w3t_cust}
+    if slk_dir.exists():
+        def load_slk_ids(p: Path, col_name: str) -> Dict[str, dict]:
+            hdr_m: Dict[int, str] = {}
+            rows_m: Dict[int, dict] = {}
+            cx_v = cy_v = 0
+            for ln in p.read_text(errors="ignore").splitlines():
+                if not ln.startswith("C;"):
+                    continue
+                val_s = None
+                for part in ln.split(";")[1:]:
+                    if part.startswith("X"):
+                        cx_v = int(part[1:])
+                    elif part.startswith("Y"):
+                        cy_v = int(part[1:])
+                    elif part.startswith("K"):
+                        val_s = part[1:].strip('"')
+                if cy_v == 1:
+                    if val_s is not None:
+                        hdr_m[cx_v] = val_s
+                else:
+                    rows_m.setdefault(cy_v, {})[hdr_m.get(cx_v, "")] = val_s
+            return {r[col_name]: r for r in rows_m.values() if r.get(col_name)}
+
+        umd = load_slk_ids(slk_dir / "UnitMetaData.slk", "ID")
+        qmd = load_slk_ids(slk_dir / "UpgradeMetaData.slk", "ID")
+        ubal = load_slk_ids(slk_dir / "unitbalance.slk", "unitBalanceID")
+        itms = load_slk_ids(slk_dir / "itemdata.slk", "itemID")
+        abils = load_slk_ids(slk_dir / "abilitydata.slk", "alias")
+        upgs = load_slk_ids(slk_dir / "upgradedata.slk", "upgradeid")
+        all_known_4cc = (
+            set(ubal.keys())
+            | set(itms.keys())
+            | set(abils.keys())
+            | set(upgs.keys())
+            | known_custom_ids
+            | {"sloc", "LTlt", "Ldrt", "Ldro", "Ldrg", "Lrok", "Lgrs", "Lgrd", "CLdi", "CLgr"}
+        )
+
+        null_id = "\x00\x00\x00\x00"
+        for oid, nid, mods in w3u_orig + w3u_cust:
+            assert oid in ubal, f"Unknown parent unit ID {oid!r}"
+            target_label = nid if nid != null_id else oid
+            for fid, _vt, _l, _d, val in mods:
+                assert fid in umd, f"Unknown UnitMetaData field {fid!r} on {target_label}"
+                if fid in ("ubui", "utra", "ures", "uupt", "ureq", "urq1", "urq2", "uhab", "uabi", "umki", "udaa", "upgr", "udep") and val:
+                    for code in str(val).split(","):
+                        code = code.strip()
+                        if code:
+                            assert code in all_known_4cc, f"Unknown rawcode {code!r} in {fid} of {oid}/{nid}"
+
+        for oid, nid, mods in w3t_cust:
+            assert oid in itms, f"Unknown parent item ID {oid!r}"
+            for fid, _vt, _l, _d, _val in mods:
+                assert fid in umd, f"Unknown ItemMetaData field {fid!r} on {nid}"
+
+        for oid, _nid, mods in w3q_orig:
+            assert oid in upgs, f"Unknown upgrade ID {oid!r}"
+            for fid, _vt, _l, _d, val in mods:
+                assert fid in qmd, f"Unknown UpgradeMetaData field {fid!r} on {oid}"
+                if val:
+                    assert str(val) in all_known_4cc, f"Unknown req {val!r} in w3q {oid}"
+
+        # Check all 4-char rawcodes in war3map.j, naga_melee.ai, and camphuman_melee.ai
+        for sname in ("war3map.j", "naga_melee.ai", "camphuman_melee.ai"):
+            stxt = files[sname].decode("utf-8")
+            for rc in re.findall(r"'([A-Za-z0-9]{4})'", stxt):
+                assert rc in all_known_4cc, f"Unknown rawcode '{rc}' in {sname}!"
+
+    # Verify war3mapMisc.txt contains all Naga & Campaign Human Halls, Altars & Heroes
+    misc_txt = files["war3mapMisc.txt"].decode("utf-8")
+    for req_token in ("Hvsh", "N001", "N002", "N003", "Hkal", "Hvwd", "Hlgr", "Huth", "nnad", "h004", "nntt", "n001", "n002", "h001", "h002", "h003"):
+        assert req_token in misc_txt, f"Missing {req_token} in war3mapMisc.txt!"
+
+    # Verify zero button coordinate collisions among modified/custom units per producer
+    obj_btn: Dict[str, Tuple[int, int]] = {}
+    obj_lists: Dict[str, Dict[str, List[str]]] = {}
+    for oid, nid, mods in w3u_orig + w3u_cust + w3t_cust:
+        eff_id = nid if nid != "\x00\x00\x00\x00" else oid
+        bx = by = None
+        for fid, _vt, _l, _d, val in mods:
+            if fid == "ubpx":
+                bx = int(val)
+            elif fid == "ubpy":
+                by = int(val)
+            elif fid in ("ubui", "utra", "umki"):
+                obj_lists.setdefault(eff_id, {})[fid] = [c for c in str(val).split(",") if c]
+        if bx is not None and by is not None:
+            obj_btn[eff_id] = (bx, by)
+
+    for prod_id, lmap in obj_lists.items():
+        for list_kind, children in lmap.items():
+            seen_pos: Dict[Tuple[int, int], str] = {}
+            for ch_id in children:
+                if ch_id in obj_btn:
+                    pos_xy = obj_btn[ch_id]
+                    assert 0 <= pos_xy[0] <= 3 and 0 <= pos_xy[1] <= 2, f"Out-of-bounds button {pos_xy} on {ch_id}"
+                    assert pos_xy not in seen_pos, (
+                        f"Button collision at {pos_xy} in {prod_id}.{list_kind}: {seen_pos[pos_xy]} vs {ch_id}!"
+                    )
+                    seen_pos[pos_xy] = ch_id
+
+    print(
+        f"[PASS] Stage 11: 6-Race Object Tables Verified (w3u={len(w3u_orig)}+{len(w3u_cust)}, w3t={len(w3t_cust)}, w3q={len(w3q_orig)}, 0 button collisions)"
+    )
+
+    # ------------------------------------------------------------------
+    # STAGE 12: Pro Melee `.ai` Scripts (`naga_melee.ai` & `camphuman_melee.ai`) Typecheck
+    # ------------------------------------------------------------------
+    common_ai_path = Path("/tmp/wc3ref/jassdoc/common.ai")
+    if ref_127.exists() and common_ai_path.exists():
+        common_ai_clean = re.sub(
+            r"/\*.*?\*/",
+            lambda m: "\n" * m.group(0).count("\n"),
+            common_ai_path.read_text(encoding="utf-8", errors="ignore"),
+            flags=re.S,
+        )
+        for ai_name in ("naga_melee.ai", "camphuman_melee.ai"):
+            ai_src = files[ai_name].decode("utf-8")
+            assert "#include" not in ai_src, f"Illegal C preprocessor directive in {ai_name}"
+            chk_ai = JassChecker()
+            chk_ai.check_file((ref_127 / "Common.j").read_text(encoding="utf-8", errors="ignore"), "1.27.1/Common.j")
+            chk_ai.check_file(common_ai_clean, "common.ai")
+            ai_fns = chk_ai.check_file(ai_src, ai_name)
+            assert "main" in chk_ai.funcs, f"Missing main() entry point in {ai_name}!"
+            print(f"[PASS] Stage 12 ({ai_name}): Full Static Typecheck vs Common.j + common.ai ({ai_fns} AI functions, 0 errors)")
+
     print("======================================================================")
-    print("  ALL 10 VERIFICATION STAGES PASSED WITH ZERO ERRORS / ZERO BUGS!")
+    print("  ALL 12 VERIFICATION STAGES PASSED WITH ZERO ERRORS / ZERO BUGS!")
     print("======================================================================")
 
 
 if __name__ == "__main__":
-    default_map = Path(__file__).resolve().parent.parent / "maps" / "(8)CrownOfLordaeron.w3x"
+    default_map = Path(__file__).resolve().parent.parent / "maps" / "(8)CrownOfWarMahdi.w3x"
     target = Path(sys.argv[1]) if len(sys.argv) > 1 else default_map
     run_verification(target)

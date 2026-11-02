@@ -848,3 +848,71 @@ code {
   color: #cbd5e1;
   line-height: 1.45;
 }
+
+/* 6-Race Altered Melee Explorer */
+.race-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.race-tab {
+  background: rgba(9, 13, 20, 0.8);
+  color: var(--text-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  padding: 6px 6px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.race-tab.active {
+  background: rgba(34, 211, 238, 0.16);
+  border-color: #22d3ee;
+  color: #67e8f9;
+}
+
+.race-tab[data-race="camphuman"].active {
+  background: rgba(251, 191, 36, 0.16);
+  border-color: #fbbf24;
+  color: #fde68a;
+}
+
+.race-detail-box {
+  background: rgba(7, 11, 18, 0.72);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 11.8px;
+  line-height: 1.55;
+}
+
+.race-detail-box h4 {
+  margin: 6px 0 3px;
+  font-size: 11.5px;
+  color: var(--gold-bright);
+}
+
+.race-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.8px;
+  font-weight: 700;
+  background: rgba(34, 211, 238, 0.15);
+  color: #67e8f9;
+  margin-bottom: 5px;
+}
+
+.lobby-guide-list {
+  margin: 6px 0 0;
+  padding-right: 16px;
+  font-size: 11.8px;
+  line-height: 1.65;
+  color: #e2e8f0;
+}
+

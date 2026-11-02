@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Live Web Preview & One-Click .w3x Download Server for `(8) Crown of Lordaeron`.
+Live Web Preview & One-Click .w3x Download Server for `(8) Crown of WarMahdi`.
 Binds to 0.0.0.0 and accepts any proxy Host/Origin header cleanly.
 """
 
@@ -15,8 +15,8 @@ from urllib.parse import unquote, urlparse
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = Path(__file__).resolve().parent / "public"
-MAP_FILE = REPO_ROOT / "maps" / "(8)CrownOfLordaeron.w3x"
-PREVIEW_PNG = REPO_ROOT / "maps" / "(8)CrownOfLordaeron_Preview.png"
+MAP_FILE = REPO_ROOT / "maps" / "(8)CrownOfWarMahdi.w3x"
+PREVIEW_PNG = REPO_ROOT / "maps" / "(8)CrownOfWarMahdi_Preview.png"
 
 sys.path.insert(0, str(REPO_ROOT / "src"))
 from mpq_packer import CANONICAL_W3X_FILES, read_w3x_archive  # noqa: E402
@@ -25,28 +25,33 @@ from mpq_packer import CANONICAL_W3X_FILES, read_w3x_archive  # noqa: E402
 def build_archive_manifest() -> dict:
     hdr, files = read_w3x_archive(MAP_FILE)
     entries = []
+    seen = set()
     for name in CANONICAL_W3X_FILES:
         if name in files:
             entries.append({"name": name, "rawBytes": len(files[name])})
-    for meta in ("(listfile)", "(attributes)"):
-        if meta in files:
-            entries.append({"name": meta, "rawBytes": len(files[meta])})
+            seen.add(name)
+    for name in sorted(files.keys()):
+        if name not in seen:
+            entries.append({"name": name, "rawBytes": len(files[name])})
+            seen.add(name)
     return {
         "header": hdr,
         "archiveFileName": MAP_FILE.name,
         "archiveBytes": MAP_FILE.stat().st_size,
         "entries": entries,
         "checks": [
-            "HM3W Pre-Header + MPQ v1 Container + StormLib CRC32/MD5",
-            "TFT Binary Format v25 (1.26a / 1.27b / Atinad / GameRanger / Reforged)",
-            "JASS2 Static Typecheck vs Patch 1.27b Common.j + Blizzard.j (0 Errors)",
-            "JASS2 Static Typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (0 Errors)",
-            "1-to-1 Sync: war3mapUnits.doo <-> war3map.j <-> war3map.mmp <-> war3map.wts",
-            "All 4 Races (Human / Orc / Undead / Night Elf) Spawn & Base Buildability",
-            "Zero Collision Footprints Across 181 Units & 5,920 Harvestable Trees",
-            "Dynamic Pathing Grid BFS: 401,756 Walkable Cells (100% Connected)",
-            "200u Camp Acquisition & Highway / Central Tavern Safe-Zones",
-            "Exact 8-Way Dihedral Group (D4) Terrain, Pathing & Forest Symmetry",
+            "Stage 1: HM3W Pre-Header + MPQ v1 Container + StormLib CRC32/MD5",
+            "Stage 2: TFT Binary Format v25 (1.26a / 1.27b / Atinad / GameRanger / Reforged)",
+            "Stage 3a: JASS2 Static Typecheck vs Patch 1.27b Common.j + Blizzard.j (80 fns, 0 Errors)",
+            "Stage 3b: JASS2 Static Typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (80 fns, 0 Errors)",
+            "Stage 4 & 5: 1-to-1 Sync (war3mapUnits.doo <-> war3map.j <-> war3map.mmp <-> war3map.wts)",
+            "Stage 6: All 6 Races (Human / Orc / Undead / Night Elf / Naga / Campaign Human) Spawn Prover",
+            "Stage 7: Zero Collision Footprints Across 181 Units & 5,920 Harvestable Trees",
+            "Stage 8: Dynamic Pathing Grid BFS: 401,756 Walkable Cells (100% Connected)",
+            "Stage 9: 200u Camp Acquisition & Highway / Central Tavern Safe-Zones",
+            "Stage 10: Exact 8-Way Dihedral Group (D4) Terrain, Pathing & Forest Symmetry",
+            "Stage 11: 6-Race Object Tables v2 (w3u=50, w3t=3, w3q=3, Misc.txt, 0 Button Collisions)",
+            "Stage 12: Pro Melee AI Static Typecheck (naga_melee.ai & camphuman_melee.ai vs common.ai)",
         ],
     }
 
@@ -55,7 +60,7 @@ ARCHIVE_MANIFEST_CACHE = build_archive_manifest()
 
 
 class MapPreviewHandler(BaseHTTPRequestHandler):
-    server_version = "CrownOfLordaeronPreview/1.0"
+    server_version = "CrownOfWarMahdiPreview/2.0"
 
     def log_message(self, fmt: str, *args: object) -> None:
         sys.stdout.write("[HTTP] " + (fmt % args) + "\n")
@@ -87,11 +92,12 @@ class MapPreviewHandler(BaseHTTPRequestHandler):
         req_path = unquote(parsed.path)
 
         if req_path in (
+            "/CrownOfWarMahdi.w3x",
+            "/(8)CrownOfWarMahdi.w3x",
+            "/maps/(8)CrownOfWarMahdi.w3x",
             "/CrownOfLordaeron.w3x",
             "/download",
             "/api/download",
-            "/maps/(8)CrownOfLordaeron.w3x",
-            "/(8)CrownOfLordaeron.w3x",
         ):
             data = MAP_FILE.read_bytes()
             self._serve_bytes(
@@ -99,7 +105,7 @@ class MapPreviewHandler(BaseHTTPRequestHandler):
                 "application/octet-stream",
                 head_only,
                 extra={
-                    "Content-Disposition": 'attachment; filename="(8)CrownOfLordaeron.w3x"',
+                    "Content-Disposition": 'attachment; filename="(8)CrownOfWarMahdi.w3x"',
                 },
             )
             return
@@ -116,8 +122,17 @@ class MapPreviewHandler(BaseHTTPRequestHandler):
 
         if req_path == "/api/jass":
             _, files = read_w3x_archive(MAP_FILE)
-            jass_bytes = files["war3map.j"]
-            self._serve_bytes(jass_bytes, "text/plain; charset=utf-8", head_only)
+            self._serve_bytes(files["war3map.j"], "text/plain; charset=utf-8", head_only)
+            return
+
+        if req_path == "/api/ai-naga":
+            _, files = read_w3x_archive(MAP_FILE)
+            self._serve_bytes(files["naga_melee.ai"], "text/plain; charset=utf-8", head_only)
+            return
+
+        if req_path == "/api/ai-camphuman":
+            _, files = read_w3x_archive(MAP_FILE)
+            self._serve_bytes(files["camphuman_melee.ai"], "text/plain; charset=utf-8", head_only)
             return
 
         if req_path in ("/", "/index.html"):
@@ -158,7 +173,7 @@ class MapPreviewHandler(BaseHTTPRequestHandler):
 def main() -> None:
     port = int(os.environ.get("PORT", "8080"))
     server = ThreadingHTTPServer(("0.0.0.0", port), MapPreviewHandler)
-    print(f"Crown of Lordaeron Tactical Map Server listening on http://0.0.0.0:{port}", flush=True)
+    print(f"Serving (8) Crown of WarMahdi preview & download on http://0.0.0.0:{port}", flush=True)
     server.serve_forever()
 
 

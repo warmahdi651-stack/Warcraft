@@ -224,6 +224,10 @@ def pack_w3x(
     hdr_file = work_dir / "_hm3w_header.bin"
     hdr_file.write_bytes(hm3w_header)
     raw_dir = work_dir / "raw_files"
+    if raw_dir.exists():
+        for old_f in raw_dir.iterdir():
+            if old_f.is_file():
+                old_f.unlink()
     raw_dir.mkdir(parents=True, exist_ok=True)
     for name, content in files.items():
         (raw_dir / name).write_bytes(content)

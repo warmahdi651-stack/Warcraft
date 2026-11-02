@@ -15,20 +15,30 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from mpq_packer import build_hm3w_header, pack_w3x
+from custom_races import (
+    generate_camphuman_ai_script,
+    generate_custom_races_jass,
+    generate_naga_ai_script,
+    serialize_imp,
+    serialize_w3q,
+    serialize_w3t,
+    serialize_w3u,
+    serialize_war3map_misc,
+)
 
 # ==============================================================================
 # Map Constants & Coordinate System
 # ==============================================================================
 
-MAP_FILENAME = "(8)CrownOfLordaeron.w3x"
-MAP_DISPLAY_NAME = "(8) Crown of Lordaeron"
-MAP_AUTHOR = "Crown of Lordaeron Studio"
-MAP_RECOMMENDED_PLAYERS = "4v4 / 2v2v2v2 / FFA (2-8 Players)"
+MAP_FILENAME = "(8)CrownOfWarMahdi.w3x"
+MAP_DISPLAY_NAME = "(8) Crown of WarMahdi"
+MAP_AUTHOR = "WarMahdi Studio"
+MAP_RECOMMENDED_PLAYERS = "90%=Naga | 80%=CampHuman | +Menu"
 MAP_DESCRIPTION = (
-    "Eight royal citadels surround the ancient Silverwater Moat and the Crown Sanctum of Lordaeron. "
-    "Built with exact 8-way dihedral symmetry for competitive 4v4, 2v2, FFA, and 1v1 Melee play. "
-    "Features 20 Gold Mines, 4 Goblin Merchants, 4 Goblin Laboratories, 4 Mercenary Camps, "
-    "4 Fountains of Health, and a central Tavern."
+    "|cffffd700(8) Crown of WarMahdi|r — 6-Race Competitive Altered Melee (4v4 / 2v2 / FFA). "
+    "Playable Races: Human, Orc, Undead, Night Elf, |cff22d3eeNaga Empire|r & |cfffbbf24Campaign Human|r! "
+    "Select in Lobby via Handicap (|cff22d3ee90%=Naga|r, |cfffbbf2480%=Camp.Human|r, 70%=6-Race Random — auto-restores to 100% HP!) "
+    "or pick from the instant In-Game Race Menu + Pro Custom AI!"
 )
 
 # 192x192 tiles => 193x193 terrain corners; 1 tile = 128 world units; 1 pathing cell = 32 world units
@@ -60,12 +70,12 @@ CAM_RIGHT = PLAYABLE_MAX_X - 512.0   # +11008.0
 CAM_BOTTOM = PLAYABLE_MIN_Y + 256.0  # -11264.0
 CAM_TOP = PLAYABLE_MAX_Y - 256.0     # +11264.0
 
-# Standard Melee w3i flags:
-# 0x0002 modifyAllyPriorities | 0x0004 isMeleeMap | 0x0008 largeMap |
-# 0x0010 maskedPartiallyVisible | 0x0400 mapPropertiesOpened |
-# 0x0800 waterWavesOnCliffShores | 0x1000 waterWavesOnRollingShores |
-# 0x8000 useItemClassificationSystem
-MAP_FLAGS = 0x0002 | 0x0004 | 0x0008 | 0x0010 | 0x0400 | 0x0800 | 0x1000 | 0x8000  # 0x9C1E = 39966
+# Altered Melee w3i flags (isMeleeMap=0 so Game.dll loads TFT Expansion Data + war3map.w3u/w3t/w3q/Misc.txt,
+# while keeping CustomForce=0 & FixForceSetting=0 so Team 1..8 & Handicap lobby selectors remain unlocked!):
+# 0x0002 modifyAllyPriorities | 0x0008 largeMap | 0x0010 maskedPartiallyVisible |
+# 0x0400 mapPropertiesOpened | 0x0800 waterWavesOnCliffShores | 0x1000 waterWavesOnRollingShores |
+# 0x4000 requiresExpansion | 0x8000 useItemClassificationSystem
+MAP_FLAGS = 0x0002 | 0x0008 | 0x0010 | 0x0400 | 0x0800 | 0x1000 | 0x4000 | 0x8000  # 0xDC1A = 56346
 
 # Lordaeron Summer Ground Tilesets (index 0..5)
 GROUND_TILESETS = ["Ldrt", "Ldro", "Ldrg", "Lrok", "Lgrs", "Lgrd"]
@@ -1180,9 +1190,12 @@ def generate_jass_script(units: List[PlacedUnit]) -> str:
     lines.append("//*")
     lines.append("//***************************************************************************")
     lines.append("")
+    custom_globals_jass, custom_funcs_jass = generate_custom_races_jass()
+
     lines.append("globals")
     lines.append("    // Generated")
     lines.append("    trigger                 gg_trg_Melee_Initialization = null")
+    lines.append(custom_globals_jass.rstrip("\r\n"))
     lines.append("endglobals")
     lines.append("")
     lines.append("function InitGlobals takes nothing returns nothing")
@@ -1293,6 +1306,8 @@ def generate_jass_script(units: List[PlacedUnit]) -> str:
     lines.append("endfunction")
     lines.append("")
 
+    lines.append(custom_funcs_jass.rstrip("\r\n"))
+    lines.append("")
     lines.append("//***************************************************************************")
     lines.append("//*")
     lines.append("//*  Triggers")
@@ -1302,7 +1317,7 @@ def generate_jass_script(units: List[PlacedUnit]) -> str:
     lines.append("//===========================================================================")
     lines.append("// Trigger: Melee Initialization")
     lines.append("//")
-    lines.append("// Default melee game initialization for all players")
+    lines.append("// 6-Race Altered Melee game initialization for all players")
     lines.append("//===========================================================================")
     lines.append("function Trig_Melee_Initialization_Actions takes nothing returns nothing")
     lines.append("    call MeleeStartingVisibility(  )")
@@ -1310,8 +1325,7 @@ def generate_jass_script(units: List[PlacedUnit]) -> str:
     lines.append("    call MeleeGrantHeroItems(  )")
     lines.append("    call MeleeStartingResources(  )")
     lines.append("    call MeleeClearExcessUnits(  )")
-    lines.append("    call MeleeStartingUnits(  )")
-    lines.append("    call MeleeStartingAI(  )")
+    lines.append("    call InitSixRaceAlteredMelee(  )")
     lines.append("    call MeleeInitVictoryDefeat(  )")
     lines.append("endfunction")
     lines.append("")
@@ -1807,6 +1821,7 @@ def export_web_metadata(
         },
         "stats": {
             "players": 8,
+            "playableRaces": 6,
             "goldMines": sum(1 for u in units if u.uid == "ngol"),
             "totalGoldOnMap": sum(u.gold for u in units if u.uid == "ngol"),
             "neutralBuildings": sum(1 for u in units if u.player == 15 and u.uid != "ngol"),
@@ -1814,6 +1829,88 @@ def export_web_metadata(
             "creepUnits": sum(1 for u in units if u.player == 12),
             "trees": len(trees),
         },
+        "races": [
+            {
+                "id": "naga",
+                "name": "Naga Empire",
+                "badge": "NEW • Custom Playable + Pro AI",
+                "lobbyHandicap": "90% in Lobby (auto-restores 100% HP)",
+                "color": "#22d3ee",
+                "halls": ["Temple of Tides (T1)", "Sanctuary of Tides (T2)", "Abyssal Citadel (T3)"],
+                "heroes": [
+                    "Lady Vashj (Sea Witch — INT)",
+                    "Abyssal Warlord (Frontline — STR)",
+                    "Azshara's Tideweaver (Arch-Siren — INT)",
+                    "Makrura Deepking (Armored Tank — STR)",
+                ],
+                "units": [
+                    "Mur'gul Slave (Amphibious Builder)",
+                    "Mur'gul Reaver (T1 Fast Melee)",
+                    "Naga Myrmidon (Heavy Melee + Ensnare)",
+                    "Snap Dragon (Venom Piercing Ranged)",
+                    "Naga Siren (Parasite / Frost Armor / Cyclone)",
+                    "Couatl (Fast Flyer + Abolish Magic)",
+                    "Dragon Turtle (Armored Siege Beast)",
+                    "Naga Royal Guard (T3 Elite Champion)",
+                ],
+                "buildings": [
+                    "Temple / Sanctuary / Citadel",
+                    "Coral Bed (+10 Food)",
+                    "Altar of the Depths",
+                    "Spawning Grounds",
+                    "Shrine of Azshara",
+                    "Tidal Treasury (Orb of the Abyss)",
+                    "Tidal Guardian Tower",
+                ],
+            },
+            {
+                "id": "camphuman",
+                "name": "Campaign Human (Silvermoon)",
+                "badge": "NEW • Custom Playable + Pro AI",
+                "lobbyHandicap": "80% in Lobby (auto-restores 100% HP)",
+                "color": "#fbbf24",
+                "halls": ["Silvermoon Town Hall (T1)", "Sunwell Keep (T2)", "Silvermoon Citadel (T3)"],
+                "heroes": [
+                    "Prince Kael'thas (Sunwell Mage — INT)",
+                    "Sylvanas Windrunner (Ranger-General — AGI)",
+                    "Lord Garithos (Grand Marshal — STR)",
+                    "Uther the Lightbringer (Paladin — STR)",
+                ],
+                "units": [
+                    "Silvermoon Engineer (Builder)",
+                    "High Elven Swordsman (T1 Defend Infantry)",
+                    "High Elven Archer (T1 Longbow Ranger)",
+                    "Alliance Captain (T2 Heavy Officer)",
+                    "Silvermoon Chaplain (Heal + Inner Fire)",
+                    "Dalaran Hydromancer (Slow + Crushing Wave)",
+                    "Spell Breaker (Anti-Magic)",
+                    "Silvermoon Ballista (T2 Siege)",
+                    "Dragonhawk Rider (T2 Aerial)",
+                    "Blood Elf Lieutenant (T3 Champion)",
+                ],
+                "buildings": [
+                    "Silvermoon Hall / Sunwell Keep / Citadel",
+                    "High Elven Farm (+6 Food)",
+                    "Altar of Silvermoon",
+                    "High Elven Barracks",
+                    "Lumber Mill & Blacksmith Forge",
+                    "Arcane Observatory",
+                    "Sunwell Reliquary (Orb of Fire)",
+                    "Sunspire Watch / Earth-Fury / Sky-Fury Towers",
+                ],
+            },
+            {
+                "id": "classic4",
+                "name": "Human • Orc • Undead • Night Elf",
+                "badge": "4 Classic Ladder Races (100% Unmodified Balance)",
+                "lobbyHandicap": "100% in Lobby (or 70% for 6-Race Random)",
+                "color": "#a78bfa",
+                "halls": ["Town Hall / Great Hall / Necropolis / Tree of Life (T1-T3)"],
+                "heroes": ["All 16 Classic Ladder Heroes + 8 Neutral Tavern Heroes"],
+                "units": ["100% authentic Frozen Throne melee stats, upgrades, and items"],
+                "buildings": ["Full unmodified techtrees & classic Melee AI"],
+            },
+        ],
         "players": [
             {
                 "id": pid,
@@ -1879,7 +1976,7 @@ def build_all(repo_root: Path) -> Path:
     trees = generate_trees(terrain_heights, terrain_water, units)
     print(f"      Placed {len(units)} preplaced units/buildings and {len(trees)} harvestable trees.")
 
-    print("[4/6] Serializing all 14 Warcraft III binary map files & JASS2 map script...")
+    print("[4/6] Serializing all 21 Warcraft III binary map files, Object Tables, JASS2 & Pro .ai scripts...")
     w3e_bytes = serialize_w3e(corners_data)
     wpm_bytes = serialize_wpm(corners_data)
     shd_bytes = serialize_shd(corners_data, trees)
@@ -1889,6 +1986,13 @@ def build_all(repo_root: Path) -> Path:
     wts_bytes = serialize_wts()
     wtg_bytes, wct_bytes, w3r_bytes, w3c_bytes = serialize_wtg_and_wct()
     mmp_bytes = serialize_mmp(units)
+    w3u_bytes = serialize_w3u()
+    w3t_bytes = serialize_w3t()
+    w3q_bytes = serialize_w3q()
+    misc_bytes = serialize_war3map_misc()
+    imp_bytes = serialize_imp()
+    naga_ai_bytes = generate_naga_ai_script().encode("utf-8")
+    camphuman_ai_bytes = generate_camphuman_ai_script().encode("utf-8")
     jass_bytes = generate_jass_script(units).encode("utf-8")
 
     print("[5/6] Rendering 256x256 BLP1 minimap texture & 1024x1024 tactical preview PNG...")
@@ -1896,7 +2000,7 @@ def build_all(repo_root: Path) -> Path:
     blp_bytes = encode_blp1_jpeg(minimap_rgba, 256, 256, quality_scale=0.35)
 
     preview_rgba = render_map_raster(corners_data, trees, units=units, size=1024, draw_overlays=True)
-    preview_path = repo_root / "maps" / "(8)CrownOfLordaeron_Preview.png"
+    preview_path = repo_root / "maps" / "(8)CrownOfWarMahdi_Preview.png"
     write_png_rgba(preview_path, preview_rgba, 1024, 1024)
 
     map_files: Dict[str, bytes] = {
@@ -1914,6 +2018,13 @@ def build_all(repo_root: Path) -> Path:
         "war3mapUnits.doo": udoo_bytes,
         "war3map.w3r": w3r_bytes,
         "war3map.w3c": w3c_bytes,
+        "war3map.w3u": w3u_bytes,
+        "war3map.w3t": w3t_bytes,
+        "war3map.w3q": w3q_bytes,
+        "war3mapMisc.txt": misc_bytes,
+        "war3map.imp": imp_bytes,
+        "naga_melee.ai": naga_ai_bytes,
+        "camphuman_melee.ai": camphuman_ai_bytes,
     }
 
     hm3w_header = build_hm3w_header(MAP_DISPLAY_NAME, MAP_FLAGS, 8)
