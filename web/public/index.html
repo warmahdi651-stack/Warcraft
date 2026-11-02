@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>(8) Crown of Lordaeron — دانلود مپ وارکرافت ۳ و پیش‌نمایش تاکتیکی</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="wc3-topbar">
+    <div class="brand-group">
+      <div class="crest-badge" aria-hidden="true">👑</div>
+      <div>
+        <div class="eyebrow">WARCRAFT III: THE FROZEN THRONE &amp; REFORGED • STANDARD MELEE (.W3X)</div>
+        <h1>(8) Crown of Lordaeron <span class="sub-fa">| تاج لوردرون (۸ نفره رقابتی)</span></h1>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <span class="verified-pill" title="StormLib + JASS2 1.27b & Reforged + Pathing BFS + D4 Symmetry Verified">
+        ✓ ۱۰/۱۰ تست سلامت بدون باگ
+      </span>
+      <button id="btnOpenManifest" class="btn-secondary" type="button">
+        ساختار آرشیو MPQ و راهنمای نصب
+      </button>
+    </div>
+  </header>
+
+  <!-- Prominent Top Download Banner (Impossible to miss on any screen size & works inside sandboxed iframes) -->
+  <section class="download-hero" aria-label="دانلود فایل مپ وارکرافت ۳">
+    <div class="download-hero-info">
+      <div class="dl-title-row">
+        <span class="dl-icon">📥</span>
+        <div>
+          <h2>دانلود مستقیم فایل مپ بازی: <code dir="ltr">(8)CrownOfLordaeron.w3x</code></h2>
+          <p>حجم: <strong>۲۲۶ کیلوبایت</strong> (`231,092 bytes`) • قابل اجرا در پچ <strong>1.26a / 1.27b (Atinad / LAN)</strong>، <strong>Reforged</strong> و <strong>World Editor</strong></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="download-hero-buttons">
+      <button id="btnBlobDownload" type="button" class="btn-gold-xl">
+        ⬇ دانلود فوری فایل مپ (.w3x)
+      </button>
+      <a id="linkNewTabDownload" class="btn-newtab" href="./CrownOfLordaeron.w3x" target="_blank" rel="noopener">
+        ↗ لینک مستقیم دانلود (در تب جدید)
+      </a>
+    </div>
+
+    <div class="direct-url-bar">
+      <span class="url-label">لینک مستقیم دانلود (کپی و در تب جدید باز کنید):</span>
+      <input id="directUrlInput" class="url-input" type="text" readonly dir="ltr" value="" />
+      <button id="btnCopyUrl" type="button" class="btn-copy">📋 کپی لینک دانلود</button>
+      <span id="dlStatusMsg" class="dl-status" aria-live="polite"></span>
+    </div>
+    <div id="iframeNotice" class="iframe-notice hidden">
+      💡 <strong>نکته مهم مرورگر:</strong> پنل داخلی Preview در حالت Sandbox است و دانلود مستقیم فایل را مسدود می‌کند. برای دانلود تک‌کلیکی، <strong>روی لینک دانلود مستقیم در پیام چت کلیک کنید</strong>، یا دکمه <strong>«کپی لینک دانلود»</strong> بالا را بزنید و در یک تب جدید مرورگر Paste کنید!
+    </div>
+  </section>
+
+  <main class="workspace-grid">
+    <!-- Right Panel (RTL start): Layer Controls, Matchup Presets & Stats -->
+    <aside class="panel controls-panel">
+      <section class="card">
+        <h2 class="card-title">آمار کلی نقشه (Map Overview)</h2>
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-box">
+            <span class="stat-val" id="stPlayers">8</span>
+            <span class="stat-lbl">بازیکن (4v4 / FFA)</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-val" id="stSize">192×192</span>
+            <span class="stat-lbl">ابعاد بزرگ (Large)</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-val" id="stMines">20</span>
+            <span class="stat-lbl">معدن طلا (260k Gold)</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-val" id="stCamps">36</span>
+            <span class="stat-lbl">کمپ کریپ متعادل</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-val" id="stShops">17</span>
+            <span class="stat-lbl">فروشگاه، چشمه و تاورن</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-val" id="stTrees">5,920</span>
+            <span class="stat-lbl">درخت قابل برداشت</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">چیدمان تیم‌ها (Team Matchups)</h2>
+        <div class="preset-buttons" id="teamPresets">
+          <button type="button" class="preset-btn active" data-mode="ffa">FFA (۸ نفره آزاد)</button>
+          <button type="button" class="preset-btn" data-mode="4v4_ns">4v4 شمال در برابر جنوب</button>
+          <button type="button" class="preset-btn" data-mode="4v4_we">4v4 غرب در برابر شرق</button>
+          <button type="button" class="preset-btn" data-mode="2v2v2v2">2v2v2v2 چهار تیم دو نفره</button>
+        </div>
+        <p class="hint-text" id="teamModeDesc">
+          هر ۸ مقر اصلی دارای فاصله دقیق <code>640</code> واحد تا معدن طلا و معدن اکسپند اختصاصی هستند.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">لایه‌های تاکتیکی (Tactical Layers)</h2>
+        <div class="layer-list">
+          <label class="toggle-row">
+            <input type="checkbox" id="chkTrees" checked />
+            <span>جنگل‌ها و دیواره‌های درخت (<code>LTlt</code>)</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="chkPlayers" checked />
+            <span>مقر بازیکنان و معادن طلا (<code>sloc</code> / <code>ngol</code>)</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="chkNeutral" checked />
+            <span>تاورن، فروشگاه‌ها، مزدوران و چشمه‌ها</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="chkCamps" checked />
+            <span>کمپ‌های کریپ (سبز / نارنجی / قرمز)</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="chkAggro" />
+            <span>شعاع درگیری کمپ‌ها (<code>200u</code> Camp Aggro)</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="chkPathing" />
+            <span>هیت‌مپ مسیرریابی و ساخت‌وساز (<code>war3map.wpm</code>)</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="chkSymmetry" />
+            <span>محورهای تقارن ۸گانه (<code>D4 Symmetry</code>)</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card legend-card">
+        <h2 class="card-title">راهنمای علائم مینی‌مپ</h2>
+        <ul class="legend-list">
+          <li><span class="dot dot-gold"></span> معدن طلا (۱۲,۵۰۰ پایه / ۱۵,۰۰۰ گوشه‌ها)</li>
+          <li><span class="dot dot-tavern"></span> تاورن مرکزی (<code>ntav</code> در مختصات <code>0,0</code>)</li>
+          <li><span class="dot dot-shop"></span> فروشگاه گابلین، آزمایشگاه، کمپ مزدور و چشمه سلامتی</li>
+          <li><span class="dot dot-green"></span> کمپ سبز سطح ۶ (Gnoll Outpost — آیتم Lvl 1)</li>
+          <li><span class="dot dot-orange"></span> کمپ نارنجی سطح ۱۰–۱۳ (آیتم‌های Lvl 2–4)</li>
+          <li><span class="dot dot-red"></span> کمپ قرمز باس سطح ۲۱–۲۳ (اژدهای سرخ / گولم گرانیتی)</li>
+          <li><span class="dot dot-ford"></span> معبر آب کم‌عمق قابل عبور پیاده (Shallow Ford)</li>
+        </ul>
+      </section>
+    </aside>
+
+    <!-- Center Panel: Interactive Pan/Zoom Tactical Canvas -->
+    <section class="canvas-stage">
+      <div class="canvas-toolbar">
+        <div class="zoom-controls">
+          <button type="button" id="btnZoomIn" title="بزرگ‌نمایی">+</button>
+          <button type="button" id="btnZoomOut" title="کوچک‌نمایی">−</button>
+          <button type="button" id="btnResetView">نمای کامل ۱۰۰٪</button>
+          <span class="zoom-badge" id="zoomLabel">1.0×</span>
+        </div>
+        <div class="cursor-readout" dir="ltr" id="cursorReadout">
+          WC3 World: (0, 0) • Dry Buildable Land
+        </div>
+      </div>
+
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="mapCanvas" width="960" height="960"></canvas>
+      </div>
+
+      <div class="canvas-footer">
+        <span>🖱 با اسکرول ماوس زوم کنید، با کشیدن جابه‌جا شوید و روی هر معدن، کمپ کریپ، فروشگاه یا مقر کلیک کنید.</span>
+        <span dir="ltr">Patch 1.26a • 1.27b • Atinad • GameRanger • Reforged (1.32+)</span>
+      </div>
+    </section>
+
+    <!-- Left Panel (RTL end): Selected Object Inspector & Compatibility -->
+    <aside class="panel inspector-panel">
+      <section class="card inspector-card">
+        <h2 class="card-title">بازرس دقیق واحد و کمپ (Unit Inspector)</h2>
+        <div id="inspectorContent" class="inspector-body">
+          <div class="empty-inspector">
+            <div class="empty-icon">⚔️</div>
+            <p>روی هر نقطه مهم در نقشه (مقر بازیکن، معدن طلا، کمپ کریپ، تاورن یا چشمه سلامتی) کلیک کنید تا جزئیات دقیق واحدها، دراپ آیتم‌ها و مختصات World Editor نمایش داده شود.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">فهرست سریع اهداف کلیدی</h2>
+        <div class="quick-tabs">
+          <button type="button" class="qtab active" data-filter="boss">باس‌های قرمز (8)</button>
+          <button type="button" class="qtab" data-filter="shops">ساختمان‌های بی‌طرف (17)</button>
+          <button type="button" class="qtab" data-filter="players">بازیکنان (8)</button>
+        </div>
+        <div id="quickList" class="quick-list"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">مسیر کپی مپ در بازی</h2>
+        <ul class="compat-list">
+          <li><strong>کلاسیک 1.26a / 1.27b (Atinad / LAN):</strong><br /><code dir="ltr">Warcraft III\Maps\FrozenThrone\</code></li>
+          <li><strong>Warcraft III: Reforged:</strong><br /><code dir="ltr">Documents\Warcraft III\Maps\Download\</code></li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <!-- Modal: MPQ Archive Structure, Verification Report & Installation Guide -->
+  <div id="manifestModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>ساختار فایل <code>(8)CrownOfLordaeron.w3x</code>، تست‌های سلامت و راهنمای نصب</h2>
+        <button type="button" id="btnCloseManifest" class="close-btn">✕</button>
+      </div>
+      <div class="modal-content">
+        <div class="modal-cols">
+          <div>
+            <h3>راهنمای نصب در بازی وارکرافت ۳</h3>
+            <ol class="install-steps">
+              <li>روی دکمه طلایی <strong>دانلود فوری فایل مپ (.w3x)</strong> در بالای صفحه کلیک کنید تا فایل <code>(8)CrownOfLordaeron.w3x</code> ذخیره شود.</li>
+              <li>
+                <strong>در نسخه کلاسیک 1.26a / 1.27b (Atinad / GameRanger / LAN):</strong><br />
+                فایل را در پوشه نصب بازی داخل مسیر زیر کپی کنید:
+                <code dir="ltr">Warcraft III\Maps\FrozenThrone\(8)CrownOfLordaeron.w3x</code>
+              </li>
+              <li>
+                <strong>در نسخه Warcraft III: Reforged:</strong><br />
+                فایل را در مسیر Documents ویندوز قرار دهید:
+                <code dir="ltr">Documents\Warcraft III\Maps\Download\(8)CrownOfLordaeron.w3x</code>
+              </li>
+              <li>وارد بازی یا <strong>World Editor</strong> شوید و مپ <strong>(8) Crown of Lordaeron</strong> را اجرا کنید!</li>
+            </ol>
+
+            <h3>گزارش ۱۰ مرحله‌ای تست خودکار بدون باگ</h3>
+            <ul id="verifyChecksList" class="checks-list" dir="ltr"></ul>
+          </div>
+
+          <div>
+            <h3>جدول فایل‌های درونی آرشیو MPQ</h3>
+            <div class="table-wrap" dir="ltr">
+              <table class="mpq-table">
+                <thead>
+                  <tr>
+                    <th>Internal MPQ File</th>
+                    <th>Raw Size</th>
+                  </tr>
+                </thead>
+                <tbody id="mpqTableBody"></tbody>
+              </table>
+            </div>
+            <div class="jass-preview-bar">
+              <button type="button" id="btnLoadJass" class="btn-secondary">مشاهده اسکریپت <code>war3map.j</code> استخراج‌شده از مپ</button>
+            </div>
+            <pre id="jassCodeBox" class="jass-box hidden" dir="ltr"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./w3x_b64.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
