@@ -4,19 +4,25 @@ A tournament-grade, 8-player D4-symmetric **6-Race Altered Melee** map (`192×19
 
 ## Direct Download
 
-- **Playable `.w3x` Map (`256,614` bytes):** [`maps/(8)CrownOfWarMahdi.w3x`](https://github.com/warmahdi651-stack/Warcraft/raw/arena/483b840a-warcraft/maps/%288%29CrownOfWarMahdi.w3x)
+- **Playable `.w3x` Map (`258,792` bytes — Rebalanced v2):** [`maps/(8)CrownOfWarMahdi.w3x`](https://github.com/warmahdi651-stack/Warcraft/raw/arena/483b840a-warcraft/maps/%288%29CrownOfWarMahdi.w3x)
 - **High-Resolution Tactical Preview (`1024×1024`):** `maps/(8)CrownOfWarMahdi_Preview.png`
 
-## 6 Balanced Playable Races & Pro AI
+## 6 Balanced Playable Races & Authentic Building Roles (v2)
 
-1. **Naga Empire (`naga_melee.ai`)**
-   - **3-Tier Town Halls:** Temple of Tides (`nntt`) ➔ Sanctuary of Tides (`n001`) ➔ Abyssal Citadel (`n002`)
-   - **4 Heroes:** Lady Vashj (`Hvsh`), Abyssal Warlord (`N001`), Azshara's Tideweaver (`N002`), Makrura Deepking (`N003`)
-   - **Units & Buildings:** Mur'gul Slave, Mur'gul Reaver, Naga Myrmidon, Snap Dragon, Naga Siren, Couatl, Dragon Turtle, Naga Royal Guard, Coral Bed, Altar of the Depths, Spawning Grounds, Shrine of Azshara, Tidal Treasury (`Orb of the Abyss`), Tidal Guardian Tower.
-2. **Campaign Human — Silvermoon & Alliance Expedition (`camphuman_melee.ai`)**
-   - **3-Tier Town Halls:** Silvermoon Town Hall (`h001`) ➔ Sunwell Keep (`h002`) ➔ Silvermoon Citadel (`h003`)
-   - **4 Heroes:** Prince Kael'thas (`Hkal`), Sylvanas Windrunner (`Hvwd`), Lord Garithos (`Hlgr`), Uther the Lightbringer (`Huth`)
-   - **Units & Buildings:** Silvermoon Engineer, High Elven Swordsman, High Elven Archer, Alliance Captain, Silvermoon Chaplain, Dalaran Hydromancer, Spell Breaker, Silvermoon Ballista, Dragonhawk Rider, Blood Elf Lieutenant, High Elven Farm, Altar of Silvermoon, High Elven Barracks, Arcane Observatory, Sunwell Reliquary (`Orb of Fire`), Sunspire Watch / Earth-Fury / Sky-Fury Towers.
+1. **Naga Empire (`naga_melee.ai` — 9 Dedicated Structures)**
+   - **Town Halls (Workers Only):** Temple of Tides (`nntt`) ➔ Sanctuary of Tides (`n001`) ➔ Abyssal Citadel (`n002`) — trains `nmpe` Mur'gul Slave.
+   - **Coral Forge (`n004`):** Researches `+1/+2/+3` Coral/Chitinous/Razorspine Blades (`Rnat`) & Scales (`Rnam`).
+   - **Spawning Grounds (`nnsg` — Barracks):** `nnmg` Mur'gul Reaver (T1), `nsnp` Snap Dragon (T1.5 Ranged), `nmyr` Naga Myrmidon (T2 Heavy Melee); researches Ensnare & Submerge.
+   - **Shrine of Azshara (`nnsa` — Caster & Flyer Sanctum, T2):** `nnsw` Naga Siren & `nwgs` Couatl; researches Siren Training & Abolish Magic.
+   - **Abyssal Behemoth Pool (`n005` — Siege & T3 Elite Sanctum, T2):** `nhyc` Dragon Turtle (T2 Siege) & `nnrg` Naga Royal Guard (T3 Champion).
+   - **Altar, Shop & Defense:** Altar of the Depths (`Hvsh`, `N001`, `N002`, `N003`), Tidal Treasury (`Orb of the Abyss`), Coral Bed (`+9` Food), Tidal Guardian Tower.
+2. **Campaign Human — Silvermoon & Alliance Expedition (`camphuman_melee.ai` — 11 Dedicated Structures)**
+   - **Town Halls (Workers & Backpack):** Silvermoon Town Hall (`h001`) ➔ Sunwell Keep (`h002`) ➔ Silvermoon Citadel (`h003`) — trains `nhew` Silvermoon Worker.
+   - **Silvermoon Barracks (`h007` — Infantry & Archers):** `hhes` High Elven Swordsman (T1), `nhea` High Elven Archer (T1), `hcth` Alliance Captain (T3 Plate Officer); researches Defend & Veteran War Training.
+   - **High Elven Mage Tower (`nheb` — Spellcaster Sanctum, T2):** `nchp` Silvermoon Chaplain, `nhym` Dalaran Hydromancer, `hspt` Blood Elf Spell Breaker; researches Chaplain/Hydromancer Training & Control Magic.
+   - **Silvermoon Siege Workshop (`h008` — Siege & T3 Champion, T2):** `hgyr` Flying Machine, `h006` Silvermoon Ballista (T2 Siege), `nbel` Blood Elf Lieutenant (T3 Champion); researches Bombs.
+   - **Silvermoon Dragonhawk Aviary (`h009` — Aerial Units, T2):** `hdhw` Dragonhawk Rider (T2) & `hgry` Wildhammer Gryphon Rider (T3); researches Cloud & Storm Hammers.
+   - **Altar, Forge, Shop & Towers:** Altar of Silvermoon (`Hkal`, `Hvwd`, `Hlgr`, `Huth`), Blacksmith, Lumber Mill, High Elven Farm (`+6` Food), Sunwell Reliquary (`Orb of Fire`), Sunspire Scout ➔ Guard / Arcane Towers.
 3. **Classic 4 Ladder Races:** Human, Orc, Undead, Night Elf (100% unmodified ladder stats & AI).
 
 ## How to Select Naga & Campaign Human (Lobby + In-Game)

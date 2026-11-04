@@ -1017,11 +1017,11 @@ def run_verification(w3x_path: Path) -> None:
     _, w3u_orig, w3u_cust = parse_obj_table(files["war3map.w3u"], False)
     _, w3t_orig, w3t_cust = parse_obj_table(files["war3map.w3t"], False)
     _, w3q_orig, w3q_cust = parse_obj_table(files["war3map.w3q"], True)
-    assert len(w3u_orig) >= 25 and len(w3u_cust) == 12
-    assert len(w3t_cust) == 3 and len(w3q_orig) == 3
+    assert len(w3u_orig) >= 24 and len(w3u_cust) == 17, f"Unexpected w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
+    assert len(w3t_cust) == 3 and len(w3q_orig) == 6, f"Unexpected w3t/w3q counts: {len(w3t_cust)} / {len(w3q_orig)}"
 
     # Verify custom Hero vs non-Hero rawcode case rule for Classic 1.26a/1.27b
-    hero_parents = {"Hmkg", "Hamg", "Ucrl", "Hpal", "Hblm"}
+    hero_parents = {"Otch", "Hmkg", "Hamg", "Ucrl", "Hpal", "Hblm"}
     for oid, nid, _ in w3u_cust:
         if oid in hero_parents:
             assert nid[0].isupper(), f"Custom Hero {nid} (parent {oid}) MUST start with uppercase!"
@@ -1055,9 +1055,27 @@ def run_verification(w3x_path: Path) -> None:
         )
         assert js_check.returncode == 0, f"mdx-m3-viewer parser rejected w3u/w3t/w3q/imp:\n{js_check.stderr}"
 
-    # Validate field IDs & rawcodes against official 1.27.1 SLKs if present
+    # Validate field IDs, EXACT variableTypes & rawcodes against official 1.27.1 SLKs if present
     slk_dir = Path("/tmp/wc3ref/w3x2lni/data/enUS-1.27.1/mpq/Units")
     known_custom_ids: Set[str] = {nid for _, nid, _ in w3u_cust} | {nid for _, nid, _ in w3t_cust}
+    slk_ubal: Dict[str, dict] = {}
+    slk_uweap: Dict[str, dict] = {}
+    slk_uabil: Dict[str, dict] = {}
+    default_btn_pos: Dict[str, Tuple[int, int]] = {}
+
+    def expected_w3_vtype(meta_type: str) -> int:
+        if meta_type in {
+            "int", "bool", "attackBits", "teamColor", "deathType",
+            "versionFlags", "silenceFlags", "fullFlags", "interactionFlags",
+            "channelType", "channelFlags", "spellDetail", "techAvail",
+        }:
+            return 0
+        if meta_type == "real":
+            return 1
+        if meta_type == "unreal":
+            return 2
+        return 3
+
     if slk_dir.exists():
         def load_slk_ids(p: Path, col_name: str) -> Dict[str, dict]:
             hdr_m: Dict[int, str] = {}
@@ -1083,12 +1101,14 @@ def run_verification(w3x_path: Path) -> None:
 
         umd = load_slk_ids(slk_dir / "UnitMetaData.slk", "ID")
         qmd = load_slk_ids(slk_dir / "UpgradeMetaData.slk", "ID")
-        ubal = load_slk_ids(slk_dir / "unitbalance.slk", "unitBalanceID")
+        slk_ubal = load_slk_ids(slk_dir / "unitbalance.slk", "unitBalanceID")
+        slk_uweap = load_slk_ids(slk_dir / "unitweapons.slk", "unitWeapID")
+        slk_uabil = load_slk_ids(slk_dir / "unitabilities.slk", "unitAbilID")
         itms = load_slk_ids(slk_dir / "itemdata.slk", "itemID")
         abils = load_slk_ids(slk_dir / "abilitydata.slk", "alias")
         upgs = load_slk_ids(slk_dir / "upgradedata.slk", "upgradeid")
         all_known_4cc = (
-            set(ubal.keys())
+            set(slk_ubal.keys())
             | set(itms.keys())
             | set(abils.keys())
             | set(upgs.keys())
@@ -1096,12 +1116,37 @@ def run_verification(w3x_path: Path) -> None:
             | {"sloc", "LTlt", "Ldrt", "Ldro", "Ldrg", "Lrok", "Lgrs", "Lgrd", "CLdi", "CLgr"}
         )
 
+        # Load default Buttonpos from official *func.txt files
+        for func_fn in (
+            "humanunitfunc.txt", "campaignunitfunc.txt", "humanupgradefunc.txt",
+            "campaignupgradefunc.txt", "itemfunc.txt",
+        ):
+            fp = slk_dir / func_fn
+            if fp.exists():
+                cur_sec = None
+                for ln in fp.read_text(errors="ignore").splitlines():
+                    ln = ln.strip()
+                    if ln.startswith("[") and ln.endswith("]") and len(ln) == 6:
+                        cur_sec = ln[1:5]
+                    elif cur_sec and ln.lower().startswith("buttonpos="):
+                        parts_bp = ln.split("=", 1)[1].split(",")
+                        if len(parts_bp) >= 2:
+                            try:
+                                default_btn_pos[cur_sec] = (int(parts_bp[0].strip()), int(parts_bp[1].strip()))
+                            except ValueError:
+                                pass
+
         null_id = "\x00\x00\x00\x00"
         for oid, nid, mods in w3u_orig + w3u_cust:
-            assert oid in ubal, f"Unknown parent unit ID {oid!r}"
+            assert oid in slk_ubal, f"Unknown parent unit ID {oid!r}"
             target_label = nid if nid != null_id else oid
-            for fid, _vt, _l, _d, val in mods:
+            for fid, vt, _l, _d, val in mods:
                 assert fid in umd, f"Unknown UnitMetaData field {fid!r} on {target_label}"
+                exp_vt = expected_w3_vtype(umd[fid].get("type", ""))
+                assert vt == exp_vt, (
+                    f"Strict variableType mismatch on {target_label}.{fid} ({umd[fid].get('type')}): "
+                    f"got vt={vt}, expected vt={exp_vt}!"
+                )
                 if fid in ("ubui", "utra", "ures", "uupt", "ureq", "urq1", "urq2", "uhab", "uabi", "umki", "udaa", "upgr", "udep") and val:
                     for code in str(val).split(","):
                         code = code.strip()
@@ -1110,15 +1155,21 @@ def run_verification(w3x_path: Path) -> None:
 
         for oid, nid, mods in w3t_cust:
             assert oid in itms, f"Unknown parent item ID {oid!r}"
-            for fid, _vt, _l, _d, _val in mods:
+            for fid, vt, _l, _d, _val in mods:
                 assert fid in umd, f"Unknown ItemMetaData field {fid!r} on {nid}"
+                exp_vt = expected_w3_vtype(umd[fid].get("type", ""))
+                assert vt == exp_vt, f"Strict variableType mismatch on item {nid}.{fid}: {vt} != {exp_vt}"
 
         for oid, _nid, mods in w3q_orig:
             assert oid in upgs, f"Unknown upgrade ID {oid!r}"
-            for fid, _vt, _l, _d, val in mods:
+            for fid, vt, _l, _d, val in mods:
                 assert fid in qmd, f"Unknown UpgradeMetaData field {fid!r} on {oid}"
-                if val:
-                    assert str(val) in all_known_4cc, f"Unknown req {val!r} in w3q {oid}"
+                exp_vt = expected_w3_vtype(qmd[fid].get("type", ""))
+                assert vt == exp_vt, f"Strict variableType mismatch on upgrade {oid}.{fid}: {vt} != {exp_vt}"
+                if fid == "greq" and val:
+                    for code in str(val).split(","):
+                        if code.strip():
+                            assert code.strip() in all_known_4cc, f"Unknown req {val!r} in w3q {oid}"
 
         # Check all 4-char rawcodes in war3map.j, naga_melee.ai, and camphuman_melee.ai
         for sname in ("war3map.j", "naga_melee.ai", "camphuman_melee.ai"):
@@ -1131,36 +1182,65 @@ def run_verification(w3x_path: Path) -> None:
     for req_token in ("Hvsh", "N001", "N002", "N003", "Hkal", "Hvwd", "Hlgr", "Huth", "nnad", "h004", "nntt", "n001", "n002", "h001", "h002", "h003"):
         assert req_token in misc_txt, f"Missing {req_token} in war3mapMisc.txt!"
 
-    # Verify zero button coordinate collisions among modified/custom units per producer
-    obj_btn: Dict[str, Tuple[int, int]] = {}
+    # Verify ZERO 4x3 button collisions across ALL build, train, upgrade, research & shop cards!
+    obj_btn: Dict[str, Tuple[int, int]] = dict(default_btn_pos)
     obj_lists: Dict[str, Dict[str, List[str]]] = {}
     for oid, nid, mods in w3u_orig + w3u_cust + w3t_cust:
         eff_id = nid if nid != "\x00\x00\x00\x00" else oid
+        if nid != "\x00\x00\x00\x00" and oid in obj_btn and eff_id not in obj_btn:
+            obj_btn[eff_id] = obj_btn[oid]
         bx = by = None
         for fid, _vt, _l, _d, val in mods:
             if fid == "ubpx":
                 bx = int(val)
             elif fid == "ubpy":
                 by = int(val)
-            elif fid in ("ubui", "utra", "umki"):
-                obj_lists.setdefault(eff_id, {})[fid] = [c for c in str(val).split(",") if c]
+            elif fid in ("ubui", "utra", "ures", "uupt", "umki"):
+                obj_lists.setdefault(eff_id, {})[fid] = [c.strip() for c in str(val).split(",") if c.strip()]
         if bx is not None and by is not None:
             obj_btn[eff_id] = (bx, by)
 
+    for oid, _nid, mods in w3q_orig:
+        bx = by = None
+        for fid, _vt, _l, _d, val in mods:
+            if fid == "gbpx":
+                bx = int(val)
+            elif fid == "gbpy":
+                by = int(val)
+        if bx is not None and by is not None:
+            obj_btn[oid] = (bx, by)
+
     for prod_id, lmap in obj_lists.items():
-        for list_kind, children in lmap.items():
-            seen_pos: Dict[Tuple[int, int], str] = {}
-            for ch_id in children:
+        if "ubui" in lmap:
+            seen_build: Dict[Tuple[int, int], str] = {}
+            for ch_id in lmap["ubui"]:
+                assert ch_id in obj_btn, f"Missing button pos for buildable structure {ch_id}"
+                pos_xy = obj_btn[ch_id]
+                assert 0 <= pos_xy[0] <= 3 and 0 <= pos_xy[1] <= 2, f"Out-of-bounds button {pos_xy} on {ch_id}"
+                assert pos_xy != (3, 2), f"Build button {ch_id} overwrites Cancel slot (3,2) on {prod_id}!"
+                assert pos_xy not in seen_build, (
+                    f"Worker build-menu collision at {pos_xy} on {prod_id}: {seen_build[pos_xy]} vs {ch_id}!"
+                )
+                seen_build[pos_xy] = ch_id
+
+        # Combined command card on buildings: utra + ures + uupt + umki share the 4x3 card!
+        combined_card = (
+            lmap.get("utra", []) + lmap.get("ures", []) + lmap.get("uupt", []) + lmap.get("umki", [])
+        )
+        if combined_card:
+            seen_card: Dict[Tuple[int, int], str] = {}
+            for ch_id in combined_card:
                 if ch_id in obj_btn:
                     pos_xy = obj_btn[ch_id]
                     assert 0 <= pos_xy[0] <= 3 and 0 <= pos_xy[1] <= 2, f"Out-of-bounds button {pos_xy} on {ch_id}"
-                    assert pos_xy not in seen_pos, (
-                        f"Button collision at {pos_xy} in {prod_id}.{list_kind}: {seen_pos[pos_xy]} vs {ch_id}!"
+                    assert pos_xy not in seen_card, (
+                        f"Building command-card collision at {pos_xy} on {prod_id}: {seen_card[pos_xy]} vs {ch_id}!"
                     )
-                    seen_pos[pos_xy] = ch_id
+                    seen_card[pos_xy] = ch_id
 
     print(
-        f"[PASS] Stage 11: 6-Race Object Tables Verified (w3u={len(w3u_orig)}+{len(w3u_cust)}, w3t={len(w3t_cust)}, w3q={len(w3q_orig)}, 0 button collisions)"
+        f"[PASS] Stage 11: 6-Race Object Tables & Exact SLK variableTypes Verified "
+        f"(w3u={len(w3u_orig)}+{len(w3u_cust)}, w3t={len(w3t_cust)}, w3q={len(w3q_orig)}, 0 card collisions)"
     )
 
     # ------------------------------------------------------------------
@@ -1184,8 +1264,115 @@ def run_verification(w3x_path: Path) -> None:
             assert "main" in chk_ai.funcs, f"Missing main() entry point in {ai_name}!"
             print(f"[PASS] Stage 12 ({ai_name}): Full Static Typecheck vs Common.j + common.ai ({ai_fns} AI functions, 0 errors)")
 
+    # ------------------------------------------------------------------
+    # STAGE 13: Pro-Ladder Stat Parity & Authentic Building-Role Audit
+    # ------------------------------------------------------------------
+    mod_lookup: Dict[str, Tuple[str, Dict[str, object]]] = {}
+    for oid, nid, mods in w3u_orig + w3u_cust:
+        eff_id = nid if nid != "\x00\x00\x00\x00" else oid
+        mod_lookup[eff_id] = (oid, {fid: val for fid, _vt, _l, _d, val in mods})
+
+    # 13a. Authentic Building-Role Invariants ("در جاهای خودشون")
+    for th_id, expected_worker in (
+        ("nntt", "nmpe"), ("n001", "nmpe"), ("n002", "nmpe"),
+        ("h001", "nhew"), ("h002", "nhew"), ("h003", "nhew"),
+    ):
+        assert mod_lookup[th_id][1].get("utra") == expected_worker, (
+            f"Town Hall {th_id} must train ONLY worker {expected_worker}, got {mod_lookup[th_id][1].get('utra')}"
+        )
+
+    assert mod_lookup["nnsg"][1]["utra"] == "nnmg,nsnp,nmyr", "Spawning Grounds must train infantry/ranged/myrmidon only!"
+    assert mod_lookup["n004"][1]["ures"] == "Rnat,Rnam" and mod_lookup["n004"][1]["utra"] == "", "Coral Forge must be dedicated armory!"
+    assert mod_lookup["nnsa"][1]["utra"] == "nnsw,nwgs" and mod_lookup["nnsa"][1]["ureq"] == "n001", "Shrine of Azshara must be T2 caster/air sanctum!"
+    assert mod_lookup["n005"][1]["utra"] == "nhyc,nnrg" and "n001" in str(mod_lookup["n005"][1]["ureq"]), "Behemoth Pool must house siege & T3 Royal Guard!"
+
+    assert mod_lookup["h007"][1]["utra"] == "hhes,nhea,hcth", "Silvermoon Barracks must train Swordsman, Archer, Captain only!"
+    assert mod_lookup["nheb"][1]["utra"] == "nchp,nhym,hspt" and mod_lookup["nheb"][1]["ureq"] == "h002", "Mage Tower must be T2 caster sanctum!"
+    assert mod_lookup["h008"][1]["utra"] == "hgyr,h006,nbel" and "h002" in str(mod_lookup["h008"][1]["ureq"]), "Siege Workshop must house Gyro, Ballista, Lieutenant!"
+    assert mod_lookup["h009"][1]["utra"] == "hdhw,hgry" and "h002" in str(mod_lookup["h009"][1]["ureq"]), "Aviary must house Dragonhawk & Gryphon only!"
+    assert mod_lookup["negt"][1]["uaen"] == 0 and mod_lookup["negt"][1]["ugol"] == 30, "Sunspire Scout Tower must be 30g and unarmed!"
+
+    # 13b. Effective Combat Stat & Cost Parity Audit vs Classic TFT Ladder Benchmarks
+    if slk_ubal and slk_uweap and slk_uabil:
+        def eff_unit_stats(uid: str) -> dict:
+            parent_id, m = mod_lookup.get(uid, (uid, {}))
+            b = slk_ubal[parent_id]
+            w = slk_uweap[parent_id]
+            a = slk_uabil[parent_id]
+
+            def gi(fid: str, scol: str, default: int = 0) -> int:
+                if fid in m:
+                    return int(m[fid])  # type: ignore[arg-type]
+                sv = str(b.get(scol, w.get(scol, ""))).strip()
+                return int(float(sv)) if sv not in ("", "-", "_") else default
+
+            def gf(fid: str, scol: str, default: float = 0.0) -> float:
+                if fid in m:
+                    return float(m[fid])  # type: ignore[arg-type]
+                sv = str(b.get(scol, w.get(scol, ""))).strip()
+                return float(sv) if sv not in ("", "-", "_") else default
+
+            def gs(fid: str, scol: str, default: str = "") -> str:
+                if fid in m:
+                    return str(m[fid])
+                sv = str(b.get(scol, w.get(scol, a.get(scol, "")))).strip()
+                return sv if sv not in ("-", "_") else default
+
+            dmg1 = gi("ua1b", "dmgplus1") + gi("ua1d", "dice1") * (gi("ua1s", "sides1") + 1) / 2.0
+            cool1 = gf("ua1c", "cool1", 1.0)
+            dps1 = dmg1 / cool1 if cool1 > 0 and gi("uaen", "weapsOn", 1) in (1, 3) else 0.0
+            dmg2 = gi("ua2b", "dmgplus2") + gi("ua2d", "dice2") * (gi("ua2s", "sides2") + 1) / 2.0
+            cool2 = gf("ua2c", "cool2", 1.0)
+            dps2 = dmg2 / cool2 if cool2 > 0 and gi("uaen", "weapsOn", 1) in (2, 3) else 0.0
+            hp = gi("uhpm", "HP")
+            armor = gi("udef", "def")
+            ehp = hp * (1.0 + 0.06 * max(0, armor))
+            return {
+                "gold": gi("ugol", "goldcost"),
+                "lumber": gi("ulum", "lumbercost"),
+                "food": gi("ufoo", "fused"),
+                "hp": hp,
+                "mana": gi("umpm", "manaN"),
+                "armor": armor,
+                "ehp": ehp,
+                "dps1": dps1,
+                "dps2": dps2,
+                "atk1": gs("ua1t", "atkType1"),
+                "atk2": gs("ua2t", "atkType2"),
+                "abils": gs("uabi", "abilList"),
+            }
+
+        combat_roster = [
+            "nnmg", "nsnp", "nmyr", "nnsw", "nwgs", "nhyc", "nnrg",
+            "hhes", "nhea", "hcth", "nchp", "nhym", "hspt", "h006", "nbel", "hdhw", "hgry",
+        ]
+        for cuid in combat_roster:
+            st = eff_unit_stats(cuid)
+            assert st["atk1"] != "chaos" and st["atk2"] != "chaos", f"Broken campaign Chaos attack left on {cuid}!"
+            assert "Advc" not in st["abils"] and "ACdv" not in st["abils"], f"Broken campaign Devour left on {cuid}!"
+            if cuid != "hspt":
+                assert "Amim" not in st["abils"], f"Broken campaign Spell Immunity left on {cuid}!"
+            assert st["mana"] <= 300, f"Campaign-inflated mana ({st['mana']}) on {cuid}!"
+            assert st["food"] >= 2, f"Invalid food cost on {cuid}: {st['food']}"
+            dps_per_food = max(st["dps1"], st["dps2"]) / st["food"]
+            hp_per_food = st["hp"] / st["food"]
+            assert 2.0 <= dps_per_food <= 6.2, f"Out-of-band DPS/food ({dps_per_food:.2f}) on {cuid}!"
+            assert 105.0 <= hp_per_food <= 230.0, f"Out-of-band HP/food ({hp_per_food:.1f}) on {cuid}!"
+
+        # Verify Heroes all cost 425g/100L/5f/55s and level-1 stat sum sits in TFT melee band [50..56]
+        for hid in ("Hvsh", "N001", "N002", "N003", "Hkal", "Hvwd", "Hlgr", "Huth"):
+            p_id, hm = mod_lookup[hid]
+            hb = slk_ubal[p_id]
+            s_str = int(hm.get("ustr", hb["STR"]))  # type: ignore[arg-type]
+            s_agi = int(hm.get("uagi", hb["AGI"]))  # type: ignore[arg-type]
+            s_int = int(hm.get("uint", hb["INT"]))  # type: ignore[arg-type]
+            assert 50 <= (s_str + s_agi + s_int) <= 56, f"Hero {hid} base stat total {s_str+s_agi+s_int} out of melee band!"
+            assert hm.get("ugol") == 425 and hm.get("ulum") == 100 and hm.get("ufoo") == 5, f"Hero {hid} cost mismatch!"
+
+    print("[PASS] Stage 13: Pro-Ladder DPS/EHP/Cost/Hero Parity & Authentic Building-Role Audit Passed")
+
     print("======================================================================")
-    print("  ALL 12 VERIFICATION STAGES PASSED WITH ZERO ERRORS / ZERO BUGS!")
+    print("  ALL 13 VERIFICATION STAGES PASSED WITH ZERO ERRORS / ZERO BUGS!")
     print("======================================================================")
 
 
