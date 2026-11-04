@@ -43,6 +43,8 @@ MPQ_HASH_FILE_KEY = 0x300
 MPQ_HASH_KEY2_MIX = 0x400
 
 MPQ_FILE_COMPRESS = 0x00000200
+MPQ_FILE_ENCRYPTED = 0x00010000
+MPQ_FILE_FIX_KEY = 0x00020000
 MPQ_FILE_EXISTS = 0x80000000
 MPQ_COMPRESSION_ZLIB = 0x02
 
@@ -155,7 +157,9 @@ def pack_w3x_python(hm3w_header: bytes, files: Dict[str, bytes], out_path: Path)
     all_entries: List[Tuple[str, bytes]] = [(n, files[n]) for n in ordered_names]
     all_entries.append(("(listfile)", listfile_bytes))
 
-    hash_table_entries = 64  # Power of 2 >= len(all_entries)*2
+    hash_table_entries = 64
+    while hash_table_entries < len(all_entries) * 2:
+        hash_table_entries <<= 1
     sector_size_shift = 3    # 512 << 3 = 4096 bytes
 
     mpq_body = bytearray()
@@ -221,25 +225,31 @@ def pack_w3x(
 ) -> str:
     """Pack a .w3x file using official StormLib if available, else pure-Python MPQ v1."""
     work_dir.mkdir(parents=True, exist_ok=True)
-    hdr_file = work_dir / "_hm3w_header.bin"
-    hdr_file.write_bytes(hm3w_header)
     raw_dir = work_dir / "raw_files"
     if raw_dir.exists():
         for old_f in raw_dir.iterdir():
             if old_f.is_file():
                 old_f.unlink()
     raw_dir.mkdir(parents=True, exist_ok=True)
-    for name, content in files.items():
-        (raw_dir / name).write_bytes(content)
+
+    ordered_names = [n for n in CANONICAL_W3X_FILES if n in files]
+    for extra in files:
+        if extra not in ordered_names and extra != "(listfile)":
+            ordered_names.append(extra)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if storm_tool and storm_tool.exists():
-        res = subprocess.run(
-            [str(storm_tool), "pack", str(hdr_file), str(raw_dir), str(out_path)],
-            capture_output=True,
-            text=True,
-        )
-        if res.returncode == 0:
+        tmp_mpq = work_dir / "_packed_body.mpq"
+        if tmp_mpq.exists():
+            tmp_mpq.unlink()
+        cmd: List[str] = [str(storm_tool), "pack", str(tmp_mpq)]
+        for idx, arc_name in enumerate(ordered_names):
+            disk_file = raw_dir / f"entry_{idx:04d}.bin"
+            disk_file.write_bytes(files[arc_name])
+            cmd.extend([str(disk_file), arc_name])
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode == 0 and tmp_mpq.exists():
+            out_path.write_bytes(hm3w_header + tmp_mpq.read_bytes())
             return "StormLib"
 
     pack_w3x_python(hm3w_header, files, out_path)
@@ -276,10 +286,17 @@ def read_w3x_archive(w3x_path: Path) -> Tuple[Dict[str, object], Dict[str, bytes
         struct.unpack_from("<IIHHI", dec_hash, i * 16) for i in range(hash_cnt)
     ]
 
+    def _decrypt_bytes(buf: bytes, key: int) -> bytes:
+        n4 = (len(buf) // 4) * 4
+        if n4 == 0:
+            return buf
+        return mpq_decrypt_block(buf[:n4], key) + buf[n4:]
+
     def read_entry(filename: str) -> Optional[bytes]:
         slot = mpq_hash_string(filename, MPQ_HASH_TABLE_INDEX) & (hash_cnt - 1)
         na = mpq_hash_string(filename, MPQ_HASH_NAME_A)
         nb = mpq_hash_string(filename, MPQ_HASH_NAME_B)
+        base_name = filename.replace("/", "\\").split("\\")[-1]
         for _ in range(hash_cnt):
             ha, hb, _loc, _plat, bidx = hashes[slot]
             if bidx == 0xFFFFFFFF:
@@ -291,19 +308,44 @@ def read_w3x_archive(w3x_path: Path) -> Tuple[Dict[str, object], Dict[str, bytes
                 fdata = raw[mpq_off + fpos : mpq_off + fpos + csize]
                 if fsize == 0:
                     return b""
-                if not (flags & MPQ_FILE_COMPRESS) or csize == fsize:
+                fkey = 0
+                is_enc = bool(flags & MPQ_FILE_ENCRYPTED)
+                if is_enc:
+                    fkey = mpq_hash_string(base_name, MPQ_HASH_FILE_KEY)
+                    if flags & MPQ_FILE_FIX_KEY:
+                        fkey = ((fkey + fpos) ^ fsize) & 0xFFFFFFFF
+                if not (flags & MPQ_FILE_COMPRESS) or (csize == fsize and not (flags & 0x01000000)):
+                    if is_enc:
+                        if flags & 0x01000000:
+                            return _decrypt_bytes(fdata, fkey)[:fsize]
+                        out_u = bytearray()
+                        num_sec_u = (fsize + sector_size - 1) // sector_size
+                        for s in range(num_sec_u):
+                            part = fdata[s * sector_size : min(len(fdata), (s + 1) * sector_size)]
+                            out_u += _decrypt_bytes(part, (fkey + s) & 0xFFFFFFFF)
+                        return bytes(out_u[:fsize])
                     return fdata[:fsize]
                 # Single-unit Check
                 if flags & 0x01000000:
+                    if is_enc:
+                        fdata = _decrypt_bytes(fdata, fkey)
+                    if len(fdata) == fsize:
+                        return fdata
                     ctype = fdata[0]
                     assert ctype == MPQ_COMPRESSION_ZLIB
                     return zlib.decompress(fdata[1:])
                 num_sec = (fsize + sector_size - 1) // sector_size
-                offs = struct.unpack_from(f"<{num_sec + 1}I", fdata, 0)
+                # StormLib MPQ_CREATE_ATTRIBUTES adds 1 extra CRC sector entry if flag 0x04000000 is set
+                has_crc = 1 if (flags & 0x04000000) else 0
+                tbl_len = (num_sec + 1 + has_crc) * 4
+                tbl_raw = _decrypt_bytes(fdata[:tbl_len], (fkey - 1) & 0xFFFFFFFF) if is_enc else fdata[:tbl_len]
+                offs = struct.unpack_from(f"<{num_sec + 1}I", tbl_raw, 0)
                 out = bytearray()
                 for s in range(num_sec):
                     expected = min(sector_size, fsize - s * sector_size)
                     chunk = fdata[offs[s] : offs[s + 1]]
+                    if is_enc:
+                        chunk = _decrypt_bytes(chunk, (fkey + s) & 0xFFFFFFFF)
                     if len(chunk) == expected:
                         out += chunk
                     else:

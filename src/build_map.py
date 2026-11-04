@@ -9,21 +9,31 @@ from __future__ import annotations
 import json
 import math
 import struct
+import sys
 import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from mpq_packer import build_hm3w_header, pack_w3x
+from src.custom_assets import generate_all_custom_assets
 from custom_races import (
     generate_camphuman_ai_script,
     generate_custom_races_jass,
     generate_naga_ai_script,
+    generate_runeforged_ai_script,
+    generate_voidborn_ai_script,
     serialize_imp,
+    serialize_w3a,
     serialize_w3q,
     serialize_w3t,
     serialize_w3u,
     serialize_war3map_misc,
+    serialize_war3map_skin,
 )
 
 # ==============================================================================
@@ -33,12 +43,12 @@ from custom_races import (
 MAP_FILENAME = "(8)CrownOfWarMahdi.w3x"
 MAP_DISPLAY_NAME = "(8) Crown of WarMahdi"
 MAP_AUTHOR = "WarMahdi Studio"
-MAP_RECOMMENDED_PLAYERS = "90%=Naga | 80%=CampHuman | +Menu"
+MAP_RECOMMENDED_PLAYERS = "8 Empires • Host AI Menu"
 MAP_DESCRIPTION = (
-    "|cffffd700(8) Crown of WarMahdi|r — 6-Race Competitive Altered Melee (4v4 / 2v2 / FFA). "
-    "Playable Races: Human, Orc, Undead, Night Elf, |cff22d3eeNaga Empire|r & |cfffbbf24Campaign Human|r! "
-    "Select in Lobby via Handicap (|cff22d3ee90%=Naga|r, |cfffbbf2480%=Camp.Human|r, 70%=6-Race Random — auto-restores to 100% HP!) "
-    "or pick from the instant In-Game Race Menu + Pro Custom AI!"
+    "|cffffd700★ (8) Crown of WarMahdi v3 ★|r — 8-Empire Astral Altered Melee (4v4 / 2v2 / FFA). "
+    "4 Classic Races + 4 Custom Empires: |cff22d3eeAbyssal Tideborn|r, |cfffbbf24Sunfury Imperium|r, "
+    "|cffc084fcVoidborn Legion|r & |cfff97316Runeforged Bastion|r! "
+    "Features 16 Custom 3D Skills & Icons, Dark Astral UI, Host AI Difficulty Menu & Human-Like Pro AI!"
 )
 
 # 192x192 tiles => 193x193 terrain corners; 1 tile = 128 world units; 1 pathing cell = 32 world units
@@ -70,23 +80,23 @@ CAM_RIGHT = PLAYABLE_MAX_X - 512.0   # +11008.0
 CAM_BOTTOM = PLAYABLE_MIN_Y + 256.0  # -11264.0
 CAM_TOP = PLAYABLE_MAX_Y - 256.0     # +11264.0
 
-# Altered Melee w3i flags (isMeleeMap=0 so Game.dll loads TFT Expansion Data + war3map.w3u/w3t/w3q/Misc.txt,
-# while keeping CustomForce=0 & FixForceSetting=0 so Team 1..8 & Handicap lobby selectors remain unlocked!):
+# Altered Melee w3i flags:
 # 0x0002 modifyAllyPriorities | 0x0008 largeMap | 0x0010 maskedPartiallyVisible |
 # 0x0400 mapPropertiesOpened | 0x0800 waterWavesOnCliffShores | 0x1000 waterWavesOnRollingShores |
-# 0x4000 requiresExpansion | 0x8000 useItemClassificationSystem
-MAP_FLAGS = 0x0002 | 0x0008 | 0x0010 | 0x0400 | 0x0800 | 0x1000 | 0x4000 | 0x8000  # 0xDC1A = 56346
+# 0x2000 useTerrainFog | 0x4000 requiresExpansion | 0x8000 useItemClassificationSystem |
+# 0x10000 customWaterTinting (`0x0001` DISABLE_PREVIEW kept `0` so `war3mapPreview.tga` renders in Lobby!)
+MAP_FLAGS = 0x0002 | 0x0008 | 0x0010 | 0x0400 | 0x0800 | 0x1000 | 0x2000 | 0x4000 | 0x8000 | 0x10000  # 0x1FC1A
 
-# Lordaeron Summer Ground Tilesets (index 0..5)
-GROUND_TILESETS = ["Ldrt", "Ldro", "Ldrg", "Lrok", "Lgrs", "Lgrd"]
-CLIFF_TILESETS = ["CLdi", "CLgr"]
+# Sunken-Astral Ancient Temple Citadel Ground Tilesets (index 0..5, 100% buildability parity!)
+GROUND_TILESETS = ["Zdrt", "Ztil", "Zsan", "Zbkl", "Zgrs", "Zvin"]
+CLIFF_TILESETS = ["CZdi", "CZlb"]
 
-TEX_DIRT = 0         # Ldrt (buildable)
-TEX_ROUGH_DIRT = 1   # Ldro (buildable road)
-TEX_GRASSY_DIRT = 2  # Ldrg (buildable transition)
-TEX_ROCK = 3         # Lrok (UNBUILDABLE decorative/steep rock)
-TEX_GRASS = 4        # Lgrs (buildable lush grass)
-TEX_DARK_GRASS = 5   # Lgrd (buildable forest/meadow grass)
+TEX_DIRT = 0         # Zdrt (buildable ancient earth, base of CZdi)
+TEX_ROUGH_DIRT = 1   # Ztil (buildable carved astral temple tiles — highways & shrine!)
+TEX_GRASSY_DIRT = 2  # Zsan (buildable luminous coastal stone/sand transition)
+TEX_ROCK = 3         # Zbkl (UNBUILDABLE decorative carved temple brick, base of CZlb)
+TEX_GRASS = 4        # Zgrs (buildable emerald sanctuary turf)
+TEX_DARK_GRASS = 5   # Zvin (buildable vine-covered ancient ruins)
 
 # Water surface level: waterWorldZ = 0.70 * 128 - 89.6 = 0.0 world units
 WATER_HEIGHT_CONST = 0.70
@@ -143,6 +153,7 @@ class PlacedTree:
     angle_deg: float
     scale: float
     editor_id: int
+    life: int = 100
 
 
 # ==============================================================================
@@ -798,7 +809,7 @@ def generate_trees(
                 ) * 0.25 * 128.0
                 trees.append(
                     PlacedTree(
-                        did="LTlt",
+                        did="ZTtw",
                         variation=variation,
                         x=px,
                         y=py,
@@ -806,24 +817,60 @@ def generate_trees(
                         angle_deg=angle_deg,
                         scale=scale,
                         editor_id=editor_id,
+                        life=100,
                     )
                 )
                 editor_id += 1
+
+    # Add non-blocking (`pathTex = none`!) Scenic Astral Shrine & Bioluminescent Doodads!
+    def _ground_z(wx_p: float, wy_p: float) -> float:
+        gx_p = max(0, min(TILES_W - 1, int((wx_p - CENTER_OFFSET_X) // TILE_SIZE)))
+        gy_p = max(0, min(TILES_H - 1, int((wy_p - CENTER_OFFSET_Y) // TILE_SIZE)))
+        return (
+            terrain_heights[gy_p][gx_p]
+            + terrain_heights[gy_p][gx_p + 1]
+            + terrain_heights[gy_p + 1][gx_p]
+            + terrain_heights[gy_p + 1][gx_p + 1]
+        ) * 0.25 * 128.0
+
+    # 1) Floating Astral Crown Artifact (`ZZys` Eye of Sargeras) + 8 Glowing Runes (`ZZgr`) at (0,0)!
+    trees.append(PlacedTree("ZZys", 0, 0.0, 0.0, _ground_z(0.0, 0.0) + 42.0, 270.0, 1.35, editor_id, 255))
+    editor_id += 1
+    for k in range(8):
+        ang = k * (math.pi / 4.0)
+        rx, ry = 460.0 * math.cos(ang), 460.0 * math.sin(ang)
+        trees.append(PlacedTree("ZZgr", k % 6, rx, ry, _ground_z(rx, ry), k * 45.0, 1.18, editor_id, 255))
+        editor_id += 1
+        # Blue Bioluminescent Astral Flames (`YOfb`) flanking the 8 Crown Shrine bridgeheads!
+        bx, by = 920.0 * math.cos(ang + 0.14), 920.0 * math.sin(ang + 0.14)
+        trees.append(PlacedTree("YOfb", 0, bx, by, _ground_z(bx, by), 0.0, 1.15, editor_id, 255))
+        editor_id += 1
+        # Rising Bioluminescent Bubbles (`ZWbg`) & Lilypads (`ZPlp`) in the surrounding temple moat!
+        wx_m, wy_m = 2050.0 * math.cos(ang + 0.39), 2050.0 * math.sin(ang + 0.39)
+        trees.append(PlacedTree("ZWbg", 0, wx_m, wy_m, 0.0, 0.0, 1.25, editor_id, 255))
+        editor_id += 1
+        trees.append(PlacedTree("ZPlp", k % 3, wx_m + 96.0, wy_m - 96.0, 0.0, k * 30.0, 1.15, editor_id, 255))
+        editor_id += 1
+
+    # 2) Sacred Runic Circles (`ZZgr`) + Blue Astral Flames (`YOfb`) at all 8 Player Citadels!
+    for idx_b, (sx_b, sy_b) in enumerate(PLAYER_BASES):
+        trees.append(PlacedTree("ZZgr", idx_b % 6, sx_b * 0.94, sy_b * 0.94, _ground_z(sx_b * 0.94, sy_b * 0.94), idx_b * 45.0, 1.10, editor_id, 255))
+        editor_id += 1
 
     return trees
 
 
 # ==============================================================================
-# Binary Format Serializers (All 14 Standard Warcraft III TFT v25 Map Files)
+# Binary Format Serializers (All Standard & Altered Melee Map Files)
 # ==============================================================================
 
 def serialize_w3e(corners_data: List[List[Tuple[float, float, int, int, int, int]]]) -> bytes:
-    """Serialize war3map.w3e (version 11)."""
+    """Serialize war3map.w3e (version 11, Sunken-Astral Ruins tileset 'Z')."""
     out = bytearray()
     out += b"W3E!"
     out += struct.pack("<i", 11)
-    out += b"L"
-    out += struct.pack("<i", 0)  # haveCustomTileset = 0 (standard Lordaeron Summer)
+    out += b"Z"
+    out += struct.pack("<i", 0)  # haveCustomTileset = 0 (authentic Sunken Ruins Z palette)
     out += struct.pack("<I", len(GROUND_TILESETS))
     for gt in GROUND_TILESETS:
         out += gt.encode("ascii")
@@ -930,8 +977,10 @@ def serialize_shd(
             if dx + dy < -0.22:
                 shd[py * PATH_W + px] = 0xFF
 
-    # Tree canopy shadows offset +2 cells East, +1 cell North
+    # Tree canopy shadows offset +2 cells East, +1 cell North (trees only)
     for t in trees:
+        if t.did != "ZTtw":
+            continue
         cpx = int((t.x - CENTER_OFFSET_X) // PATH_CELL) + 2
         cpy = int((t.y - CENTER_OFFSET_Y) // PATH_CELL) + 1
         for oy in range(-1, 2):
@@ -944,7 +993,7 @@ def serialize_shd(
 
 
 def serialize_doo(trees: List[PlacedTree]) -> bytes:
-    """Serialize war3map.doo (TFT version 8, subversion 11, 50 bytes per tree)."""
+    """Serialize war3map.doo (TFT version 8, subversion 11, trees + scenic shrine doodads)."""
     out = bytearray()
     out += b"W3do"
     out += struct.pack("<i", 8)
@@ -956,7 +1005,7 @@ def serialize_doo(trees: List[PlacedTree]) -> bytes:
         out += struct.pack("<fff", t.x, t.y, t.z)
         out += struct.pack("<f", math.radians(t.angle_deg))
         out += struct.pack("<fff", t.scale, t.scale, t.scale)
-        out += struct.pack("<BB", 2, 100)  # flags=2 (normal solid/visible), life=100%
+        out += struct.pack("<BB", 2, t.life)  # flags=2 (visible), life=100 (tree) or 255 (doodad)
         out += struct.pack("<II", 0xFFFFFFFF, 0)  # itemTable=-1, itemSets.length=0
         out += struct.pack("<i", t.editor_id)
     out += bytes([0, 0, 0, 0])  # special terrain doodads version 0
@@ -1025,27 +1074,27 @@ def serialize_w3i() -> bytes:
     out += struct.pack("<4i", *COMPLEMENTS)
     out += struct.pack("<2i", PLAYABLE_TILES_W, PLAYABLE_TILES_H)
     out += struct.pack("<I", MAP_FLAGS)
-    out += b"L"                  # Lordaeron Summer tileset
-    out += struct.pack("<i", -1) # campaignBackground = -1 (default Melee loading screen)
+    out += b"Z"                  # Sunken-Astral Ruins tileset ('Z')
+    out += struct.pack("<i", -1) # loadingScreenId = -1 (8-player loading screen + custom Lobby war3mapPreview.tga)
     out += cstr("")              # loadingScreenModel
-    out += cstr("")              # loadingScreenText
-    out += cstr("")              # loadingScreenTitle
-    out += cstr("")              # loadingScreenSubtitle
-    out += struct.pack("<i", -1) # loadingScreen = -1
+    out += cstr("TRIGSTR_007")   # loadingScreenText
+    out += cstr("TRIGSTR_001")   # loadingScreenTitle
+    out += cstr("TRIGSTR_006")   # loadingScreenSubtitle
+    out += struct.pack("<i", 0)  # gameDataSet = 0 (Default TFT)
     out += cstr("")              # prologueScreenModel
     out += cstr("")              # prologueScreenText
     out += cstr("")              # prologueScreenTitle
     out += cstr("")              # prologueScreenSubtitle
 
-    # Terrain fog & atmosphere
-    out += struct.pack("<i", 0)  # useTerrainFog = 0 (clean crisp Melee visibility)
-    out += struct.pack("<ff", 3000.0, 5000.0)
-    out += struct.pack("<f", 0.5)
-    out += bytes([0, 0, 0, 255])
-    out += struct.pack("<i", 0)  # globalWeather = 0
-    out += cstr("")              # soundEnvironment
-    out += b"\x00"               # lightEnvironmentTileset (default)
-    out += bytes([255, 255, 255, 255])  # waterVertexColor
+    # Terrain fog & Astral-Cyan atmosphere
+    out += struct.pack("<i", 1)  # useTerrainFog = 1 (Linear distance haze)
+    out += struct.pack("<ff", 3200.0, 9600.0)
+    out += struct.pack("<f", 0.0)
+    out += bytes([36, 56, 108, 255])    # Deep Astral Sapphire distance fog
+    out += struct.pack("<i", 0)         # globalWeather = 0
+    out += cstr("")                     # soundEnvironment
+    out += b"A"                         # lightEnvironmentTileset = 'A' (Ashenvale twilight lighting!)
+    out += bytes([45, 215, 245, 225])   # Bioluminescent Cyan-Turquoise waterVertexColor
 
     # 8 Human/User Player Slots
     out += struct.pack("<I", 8)
@@ -1079,6 +1128,8 @@ def serialize_wts() -> bytes:
         (3, MAP_DESCRIPTION),
         (4, MAP_RECOMMENDED_PLAYERS),
         (5, "Forces"),
+        (6, "8-Empire Astral Altered Melee • v3"),
+        (7, "4 Custom Empires (Abyssal Tideborn, Sunfury Imperium, Voidborn Legion, Runeforged Bastion) + 4 Classic Races, 16 Custom 3D Skills, Host AI Difficulty Menu & Pro AI."),
     ]
     for pid in range(8):
         entries.append((10 + pid, f"Player {pid + 1}"))
@@ -1320,12 +1371,15 @@ def generate_jass_script(units: List[PlacedUnit]) -> str:
     lines.append("// 6-Race Altered Melee game initialization for all players")
     lines.append("//===========================================================================")
     lines.append("function Trig_Melee_Initialization_Actions takes nothing returns nothing")
+    lines.append('    call SetSkyModel( "Environment\\\\Sky\\\\Outland_Sky\\\\Outland_Sky.mdl" )')
+    lines.append("    call SetTerrainFogEx( 0, 3200.0, 9600.0, 0.0, 0.14, 0.22, 0.42 )")
+    lines.append("    call SetWaterBaseColor( 45, 215, 245, 225 )")
     lines.append("    call MeleeStartingVisibility(  )")
     lines.append("    call MeleeStartingHeroLimit(  )")
     lines.append("    call MeleeGrantHeroItems(  )")
     lines.append("    call MeleeStartingResources(  )")
     lines.append("    call MeleeClearExcessUnits(  )")
-    lines.append("    call InitSixRaceAlteredMelee(  )")
+    lines.append("    call InitCustomRacesAndAI(  )")
     lines.append("    call MeleeInitVictoryDefeat(  )")
     lines.append("endfunction")
     lines.append("")
@@ -1404,12 +1458,12 @@ def generate_jass_script(units: List[PlacedUnit]) -> str:
         f"{PLAYABLE_MIN_Y:.1f} + GetCameraMargin(CAMERA_MARGIN_BOTTOM) )"
     )
     lines.append(
-        '    call SetDayNightModels( "Environment\\\\DNC\\\\DNCLordaeron\\\\DNCLordaeronTerrain\\\\DNCLordaeronTerrain.mdl", '
-        '"Environment\\\\DNC\\\\DNCLordaeron\\\\DNCLordaeronUnit\\\\DNCLordaeronUnit.mdl" )'
+        '    call SetDayNightModels( "Environment\\\\DNC\\\\DNCAshenvale\\\\DNCAshenvaleTerrain\\\\DNCAshenvaleTerrain.mdl", '
+        '"Environment\\\\DNC\\\\DNCAshenvale\\\\DNCAshenvaleUnit\\\\DNCAshenvaleUnit.mdl" )'
     )
     lines.append('    call NewSoundEnvironment( "Default" )')
-    lines.append('    call SetAmbientDaySound( "LordaeronSummerDay" )')
-    lines.append('    call SetAmbientNightSound( "LordaeronSummerNight" )')
+    lines.append('    call SetAmbientDaySound( "SunkenRuinsDay" )')
+    lines.append('    call SetAmbientNightSound( "SunkenRuinsNight" )')
     lines.append('    call SetMapMusic( "Music", true, 0 )')
     lines.append("    call CreateAllUnits(  )")
     lines.append("    call InitBlizzard(  )")
@@ -1657,12 +1711,12 @@ def render_map_raster(
 ) -> bytes:
     """Render hill-shaded terrain + rivers + forests (+ optional tactical icons) to RGBA buffer."""
     tex_colors = {
-        TEX_DIRT: (146, 114, 74),
-        TEX_ROUGH_DIRT: (168, 134, 88),
-        TEX_GRASSY_DIRT: (126, 142, 74),
-        TEX_ROCK: (118, 118, 124),
-        TEX_GRASS: (78, 138, 56),
-        TEX_DARK_GRASS: (56, 108, 44),
+        TEX_DIRT: (88, 80, 102),
+        TEX_ROUGH_DIRT: (146, 136, 174),
+        TEX_GRASSY_DIRT: (98, 138, 146),
+        TEX_ROCK: (62, 56, 86),
+        TEX_GRASS: (46, 118, 102),
+        TEX_DARK_GRASS: (32, 88, 86),
     }
     rgba = bytearray(size * size * 4)
 
@@ -1686,16 +1740,16 @@ def render_map_raster(
             if is_w or gh < 0.04:
                 depth = max(0.0, -gh)
                 if depth < 0.48:
-                    # Bright walkable shallow water ford
-                    r_c, g_c, b_c = 74, 186, 214
+                    # Bioluminescent cyan walkable ford
+                    r_c, g_c, b_c = 58, 222, 246
                 else:
-                    # Deep turquoise-sapphire Silverwater lagoon
+                    # Deep astral cyan-sapphire temple lagoon
                     t = min(1.0, (depth - 0.48) / 0.75)
-                    r_c = int(34 * (1 - t) + 18 * t)
-                    g_c = int(124 * (1 - t) + 74 * t)
-                    b_c = int(186 * (1 - t) + 148 * t)
+                    r_c = int(28 * (1 - t) + 14 * t)
+                    g_c = int(148 * (1 - t) + 64 * t)
+                    b_c = int(212 * (1 - t) + 148 * t)
             else:
-                br, bg, bb = tex_colors.get(tex, (78, 138, 56))
+                br, bg, bb = tex_colors.get(tex, (46, 118, 102))
                 r_c = max(0, min(255, int(br * slope_shade + elev_boost)))
                 g_c = max(0, min(255, int(bg * slope_shade + elev_boost)))
                 b_c = max(0, min(255, int(bb * slope_shade + elev_boost)))
@@ -1706,9 +1760,11 @@ def render_map_raster(
             rgba[off + 2] = b_c
             rgba[off + 3] = 255
 
-    # Paint lush tree canopies
+    # Paint lush emerald-teal Sunken Ruins tree canopies (`ZTtw` only)
     tree_rad = max(1, int(round(size / 256.0 * 1.35)))
     for t in trees:
+        if t.did != "ZTtw":
+            continue
         cx = int((t.x - PLAYABLE_MIN_X) / PLAYABLE_SPAN * size)
         cy = int((PLAYABLE_MAX_Y - t.y) / PLAYABLE_SPAN * size)
         for dy in range(-tree_rad, tree_rad + 1):
@@ -1717,10 +1773,10 @@ def render_map_raster(
                     ix, iy = cx + dx, cy + dy
                     if 0 <= ix < size and 0 <= iy < size:
                         off = (iy * size + ix) * 4
-                        shade = 0.85 if (dx > 0 or dy > 0) else 1.12
-                        rgba[off] = max(0, min(255, int(26 * shade)))
-                        rgba[off + 1] = max(0, min(255, int(74 * shade)))
-                        rgba[off + 2] = max(0, min(255, int(28 * shade)))
+                        shade = 0.85 if (dx > 0 or dy > 0) else 1.16
+                        rgba[off] = max(0, min(255, int(18 * shade)))
+                        rgba[off + 1] = max(0, min(255, int(92 * shade)))
+                        rgba[off + 2] = max(0, min(255, int(78 * shade)))
 
     if draw_overlays and units:
         def draw_disc(wx: float, wy: float, rad: int, col: Tuple[int, int, int], ring: Tuple[int, int, int]) -> None:
@@ -1821,96 +1877,111 @@ def export_web_metadata(
         },
         "stats": {
             "players": 8,
-            "playableRaces": 6,
+            "playableRaces": 8,
+            "customSkills": 16,
             "goldMines": sum(1 for u in units if u.uid == "ngol"),
             "totalGoldOnMap": sum(u.gold for u in units if u.uid == "ngol"),
             "neutralBuildings": sum(1 for u in units if u.player == 15 and u.uid != "ngol"),
             "creepCamps": len(camps),
             "creepUnits": sum(1 for u in units if u.player == 12),
-            "trees": len(trees),
+            "trees": sum(1 for t in trees if t.did == "ZTtw"),
+            "scenicDoodads": sum(1 for t in trees if t.did != "ZTtw"),
         },
         "races": [
             {
-                "id": "naga",
-                "name": "Naga Empire",
-                "badge": "REBALANCED v2 • Authentic 9-Building Techtree + Pro AI",
-                "lobbyHandicap": "90% in Lobby (auto-restores 100% HP)",
+                "id": "abyssal",
+                "name": "Abyssal Tideborn (Naga Empire)",
+                "badge": "v3 OVERHAULED • 4 Custom 3D Skills + 9 Buildings",
+                "lobbyHandicap": "Menu [1] or 90% Handicap",
                 "color": "#22d3ee",
                 "halls": ["Temple of Tides (T1)", "Sanctuary of Tides (T2)", "Abyssal Citadel (T3)"],
                 "heroes": [
-                    "Lady Vashj (Sea Witch — INT)",
-                    "Abyssal Warlord (Frontline — STR)",
-                    "Azshara's Tideweaver (Arch-Summoner — INT)",
-                    "Makrura Deepking (Armored Tank — STR)",
+                    "Empress Vashj (INT) • Leviathan Warlord (STR)",
+                    "Nazjatar Tideweaver (INT) • Makrura Deepking (STR)",
+                    "Skills: [Q] Maelstrom Vortex • [W] Riptide Prism Lance • [E] Abyssal Carapace • [R] Cataclysmic Tsunami",
                 ],
                 "units": [
-                    "Mur'gul Slave (Amphibious Worker -> Temple of Tides)",
-                    "Mur'gul Reaver (T1 Melee -> Spawning Grounds)",
-                    "Snap Dragon (T1.5 Venom Ranged -> Spawning Grounds)",
-                    "Naga Myrmidon (T2 Heavy Melee -> Spawning Grounds)",
-                    "Naga Siren (T2 Caster -> Shrine of Azshara)",
-                    "Couatl (T2 Magic Flyer -> Shrine of Azshara)",
-                    "Dragon Turtle (T2 Siege -> Abyssal Behemoth Pool)",
-                    "Naga Royal Guard (T3 Champion -> Abyssal Behemoth Pool)",
+                    "Mur'gul Slave (Worker) • Mur'gul Reaver (T1) • Snap Dragon (T1.5) • Naga Myrmidon (T2)",
+                    "Naga Siren (T2 Caster) • Couatl (T2 Flyer) • Dragon Turtle (T2 Siege) • Naga Royal Guard (T3)",
                 ],
                 "buildings": [
-                    "Temple / Sanctuary / Citadel (Workers Only)",
-                    "Coral Bed (+9 Food, 90g/25L)",
-                    "Spawning Grounds (Infantry & Ranged)",
-                    "Coral Forge (+1/+2/+3 Blades & Scales)",
-                    "Altar of the Depths & Tidal Treasury",
-                    "Shrine of Azshara (Sirens & Couatls)",
-                    "Abyssal Behemoth Pool (Siege & Royal Guards)",
-                    "Tidal Guardian Tower (Pierce Defense)",
+                    "Temple / Sanctuary / Citadel • Coral Bed (+9f) • Spawning Grounds • Coral Forge",
+                    "Altar of the Depths • Tidal Treasury • Shrine of Azshara • Behemoth Pool • Tidal Guardian",
                 ],
             },
             {
-                "id": "camphuman",
-                "name": "Campaign Human (Silvermoon)",
-                "badge": "REBALANCED v2 • Authentic 11-Building Techtree + Pro AI",
-                "lobbyHandicap": "80% in Lobby (auto-restores 100% HP)",
+                "id": "sunfury",
+                "name": "Sunfury Imperium (Solar Highborne)",
+                "badge": "v3 OVERHAULED • 4 Custom 3D Skills + 11 Buildings",
+                "lobbyHandicap": "Menu [2] or 80% Handicap",
                 "color": "#fbbf24",
                 "halls": ["Silvermoon Town Hall (T1)", "Sunwell Keep (T2)", "Silvermoon Citadel (T3)"],
                 "heroes": [
-                    "Prince Kael'thas (Sunwell Archmage — INT)",
-                    "Sylvanas Windrunner (Ranger-General — AGI)",
-                    "Lord Garithos (Grand Marshal — STR)",
-                    "Uther the Lightbringer (Paladin — STR)",
+                    "Sovereign Kael'thas (INT) • Sunstrider Sylvanas (AGI)",
+                    "Grand Marshal Garithos (STR) • Highlord Uther (STR)",
+                    "Skills: [Q] Solar Flare Sigil • [W] Phoenix Wing Dash • [E] Sunblade Judgment • [R] Supernova Crown",
                 ],
                 "units": [
-                    "Silvermoon Worker (Builder -> Town Hall)",
-                    "High Elven Swordsman (T1 Infantry -> Silvermoon Barracks)",
-                    "High Elven Archer (T1 Ranger -> Silvermoon Barracks)",
-                    "Alliance Captain (T3 Plate Officer -> Silvermoon Barracks)",
-                    "Silvermoon Chaplain (T2 Healer -> High Elven Mage Tower)",
-                    "Dalaran Hydromancer (T2 Mage -> High Elven Mage Tower)",
-                    "Blood Elf Spell Breaker (T2 Anti-Magic -> Mage Tower)",
-                    "Flying Machine & Silvermoon Ballista (T2 -> Siege Workshop)",
-                    "Blood Elf Lieutenant (T3 Champion -> Siege Workshop)",
-                    "Dragonhawk Rider (T2) & Gryphon Rider (T3 -> Aviary)",
+                    "Silvermoon Worker • Swordsman (T1) • Archer (T1) • Alliance Captain (T3)",
+                    "Chaplain • Hydromancer • Spell Breaker • Ballista • Lieutenant (T3) • Dragonhawk & Gryphon",
                 ],
                 "buildings": [
-                    "Silvermoon Town Hall / Sunwell Keep / Citadel",
-                    "High Elven Farm (+6 Food, 80g/20L)",
-                    "Silvermoon Barracks (Swordsman, Archer, Captain)",
-                    "Lumber Mill & Blacksmith (+1/+2/+3 Upgrades)",
-                    "Altar of Silvermoon & Sunwell Reliquary",
-                    "High Elven Mage Tower (Chaplain, Hydromancer, Breaker)",
-                    "Silvermoon Siege Workshop (Gyro, Ballista, Lieutenant)",
-                    "Silvermoon Dragonhawk Aviary (Dragonhawk & Gryphon)",
-                    "Sunspire Scout -> Guard / Arcane Towers",
+                    "Town Hall / Sunwell Keep / Citadel • High Elven Farm (+6f) • Barracks • Mill & Blacksmith",
+                    "Altar of Silvermoon • Sunwell Reliquary • Mage Tower • Siege Workshop • Aviary • Sunspire Towers",
+                ],
+            },
+            {
+                "id": "voidborn",
+                "name": "Voidborn Legion [NEW]",
+                "badge": "BRAND-NEW RACE • 4 Custom 3D Skills + 9 Buildings",
+                "lobbyHandicap": "Menu [3] or 70% Handicap",
+                "color": "#c084fc",
+                "halls": ["Void Nexus (T1)", "Astral Riftcore (T2)", "Citadel of Oblivion (T3)"],
+                "heroes": [
+                    "Rift Sovereign (STR) • Nether Inquisitor (INT)",
+                    "Abyssal Stalker-Lord (AGI) • Entropy Archon (STR/INT)",
+                    "Skills: [Q] Event Horizon • [W] Rift Sever • [E] Entropy Shroud • [R] Cosmic Collapse",
+                ],
+                "units": [
+                    "Void Thrall (Worker) • Void Zealot (T1) • Astral Arbalist (T1.5) • Dread Enforcer (T2)",
+                    "Void Weaver (T2 Caster) • Nether Drakelet (T2 Flyer) • Rift Devastator (T2 Siege) • Oblivion Colossus (T3)",
+                ],
+                "buildings": [
+                    "Void Nexus / Riftcore / Citadel • Astral Pylon (+9f) • Rift Gate • Obsidian Crucible (+1/+2/+3)",
+                    "Altar of the Void • Reliquary of Shadows • Sanctum of Stars • Oblivion Pit • Entropy Obelisk",
+                ],
+            },
+            {
+                "id": "runeforged",
+                "name": "Runeforged Bastion [NEW]",
+                "badge": "BRAND-NEW RACE • 4 Custom 3D Skills + 9 Buildings",
+                "lobbyHandicap": "Menu [4] or 60% Handicap",
+                "color": "#f97316",
+                "halls": ["Titan Foundry (T1)", "Stormforge Hold (T2)", "Apex Pantheon (T3)"],
+                "heroes": [
+                    "Stormforged Prime (STR) • Runesmith Highlord (INT)",
+                    "Plasma Vanguard (AGI) • Tempest Savant (INT)",
+                    "Skills: [Q] Thunderous Tectonics • [W] Arc-Reactor Overload • [E] Runic Aegis • [R] Orbital Hammer",
+                ],
+                "units": [
+                    "Runeforged Automaton (Worker) • Runic Sentinel (T1) • Thunder Arquebusier (T1.5) • Stormforged Juggernaut (T2)",
+                    "Rune Diviner (T2 Caster) • Gyro-Interceptor (T2 Flyer) • Siege Behemoth (T2 Siege) • Titan Construct (T3)",
+                ],
+                "buildings": [
+                    "Titan Foundry / Stormforge Hold / Apex Pantheon • Dynamo Core (+9f) • Iron Garrison • Runic Anvil",
+                    "Altar of the Titans • Artificer Vault • Arcane Conduit • Colossus Bay • Tesla Turret",
                 ],
             },
             {
                 "id": "classic4",
                 "name": "Human • Orc • Undead • Night Elf",
                 "badge": "4 Classic Ladder Races (100% Unmodified Balance)",
-                "lobbyHandicap": "100% in Lobby (or 70% for 6-Race Random)",
-                "color": "#a78bfa",
+                "lobbyHandicap": "Menu [K] Keep Lobby Race",
+                "color": "#38bdf8",
                 "halls": ["Town Hall / Great Hall / Necropolis / Tree of Life (T1-T3)"],
                 "heroes": ["All 16 Classic Ladder Heroes + 8 Neutral Tavern Heroes"],
                 "units": ["100% authentic Frozen Throne melee stats, upgrades, and items"],
-                "buildings": ["Full unmodified techtrees & classic Melee AI"],
+                "buildings": ["Full unmodified techtrees & upgraded Pro AI micro"],
             },
         ],
         "players": [
@@ -1991,10 +2062,18 @@ def build_all(repo_root: Path) -> Path:
     w3u_bytes = serialize_w3u()
     w3t_bytes = serialize_w3t()
     w3q_bytes = serialize_w3q()
+    w3a_bytes = serialize_w3a()
     misc_bytes = serialize_war3map_misc()
-    imp_bytes = serialize_imp()
+    skin_bytes = serialize_war3map_skin()
+
+    print("[4.5/6] Generating 49 custom assets (256x256 Lobby TGA, 36 BTN/DISBTN BLPs, 4 UI BLPs, 4 Sigil BLPs, 4 3D MDX VFX)...")
+    custom_assets_map = generate_all_custom_assets()
+    imp_bytes = serialize_imp(list(custom_assets_map.keys()))
+
     naga_ai_bytes = generate_naga_ai_script().encode("utf-8")
     camphuman_ai_bytes = generate_camphuman_ai_script().encode("utf-8")
+    voidborn_ai_bytes = generate_voidborn_ai_script().encode("utf-8")
+    runeforged_ai_bytes = generate_runeforged_ai_script().encode("utf-8")
     jass_bytes = generate_jass_script(units).encode("utf-8")
 
     print("[5/6] Rendering 256x256 BLP1 minimap texture & 1024x1024 tactical preview PNG...")
@@ -2023,11 +2102,16 @@ def build_all(repo_root: Path) -> Path:
         "war3map.w3u": w3u_bytes,
         "war3map.w3t": w3t_bytes,
         "war3map.w3q": w3q_bytes,
+        "war3map.w3a": w3a_bytes,
         "war3mapMisc.txt": misc_bytes,
+        "war3mapSkin.txt": skin_bytes,
         "war3map.imp": imp_bytes,
         "naga_melee.ai": naga_ai_bytes,
         "camphuman_melee.ai": camphuman_ai_bytes,
+        "voidborn_melee.ai": voidborn_ai_bytes,
+        "runeforged_melee.ai": runeforged_ai_bytes,
     }
+    map_files.update(custom_assets_map)
 
     hm3w_header = build_hm3w_header(MAP_DISPLAY_NAME, MAP_FLAGS, 8)
     out_w3x = repo_root / "maps" / MAP_FILENAME

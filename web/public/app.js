@@ -28,12 +28,12 @@
   };
 
   const TEX_RGB = [
-    [168, 132, 88],  // 0 Ldrt
-    [146, 110, 70],  // 1 Ldro
-    [122, 138, 76],  // 2 Ldrg
-    [118, 120, 124], // 3 Lrok
-    [78, 132, 58],   // 4 Lgrs
-    [54, 102, 42],   // 5 Lgrd
+    [88, 80, 102],    // 0 Zdrt (Obsidian-Bronze Ancient Earth)
+    [146, 136, 174],  // 1 Ztil (Carved Astral Temple Marble)
+    [98, 138, 146],   // 2 Zsan (Bioluminescent Teal Shore)
+    [62, 56, 86],     // 3 Zbkl (Obsidian Sanctum Stonework)
+    [46, 118, 102],   // 4 Zgrs (Twilight Emerald Sanctuary)
+    [32, 88, 86],     // 5 Zvin (Deep Indigo-Emerald Moss)
   ];
 
   const state = {
@@ -868,7 +868,7 @@
     document.getElementById("stShops").textContent = data.stats.neutralBuildings;
     document.getElementById("stTrees").textContent = data.stats.trees.toLocaleString();
 
-    renderRaceCard("naga");
+    renderRaceCard("abyssal");
     document.querySelectorAll("#raceTabs .race-tab").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll("#raceTabs .race-tab").forEach((b) => b.classList.remove("active"));

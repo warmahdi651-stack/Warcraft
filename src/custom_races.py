@@ -24,7 +24,22 @@ Key v2 Engineering & Balance Guarantees:
 from __future__ import annotations
 
 import struct
-from typing import Any, List, Tuple
+import sys
+from pathlib import Path
+from typing import Any, Iterable, List, Tuple
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from src.custom_factions_v3 import (
+    build_ability_modifications,
+    build_voidborn_and_runeforged_units,
+    generate_runeforged_ai_script,
+    generate_voidborn_ai_script,
+    serialize_war3map_skin,
+)
+from src.custom_gameplay import generate_custom_gameplay_jass
 
 # Variable types in WC3 Object Editor binary tables (w3u / w3t / w3q)
 VT_INT = 0
@@ -144,12 +159,12 @@ def build_unit_modifications() -> Tuple[
 
     original: List[Tuple[str, str, List[ModEntry]]] = [
         # ---- Dependency equivalents on Human tech structures (ZERO stat changes to Human!) ----
-        ("hkee", NULL_ID, [("udep", VT_STR, "h002")]),
-        ("hcas", NULL_ID, [("udep", VT_STR, "h003")]),
-        ("halt", NULL_ID, [("udep", VT_STR, "h004")]),
-        ("hvlt", NULL_ID, [("udep", VT_STR, "h005")]),
-        ("hbar", NULL_ID, [("udep", VT_STR, "h007")]),
-        ("harm", NULL_ID, [("udep", VT_STR, "h008")]),
+        ("hkee", NULL_ID, [("udep", VT_STR, "h002,v002,t002")]),
+        ("hcas", NULL_ID, [("udep", VT_STR, "h003,v003,t003")]),
+        ("halt", NULL_ID, [("udep", VT_STR, "h004,v007,t007")]),
+        ("hvlt", NULL_ID, [("udep", VT_STR, "h005,v008,t008")]),
+        ("hbar", NULL_ID, [("udep", VT_STR, "h007,v005,t005")]),
+        ("harm", NULL_ID, [("udep", VT_STR, "h008,v019,t019")]),
         ("hgra", NULL_ID, [("udep", VT_STR, "h009")]),
 
         # ======================================================================
@@ -552,14 +567,13 @@ def build_unit_modifications() -> Tuple[
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "n001"),
             ("urq2", VT_STR, "n002"),
-            ("uhab", VT_STR, "ANfl,ANfa,ANms,ANto"),
-            ("urev", VT_INT, 1),
+            ("uhab", VT_STR, "A000,A001,A002,A003"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "V"),
-            ("utip", VT_STR, "Summon Lady |cffffcc00V|rashj"),
-            ("utpr", VT_STR, "Revive Lady |cffffcc00V|rashj"),
-            ("utub", VT_STR, "Mystic Naga Sea Witch Hero, adept at ranged attrition and spellcasting. Can learn Forked Lightning, Frost Arrows, Mana Shield, and Tornado."),
+            ("utip", VT_STR, "Summon Empress |cffffcc00V|rashj"),
+            ("utpr", VT_STR, "Revive Empress |cffffcc00V|rashj"),
+            ("utub", VT_STR, "Abyssal Tideborn Intelligence Hero. Commands Maelstrom Vortex, Riptide Prism Lance, Abyssal Carapace Pulse, and Cataclysmic Tsunami."),
         ]),
 
         # ======================================================================
@@ -928,10 +942,9 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Elite Tier-3 runeblade officer with Resistant Skin, Arcane Feedback (burns enemy mana on hit), and Magic Sentry. Attacks land units."),
         ]),
 
-        # ---- Campaign Human 4 Summonable Heroes (`Hkal`, `Hvwd`, `Hlgr`, `Huth`) ----
-        # Hero 1: Prince Kael'thas (`Hkal`, INT — Flame Strike, Banish, Siphon Mana, Phoenix)
+        # ---- Sunfury Imperium 4 Summonable Heroes (`Hkal`, `Hvwd`, `Hlgr`, `Huth`) — ZERO `urev`! ----
         ("Hkal", NULL_ID, [
-            ("unam", VT_STR, "Prince Kael'thas"),
+            ("unam", VT_STR, "Sovereign Kael'thas"),
             ("ugol", VT_INT, 425),
             ("ulum", VT_INT, 100),
             ("ufoo", VT_INT, 5),
@@ -939,25 +952,24 @@ def build_unit_modifications() -> Tuple[
             ("uhpm", VT_INT, 100),
             ("ustr", VT_INT, 18),
             ("uagi", VT_INT, 14),
-            ("uint", VT_INT, 19),
+            ("uint", VT_INT, 21),
             ("ustp", VT_UNREAL, 2.00),
-            ("uagp", VT_UNREAL, 1.00),
+            ("uagp", VT_UNREAL, 1.20),
             ("uinp", VT_UNREAL, 3.00),
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "h002"),
             ("urq2", VT_STR, "h003"),
-            ("urev", VT_INT, 1),
+            ("uhab", VT_STR, "A004,A005,A006,A007"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "K"),
-            ("utip", VT_STR, "Summon Prince |cffffcc00K|rael'thas"),
-            ("utpr", VT_STR, "Revive Prince |cffffcc00K|rael'thas"),
-            ("utub", VT_STR, "Royal Sunwell Archmage of Quel'Thalas. Can learn Flame Strike, Banish, Siphon Mana, and Phoenix."),
+            ("utip", VT_STR, "Summon Sovereign |cffffcc00K|rael'thas"),
+            ("utpr", VT_STR, "Revive Sovereign |cffffcc00K|rael'thas"),
+            ("utub", VT_STR, "Solar Archmage of the Sunfury Imperium. Wields Solar Flare Sigil, Phoenix Wing Dash, Sunblade Judgment, and Supernova Crown."),
         ]),
 
-        # Hero 2: Sylvanas Windrunner (`Hvwd`, AGI — Searing Arrows, Trueshot Aura, Scout Owl, Starfall)
         ("Hvwd", NULL_ID, [
-            ("unam", VT_STR, "Sylvanas Windrunner"),
+            ("unam", VT_STR, "Sunstrider Sylvanas"),
             ("urac", VT_STR, "human"),
             ("ugol", VT_INT, 425),
             ("ulum", VT_INT, 100),
@@ -965,28 +977,27 @@ def build_unit_modifications() -> Tuple[
             ("ubld", VT_INT, 55),
             ("uhpm", VT_INT, 100),
             ("ustr", VT_INT, 17),
-            ("uagi", VT_INT, 21),
-            ("uint", VT_INT, 16),
+            ("uagi", VT_INT, 22),
+            ("uint", VT_INT, 17),
             ("ustp", VT_UNREAL, 1.85),
-            ("uagp", VT_UNREAL, 2.40),
+            ("uagp", VT_UNREAL, 2.55),
             ("uinp", VT_UNREAL, 1.95),
             ("umvs", VT_INT, 310),
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "h002"),
             ("urq2", VT_STR, "h003"),
-            ("uhab", VT_STR, "AHfa,AEar,AEst,AEsf"),
-            ("urev", VT_INT, 1),
+            ("uhab", VT_STR, "A004,A005,A006,A007"),
+            ("uabi", VT_STR, "AInv"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "S"),
-            ("utip", VT_STR, "Summon |cffffcc00S|rylvanas Windrunner"),
-            ("utpr", VT_STR, "Revive |cffffcc00S|rylvanas Windrunner"),
-            ("utub", VT_STR, "Ranger-General of Silvermoon. Master marksman who can learn Searing Arrows, Trueshot Aura, Scout, and Starfall."),
+            ("utip", VT_STR, "Summon |cffffcc00S|runstrider Sylvanas"),
+            ("utpr", VT_STR, "Revive |cffffcc00S|runstrider Sylvanas"),
+            ("utub", VT_STR, "Ranger-General of the Sunfury Imperium. Swift Agility Hero commanding Solar Flare Sigil, Phoenix Wing Dash, Sunblade Judgment, and Supernova Crown."),
         ]),
 
-        # Hero 3: Lord Garithos (`Hlgr`, STR — Shockwave, Holy Light, Devotion Aura, Avatar)
         ("Hlgr", NULL_ID, [
-            ("unam", VT_STR, "Lord Garithos"),
+            ("unam", VT_STR, "Grand Marshal Garithos"),
             ("ugol", VT_INT, 425),
             ("ulum", VT_INT, 100),
             ("ufoo", VT_INT, 5),
@@ -995,69 +1006,68 @@ def build_unit_modifications() -> Tuple[
             ("ustr", VT_INT, 24),
             ("uagi", VT_INT, 13),
             ("uint", VT_INT, 16),
-            ("ustp", VT_UNREAL, 2.80),
-            ("uagp", VT_UNREAL, 1.30),
+            ("ustp", VT_UNREAL, 2.85),
+            ("uagp", VT_UNREAL, 1.35),
             ("uinp", VT_UNREAL, 1.80),
-            ("umvs", VT_INT, 290),
+            ("umvs", VT_INT, 295),
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "h002"),
             ("urq2", VT_STR, "h003"),
-            ("uhab", VT_STR, "AOsh,AHhb,AHad,AHav"),
-            ("urev", VT_INT, 1),
+            ("uhab", VT_STR, "A004,A005,A006,A007"),
             ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "G"),
-            ("utip", VT_STR, "Summon Lord |cffffcc00G|rarithos"),
-            ("utpr", VT_STR, "Revive Lord |cffffcc00G|rarithos"),
-            ("utub", VT_STR, "Grand Marshal of the New Alliance. Armored cavalry commander who can learn Shockwave, Holy Light, Devotion Aura, and Avatar."),
+            ("utip", VT_STR, "Summon Grand Marshal |cffffcc00G|rarithos"),
+            ("utpr", VT_STR, "Revive Grand Marshal |cffffcc00G|rarithos"),
+            ("utub", VT_STR, "Armored cavalry commander of the Sunfury Imperium. Commands Solar Flare Sigil, Phoenix Wing Dash, Sunblade Judgment, and Supernova Crown."),
         ]),
 
-        # Hero 4: Uther the Lightbringer (`Huth`, STR — Holy Light, Divine Shield, Devotion Aura, Resurrection)
         ("Huth", NULL_ID, [
-            ("unam", VT_STR, "Uther the Lightbringer"),
+            ("unam", VT_STR, "Highlord Uther"),
             ("ugol", VT_INT, 425),
             ("ulum", VT_INT, 100),
             ("ufoo", VT_INT, 5),
             ("ubld", VT_INT, 55),
             ("uhpm", VT_INT, 100),
-            ("ustr", VT_INT, 22),
+            ("ustr", VT_INT, 23),
             ("uagi", VT_INT, 13),
-            ("uint", VT_INT, 17),
-            ("ustp", VT_UNREAL, 2.70),
+            ("uint", VT_INT, 18),
+            ("ustp", VT_UNREAL, 2.75),
             ("uagp", VT_UNREAL, 1.50),
-            ("uinp", VT_UNREAL, 1.80),
+            ("uinp", VT_UNREAL, 1.90),
             ("umvs", VT_INT, 290),
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "h002"),
             ("urq2", VT_STR, "h003"),
-            ("uhab", VT_STR, "AHhb,AHds,AHad,AHre"),
-            ("urev", VT_INT, 1),
+            ("uhab", VT_STR, "A004,A005,A006,A007"),
             ("ubpx", VT_INT, 3),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "U"),
-            ("utip", VT_STR, "Summon |cffffcc00U|rther the Lightbringer"),
-            ("utpr", VT_STR, "Revive |cffffcc00U|rther the Lightbringer"),
-            ("utub", VT_STR, "Supreme Paladin of the Silver Hand. Can learn Holy Light, Divine Shield, Devotion Aura, and Resurrection."),
+            ("utip", VT_STR, "Summon Highlord |cffffcc00U|rther"),
+            ("utpr", VT_STR, "Revive Highlord |cffffcc00U|rther"),
+            ("utub", VT_STR, "Radiant Sun-Paladin of the Imperium. Commands Solar Flare Sigil, Phoenix Wing Dash, Sunblade Judgment, and Supernova Crown."),
         ]),
     ]
 
     # ==========================================================================
-    # CUSTOM UNITS, HEROES & BUILDINGS (`N001..N003`, `n001..n005`, `h001..h009`)
+    # CUSTOM UNITS, HEROES & BUILDINGS (`N001..N003`, `n001..n005`, `h001..h009`,
+    # PLUS `v001..v019`, `V001..V004`, `t001..t019`, `T001..T004`)
     # ==========================================================================
     custom: List[Tuple[str, str, List[ModEntry]]] = [
-        # ---- NAGA CUSTOM HEROES (`N001..N003`) — Distinct Models & Icons! ----
-        # N001: Abyssal Warlord (STR Frontline Hero — Royal Guard model + `BTNNagaMyrmidonRoyalGuard.blp`!)
+        # ---- NAGA CUSTOM HEROES (`N001..N003`) — ZERO `urev`! ----
         ("Otch", "N001", [
-            ("unam", VT_STR, "Abyssal Warlord"),
+            ("unam", VT_STR, "Leviathan Warlord"),
+            ("upro", VT_STR, "Naj'entus,Zar'jira,Vash'kor,Skar'this"),
+            ("upru", VT_INT, 4),
             ("uhot", VT_STR, "W"),
             ("urac", VT_STR, "naga"),
             ("upra", VT_STR, "STR"),
             ("ustr", VT_INT, 24),
             ("uagi", VT_INT, 14),
-            ("uint", VT_INT, 15),
+            ("uint", VT_INT, 16),
             ("ustp", VT_UNREAL, 2.90),
             ("uagp", VT_UNREAL, 1.50),
-            ("uinp", VT_UNREAL, 1.60),
+            ("uinp", VT_UNREAL, 1.70),
             ("umdl", VT_STR, r"units\naga\NagaRoyalGuard\NagaRoyalGuard.mdl"),
             ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNNagaMyrmidonRoyalGuard.blp"),
             ("usnd", VT_STR, "NagaRoyalGuard"),
@@ -1079,27 +1089,28 @@ def build_unit_modifications() -> Tuple[
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "n001"),
             ("urq2", VT_STR, "n002"),
-            ("uhab", VT_STR, "AOsh,ANca,ANht,ANst"),
-            ("urev", VT_INT, 1),
+            ("uhab", VT_STR, "A000,A001,A002,A003"),
+            ("uabi", VT_STR, "AInv"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 0),
-            ("utip", VT_STR, "Summon Abyssal |cffffcc00W|rarlord"),
-            ("utpr", VT_STR, "Revive Abyssal |cffffcc00W|rarlord"),
-            ("utub", VT_STR, "Colossal Naga frontline commander. Can learn Shockwave, Cleaving Attack, Howl of Terror, and Stampede."),
+            ("utip", VT_STR, "Summon Leviathan |cffffcc00W|rarlord"),
+            ("utpr", VT_STR, "Revive Leviathan |cffffcc00W|rarlord"),
+            ("utub", VT_STR, "Colossal Abyssal Tideborn Strength commander. Masters Maelstrom Vortex, Riptide Prism Lance, Abyssal Carapace Pulse, and Cataclysmic Tsunami."),
         ]),
 
-        # N002: Azshara's Tideweaver (INT Arch-Siren — Distinct `NagaSummoner.mdl` + `BTNNagaSummoner.blp`!)
         ("Hamg", "N002", [
-            ("unam", VT_STR, "Azshara's Tideweaver"),
+            ("unam", VT_STR, "Nazjatar Tideweaver"),
+            ("upro", VT_STR, "Athissa,Sira'kess,Zin'azshari,Thal'issa"),
+            ("upru", VT_INT, 4),
             ("uhot", VT_STR, "T"),
             ("urac", VT_STR, "naga"),
             ("upra", VT_STR, "INT"),
             ("ustr", VT_INT, 15),
             ("uagi", VT_INT, 16),
-            ("uint", VT_INT, 22),
+            ("uint", VT_INT, 23),
             ("ustp", VT_UNREAL, 1.80),
-            ("uagp", VT_UNREAL, 1.30),
-            ("uinp", VT_UNREAL, 3.00),
+            ("uagp", VT_UNREAL, 1.40),
+            ("uinp", VT_UNREAL, 3.05),
             ("umdl", VT_STR, r"Units\Naga\NagaSummoner\NagaSummoner.mdl"),
             ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNNagaSummoner.blp"),
             ("usnd", VT_STR, "NagaSiren"),
@@ -1116,27 +1127,28 @@ def build_unit_modifications() -> Tuple[
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "n001"),
             ("urq2", VT_STR, "n002"),
-            ("uhab", VT_STR, "AHwe,AHbz,AHab,AHmt"),
-            ("urev", VT_INT, 1),
+            ("uhab", VT_STR, "A000,A001,A002,A003"),
+            ("uabi", VT_STR, "AInv"),
             ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 0),
-            ("utip", VT_STR, "Summon Azshara's |cffffcc00T|rideweaver"),
-            ("utpr", VT_STR, "Revive Azshara's |cffffcc00T|rideweaver"),
-            ("utub", VT_STR, "Highborne Arch-Summoner of Nazjatar. Can learn Summon Water Elemental, Blizzard, Brilliance Aura, and Mass Teleport."),
+            ("utip", VT_STR, "Summon Nazjatar |cffffcc00T|rideweaver"),
+            ("utpr", VT_STR, "Revive Nazjatar |cffffcc00T|rideweaver"),
+            ("utub", VT_STR, "Highborne Arch-Siren of Nazjatar. Amplifies Maelstrom Vortex, Riptide Prism Lance, Abyssal Carapace Pulse, and Cataclysmic Tsunami."),
         ]),
 
-        # N003: Makrura Deepking (STR Armored Tank — `Lobstrokkred.mdl`, `uhpr` FIXED to `VT_UNREAL`!)
         ("Ucrl", "N003", [
             ("unam", VT_STR, "Makrura Deepking"),
+            ("upro", VT_STR, "Gish'kar,Krakenor,Mol'gora,Scyllon"),
+            ("upru", VT_INT, 4),
             ("uhot", VT_STR, "D"),
             ("urac", VT_STR, "naga"),
             ("upra", VT_STR, "STR"),
             ("ustr", VT_INT, 25),
             ("uagi", VT_INT, 13),
-            ("uint", VT_INT, 15),
+            ("uint", VT_INT, 16),
             ("ustp", VT_UNREAL, 3.10),
-            ("uagp", VT_UNREAL, 1.20),
-            ("uinp", VT_UNREAL, 1.70),
+            ("uagp", VT_UNREAL, 1.30),
+            ("uinp", VT_UNREAL, 1.80),
             ("umdl", VT_STR, r"units\creeps\Lobstrokkred\Lobstrokkred.mdl"),
             ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNLobstrokkRed.blp"),
             ("usnd", VT_STR, "Lobstrokk"),
@@ -1153,13 +1165,13 @@ def build_unit_modifications() -> Tuple[
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "n001"),
             ("urq2", VT_STR, "n002"),
-            ("uhab", VT_STR, "AUim,AUts,AHbh,AUls"),
-            ("urev", VT_INT, 1),
+            ("uhab", VT_STR, "A000,A001,A002,A003"),
+            ("uabi", VT_STR, "AInv"),
             ("ubpx", VT_INT, 3),
             ("ubpy", VT_INT, 0),
             ("utip", VT_STR, "Summon Makrura |cffffcc00D|reepking"),
             ("utpr", VT_STR, "Revive Makrura |cffffcc00D|reepking"),
-            ("utub", VT_STR, "Ancient armored crustacean monarch allied with the Naga. Can learn Impale, Spiked Carapace, Bash, and Locust Swarm."),
+            ("utub", VT_STR, "Armored crustacean monarch of the Abyssal Trench. Excels at frontline durability with Abyssal Carapace Pulse, Maelstrom Vortex, Prism Lance, and Tsunami."),
         ]),
 
         # ---- NAGA CUSTOM STRUCTURES (`n001..n005`) ----
@@ -1262,7 +1274,7 @@ def build_unit_modifications() -> Tuple[
             ("uhpm", VT_INT, 1100),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
-            ("uabi", VT_STR, "Abds"),
+            ("uabi", VT_STR, "Abds,Arlm"),
             ("utra", VT_STR, ""),
             ("ures", VT_STR, "Rnat,Rnam"),
             ("upgr", VT_STR, ""),
@@ -1472,6 +1484,7 @@ def build_unit_modifications() -> Tuple[
         ]),
     ]
 
+    custom.extend(build_voidborn_and_runeforged_units())
     return original, custom
 
 
@@ -1491,57 +1504,61 @@ def serialize_w3u() -> bytes:
 
 def serialize_w3t() -> bytes:
     """
-    Serialize `war3map.w3t` (v2) with Naga Tidal Treasury items:
-      - `i001`: Orb of the Abyss (Tier 3 `n002` Orb of Frost shop version, 375g)
-      - `i002`: Tidal Staff of Sanctuary (Tier 3 `n002` Staff of Sanctuary, 250g)
-      - `i003`: Scroll of Tidal Surge (Tier 1 Scroll of Speed, 50g)
+    Serialize `war3map.w3t` (v2) with Racial Shop items for Abyssal, Voidborn & Runeforged:
+      - `i001`: Orb of the Abyss (Tier 3 `n002`, 375g)
+      - `i002`: Imperial Staff of Sanctuary (Tier 3 shared Sanctuary staff, 250g)
+      - `i003`: Scroll of War Surge (Tier 1 Scroll of Speed, 50g)
+      - `i004`: Orb of Oblivion (Tier 3 `v003` Voidborn Orb of Corruption, 375g)
+      - `i005`: Orb of Storms (Tier 3 `t003` Runeforged Orb of Lightning, 375g)
     """
     cust: List[Tuple[str, str, List[ModEntry]]] = [
         ("ofro", "i001", [
             ("unam", VT_STR, "Orb of the Abyss"),
             ("utip", VT_STR, "Purchase |cffffcc00O|rrb of the Abyss"),
-            ("utub", VT_STR, "Adds 6 bonus frost damage to a Hero's attacks, enables ranged air attacks, and slows enemy movement and attack speed for 3 seconds."),
+            ("utub", VT_STR, "Adds 6 bonus frost damage to a Hero's attacks, enables ranged air attacks, and chills enemies for 3 seconds."),
             ("uhot", VT_STR, "O"),
-            ("ubpx", VT_INT, 0),
-            ("ubpy", VT_INT, 2),
+            ("ubpx", VT_INT, 0), ("ubpy", VT_INT, 2),
             ("ureq", VT_STR, "n002"),
-            ("igol", VT_INT, 375),
-            ("isel", VT_INT, 1),
-            ("ipaw", VT_INT, 1),
-            ("isto", VT_INT, 1),
-            ("istr", VT_INT, 120),
-            ("isst", VT_INT, 0),
-            ("iprn", VT_INT, 0),
+            ("igol", VT_INT, 375), ("isel", VT_INT, 1), ("ipaw", VT_INT, 1),
+            ("isto", VT_INT, 1), ("istr", VT_INT, 120), ("isst", VT_INT, 0), ("iprn", VT_INT, 0),
         ]),
         ("ssan", "i002", [
-            ("unam", VT_STR, "Tidal Staff of Sanctuary"),
-            ("utip", VT_STR, "Purchase Tidal |cffffcc00S|rtaff of Sanctuary"),
+            ("unam", VT_STR, "Imperial Staff of Sanctuary"),
+            ("utip", VT_STR, "Purchase Imperial |cffffcc00S|rtaff of Sanctuary"),
             ("uhot", VT_STR, "S"),
-            ("ubpx", VT_INT, 1),
-            ("ubpy", VT_INT, 2),
-            ("ureq", VT_STR, "n002"),
-            ("igol", VT_INT, 250),
-            ("isel", VT_INT, 1),
-            ("ipaw", VT_INT, 1),
-            ("isto", VT_INT, 1),
-            ("istr", VT_INT, 120),
-            ("isst", VT_INT, 0),
-            ("iprn", VT_INT, 0),
+            ("ubpx", VT_INT, 1), ("ubpy", VT_INT, 2),
+            ("ureq", VT_STR, ""),
+            ("igol", VT_INT, 250), ("isel", VT_INT, 1), ("ipaw", VT_INT, 1),
+            ("isto", VT_INT, 1), ("istr", VT_INT, 120), ("isst", VT_INT, 210), ("iprn", VT_INT, 0),
         ]),
         ("shas", "i003", [
-            ("unam", VT_STR, "Scroll of Tidal Surge"),
-            ("utip", VT_STR, "Purchase Scroll of |cffffcc00T|ridal Surge"),
+            ("unam", VT_STR, "Scroll of War Surge"),
+            ("utip", VT_STR, "Purchase Scroll of War |cffffcc00S|rurge"),
             ("uhot", VT_STR, "T"),
-            ("ubpx", VT_INT, 2),
-            ("ubpy", VT_INT, 0),
+            ("ubpx", VT_INT, 2), ("ubpy", VT_INT, 0),
             ("ureq", VT_STR, ""),
-            ("igol", VT_INT, 50),
-            ("isel", VT_INT, 1),
-            ("ipaw", VT_INT, 1),
-            ("isto", VT_INT, 2),
-            ("istr", VT_INT, 90),
-            ("isst", VT_INT, 0),
-            ("iprn", VT_INT, 0),
+            ("igol", VT_INT, 50), ("isel", VT_INT, 1), ("ipaw", VT_INT, 1),
+            ("isto", VT_INT, 2), ("istr", VT_INT, 90), ("isst", VT_INT, 0), ("iprn", VT_INT, 0),
+        ]),
+        ("ocor", "i004", [
+            ("unam", VT_STR, "Orb of Oblivion"),
+            ("utip", VT_STR, "Purchase |cffffcc00O|rrb of Oblivion"),
+            ("utub", VT_STR, "Adds 5 bonus void damage, enables ranged air attacks, and reduces enemy armor by 4 for 5 seconds."),
+            ("uhot", VT_STR, "O"),
+            ("ubpx", VT_INT, 0), ("ubpy", VT_INT, 2),
+            ("ureq", VT_STR, "v003"),
+            ("igol", VT_INT, 375), ("isel", VT_INT, 1), ("ipaw", VT_INT, 1),
+            ("isto", VT_INT, 1), ("istr", VT_INT, 120), ("isst", VT_INT, 0), ("iprn", VT_INT, 0),
+        ]),
+        ("oli2", "i005", [
+            ("unam", VT_STR, "Orb of Storms"),
+            ("utip", VT_STR, "Purchase |cffffcc00O|rrb of Storms"),
+            ("utub", VT_STR, "Adds 5 bonus plasma damage, enables ranged air attacks, and gives a chance to purge and slow enemies."),
+            ("uhot", VT_STR, "O"),
+            ("ubpx", VT_INT, 0), ("ubpy", VT_INT, 2),
+            ("ureq", VT_STR, "t003"),
+            ("igol", VT_INT, 375), ("isel", VT_INT, 1), ("ipaw", VT_INT, 1),
+            ("isto", VT_INT, 1), ("istr", VT_INT, 120), ("isst", VT_INT, 0), ("iprn", VT_INT, 0),
         ]),
     ]
     return (
@@ -1552,61 +1569,90 @@ def serialize_w3t() -> bytes:
 
 
 # ==============================================================================
-# 3. UPGRADE MODIFICATIONS (`war3map.w3q` v2)
+# 3. UPGRADE MODIFICATIONS (`war3map.w3q` v2) & ABILITIES (`war3map.w3a` v2)
 # ==============================================================================
+
+def _make_3tier_upgrade(
+    parent_id: str,
+    new_id: str,
+    names: Tuple[str, str, str],
+    hotkey: str,
+    btn_x: int,
+    t2_hall: str,
+    t3_hall: str,
+    is_armor: bool,
+) -> Tuple[str, str, List[LevelModEntry]]:
+    mods: List[LevelModEntry] = [
+        ("gglb", VT_INT, 0, 0, 125),
+        ("gglm", VT_INT, 0, 0, 50 if is_armor else 75),
+        ("glmb", VT_INT, 0, 0, 75),
+        ("glmm", VT_INT, 0, 0, 100),
+        ("gbpx", VT_INT, 0, 0, btn_x),
+        ("gbpy", VT_INT, 0, 0, 0),
+        ("greq", VT_STR, 1, 0, ""),
+        ("greq", VT_STR, 2, 0, t2_hall),
+        ("greq", VT_STR, 3, 0, t3_hall),
+    ]
+    stat_word = "armor" if is_armor else "attack power"
+    for lv in (1, 2, 3):
+        nm = names[lv - 1]
+        mods.extend([
+            ("gnam", VT_STR, lv, 0, nm),
+            ("ghk1", VT_STR, lv, 0, hotkey),
+            ("gtp1", VT_STR, lv, 0, f"Upgrade to {nm} [|cffffcc00{hotkey}|r]"),
+            ("gub1", VT_STR, lv, 0, f"Increases the {stat_word} of your empire's combat forces (Tier {lv})."),
+        ])
+    return (parent_id, new_id, mods)
+
 
 def serialize_w3q() -> bytes:
     """
-    Serialize `war3map.w3q` (v2, `use_optional_ints = True`) to tier-gate and
-    cost-balance Naga upgrades identically to standard ladder races:
-      - `Rnat` (Blades): 125/200/275g, 75/175/275L; Lvl 2 -> `n001`, Lvl 3 -> `n002`
-      - `Rnam` (Scales): 125/175/225g, 75/175/275L; Lvl 2 -> `n001`, Lvl 3 -> `n002`
-      - `Rnen` (Ensnare): Lvl 1 -> `n001` (Tier 2 Myrmidon upgrade)
-      - `Rnsb` (Submerge): 75g/75L/40s (matches Crypt Fiend Burrow!), Lvl 1 -> `n001`
-      - `Rnsw` (Siren Training): Lvl 1 -> `n001`, Lvl 2 -> `n002`
-      - `Rnsi` (Abolish Magic): Lvl 1 -> `n001`
+    Serialize `war3map.w3q` (v2, `use_optional_ints = True`) for Naga (`Rnat`..`Rnsi`),
+    Voidborn (`R000`, `R001`), and Runeforged (`R002`, `R003`).
     """
     NULL_ID = "\x00\x00\x00\x00"
     orig: List[Tuple[str, str, List[LevelModEntry]]] = [
         ("Rnat", NULL_ID, [
-            ("gglb", VT_INT, 0, 0, 125),
-            ("gglm", VT_INT, 0, 0, 75),
-            ("glmb", VT_INT, 0, 0, 75),
-            ("glmm", VT_INT, 0, 0, 100),
-            ("greq", VT_STR, 2, 0, "n001"),
-            ("greq", VT_STR, 3, 0, "n002"),
+            ("gglb", VT_INT, 0, 0, 125), ("gglm", VT_INT, 0, 0, 75),
+            ("glmb", VT_INT, 0, 0, 75),  ("glmm", VT_INT, 0, 0, 100),
+            ("greq", VT_STR, 2, 0, "n001"), ("greq", VT_STR, 3, 0, "n002"),
         ]),
         ("Rnam", NULL_ID, [
-            ("gglb", VT_INT, 0, 0, 125),
-            ("gglm", VT_INT, 0, 0, 50),
-            ("glmb", VT_INT, 0, 0, 75),
-            ("glmm", VT_INT, 0, 0, 100),
-            ("greq", VT_STR, 2, 0, "n001"),
-            ("greq", VT_STR, 3, 0, "n002"),
+            ("gglb", VT_INT, 0, 0, 125), ("gglm", VT_INT, 0, 0, 50),
+            ("glmb", VT_INT, 0, 0, 75),  ("glmm", VT_INT, 0, 0, 100),
+            ("greq", VT_STR, 2, 0, "n001"), ("greq", VT_STR, 3, 0, "n002"),
         ]),
-        ("Rnen", NULL_ID, [
-            ("greq", VT_STR, 1, 0, "n001"),
-        ]),
+        ("Rnen", NULL_ID, [("greq", VT_STR, 1, 0, "n001")]),
         ("Rnsb", NULL_ID, [
-            ("gglb", VT_INT, 0, 0, 75),
-            ("glmb", VT_INT, 0, 0, 75),
-            ("gtib", VT_INT, 0, 0, 40),
-            ("gbpx", VT_INT, 0, 0, 1),
-            ("gbpy", VT_INT, 0, 0, 2),
-            ("greq", VT_STR, 1, 0, "n001"),
+            ("gglb", VT_INT, 0, 0, 75), ("glmb", VT_INT, 0, 0, 75), ("gtib", VT_INT, 0, 0, 40),
+            ("gbpx", VT_INT, 0, 0, 1), ("gbpy", VT_INT, 0, 0, 2), ("greq", VT_STR, 1, 0, "n001"),
         ]),
-        ("Rnsw", NULL_ID, [
-            ("greq", VT_STR, 1, 0, "n001"),
-            ("greq", VT_STR, 2, 0, "n002"),
-        ]),
-        ("Rnsi", NULL_ID, [
-            ("greq", VT_STR, 1, 0, "n001"),
-        ]),
+        ("Rnsw", NULL_ID, [("greq", VT_STR, 1, 0, "n001"), ("greq", VT_STR, 2, 0, "n002")]),
+        ("Rnsi", NULL_ID, [("greq", VT_STR, 1, 0, "n001")]),
+    ]
+    cust: List[Tuple[str, str, List[LevelModEntry]]] = [
+        _make_3tier_upgrade("Rnat", "R000", ("Void Blades", "Riftforged Blades", "Oblivion Blades"), "B", 0, "v002", "v003", False),
+        _make_3tier_upgrade("Rnam", "R001", ("Astral Plating", "Nether Plating", "Oblivion Carapace"), "P", 1, "v002", "v003", True),
+        _make_3tier_upgrade("Rnat", "R002", ("Runic Weapons", "Stormsteel Weapons", "Titanforged Weapons"), "W", 0, "t002", "t003", False),
+        _make_3tier_upgrade("Rnam", "R003", ("Titan Plating", "Stormsteel Plating", "Pantheon Aegis"), "P", 1, "t002", "t003", True),
     ]
     return (
         struct.pack("<i", 2)
         + _pack_mod_table(orig, use_optional_ints=True)
+        + _pack_mod_table(cust, use_optional_ints=True)
+    )
+
+
+def serialize_w3a() -> bytes:
+    """
+    Serialize `war3map.w3a` (v2, `use_optional_ints = True`) containing all
+    16 Custom Hero Skills (`A000..A015`).
+    """
+    cust = build_ability_modifications()
+    return (
+        struct.pack("<i", 2)
         + _pack_mod_table([], use_optional_ints=True)
+        + _pack_mod_table(cust, use_optional_ints=True)
     )
 
 
@@ -1616,37 +1662,49 @@ def serialize_w3q() -> bytes:
 
 def serialize_war3map_misc() -> bytes:
     """
-    Registers all Naga & Campaign Human Town Halls, Altars, and Heroes in
+    Registers all 8 Playable Empires' Town Halls, Altars, and Heroes in
     Warcraft III's native Gameplay Constants (`[TWN1..3]`, `[TALT]`, `[HERO]`).
     """
     lines = [
         "[HERO]",
-        "DependencyOr=Hamg,Hmkg,Hpal,Hblm,Obla,Ofar,Otch,Oshd,Udea,Udre,Ulic,Ucrl,Edem,Ekee,Emoo,Ewar,Nbrn,Nbst,Nngs,Npbm,Nalc,Ntin,Nfir,Nplh,Hvsh,N001,N002,N003,Hkal,Hvwd,Hlgr,Huth",
+        "DependencyOr=Hamg,Hmkg,Hpal,Hblm,Obla,Ofar,Otch,Oshd,Udea,Udre,Ulic,Ucrl,Edem,Ekee,Emoo,Ewar,Nbrn,Nbst,Nngs,Npbm,Nalc,Ntin,Nfir,Nplh,Hvsh,N001,N002,N003,Hkal,Hvwd,Hlgr,Huth,V001,V002,V003,V004,T001,T002,T003,T004",
         "",
         "[TALT]",
-        "DependencyOr=halt,oalt,uaod,eate,nnad,h004",
+        "DependencyOr=halt,oalt,uaod,eate,nnad,h004,v007,t007",
         "",
         "[TWN1]",
-        "DependencyOr=htow,ogre,unpl,etol,nntt,h001",
+        "DependencyOr=htow,ogre,unpl,etol,nntt,h001,v001,t001",
         "",
         "[TWN2]",
-        "DependencyOr=hkee,ostr,unp1,etoa,n001,h002",
+        "DependencyOr=hkee,ostr,unp1,etoa,n001,h002,v002,t002",
         "",
         "[TWN3]",
-        "DependencyOr=hcas,ofrt,unp2,etoe,n002,h003",
+        "DependencyOr=hcas,ofrt,unp2,etoe,n002,h003,v003,t003",
         "",
     ]
     return ("\r\n".join(lines) + "\r\n").encode("utf-8")
 
 
-def serialize_imp() -> bytes:
+def serialize_imp(extra_paths: Iterable[str] = ()) -> bytes:
     """
-    Serialize `war3map.imp` (v1) listing `naga_melee.ai` and `camphuman_melee.ai`
-    with custom full-path flag (`0x0D`) so World Editor keeps both `.ai` scripts intact.
+    Serialize `war3map.imp` (v1) listing all `.ai` scripts plus all custom `.blp`
+    icons/textures and `.mdx` VFX models (excluding `war3mapPreview.tga` which is
+    a standard root map file) with full-path flag `0x0D` (`13`).
     """
-    entries = ["naga_melee.ai", "camphuman_melee.ai"]
-    buf = bytearray(struct.pack("<II", 1, len(entries)))
-    for path in entries:
+    base_entries = [
+        "naga_melee.ai",
+        "camphuman_melee.ai",
+        "voidborn_melee.ai",
+        "runeforged_melee.ai",
+    ]
+    seen = set(base_entries)
+    for p in sorted(extra_paths):
+        if p == "war3mapPreview.tga" or p in seen:
+            continue
+        seen.add(p)
+        base_entries.append(p)
+    buf = bytearray(struct.pack("<II", 1, len(base_entries)))
+    for path in base_entries:
         buf += struct.pack("<B", 13) + path.encode("utf-8") + b"\x00"
     return bytes(buf)
 
@@ -1731,64 +1789,16 @@ function NagaNeedUnit takes integer qty, integer id, integer town returns nothin
 endfunction
 
 function NagaSetSkills takes integer heroId, integer slot returns nothing
-    if heroId == HERO_VASHJ then
-        if slot == 1 then
-            set skill[ 1] = 'ANfl'
-            set skill[ 2] = 'ANfa'
-            set skill[ 3] = 'ANfl'
-            set skill[ 4] = 'ANms'
-            set skill[ 5] = 'ANfl'
-            set skill[ 6] = 'ANto'
-            set skill[ 7] = 'ANfa'
-            set skill[ 8] = 'ANfa'
-            set skill[ 9] = 'ANms'
-            set skill[10] = 'ANms'
-        else
-            set skill[ 1] = 'ANfa'
-            set skill[ 2] = 'ANfl'
-            set skill[ 3] = 'ANfl'
-            set skill[ 4] = 'ANms'
-            set skill[ 5] = 'ANfl'
-            set skill[ 6] = 'ANto'
-            set skill[ 7] = 'ANfa'
-            set skill[ 8] = 'ANfa'
-            set skill[ 9] = 'ANms'
-            set skill[10] = 'ANms'
-        endif
-    elseif heroId == HERO_WARLORD then
-        set skill[ 1] = 'AOsh'
-        set skill[ 2] = 'ANca'
-        set skill[ 3] = 'AOsh'
-        set skill[ 4] = 'ANht'
-        set skill[ 5] = 'AOsh'
-        set skill[ 6] = 'ANst'
-        set skill[ 7] = 'ANca'
-        set skill[ 8] = 'ANca'
-        set skill[ 9] = 'ANht'
-        set skill[10] = 'ANht'
-    elseif heroId == HERO_TIDEWEAVER then
-        set skill[ 1] = 'AHwe'
-        set skill[ 2] = 'AHab'
-        set skill[ 3] = 'AHwe'
-        set skill[ 4] = 'AHbz'
-        set skill[ 5] = 'AHwe'
-        set skill[ 6] = 'AHmt'
-        set skill[ 7] = 'AHab'
-        set skill[ 8] = 'AHab'
-        set skill[ 9] = 'AHbz'
-        set skill[10] = 'AHbz'
-    else
-        set skill[ 1] = 'AUim'
-        set skill[ 2] = 'AUts'
-        set skill[ 3] = 'AUim'
-        set skill[ 4] = 'AHbh'
-        set skill[ 5] = 'AUim'
-        set skill[ 6] = 'AUls'
-        set skill[ 7] = 'AUts'
-        set skill[ 8] = 'AHbh'
-        set skill[ 9] = 'AUts'
-        set skill[10] = 'AHbh'
-    endif
+    set skill[ 1] = 'A000'
+    set skill[ 2] = 'A001'
+    set skill[ 3] = 'A000'
+    set skill[ 4] = 'A002'
+    set skill[ 5] = 'A000'
+    set skill[ 6] = 'A003'
+    set skill[ 7] = 'A001'
+    set skill[ 8] = 'A001'
+    set skill[ 9] = 'A002'
+    set skill[10] = 'A002'
 endfunction
 
 function ChooseNagaHeroes takes nothing returns nothing
@@ -2176,51 +2186,16 @@ function CHNeedUnit takes integer qty, integer id, integer town returns nothing
 endfunction
 
 function CHSetSkills takes integer heroId, integer slot returns nothing
-    if heroId == HERO_KAEL then
-        set skill[ 1] = 'AHfs'
-        set skill[ 2] = 'AHdr'
-        set skill[ 3] = 'AHfs'
-        set skill[ 4] = 'AHbn'
-        set skill[ 5] = 'AHfs'
-        set skill[ 6] = 'AHpx'
-        set skill[ 7] = 'AHdr'
-        set skill[ 8] = 'AHdr'
-        set skill[ 9] = 'AHbn'
-        set skill[10] = 'AHbn'
-    elseif heroId == HERO_SYLVANAS then
-        set skill[ 1] = 'AHfa'
-        set skill[ 2] = 'AEar'
-        set skill[ 3] = 'AHfa'
-        set skill[ 4] = 'AEar'
-        set skill[ 5] = 'AHfa'
-        set skill[ 6] = 'AEsf'
-        set skill[ 7] = 'AEar'
-        set skill[ 8] = 'AEst'
-        set skill[ 9] = 'AEst'
-        set skill[10] = 'AEst'
-    elseif heroId == HERO_GARITHOS then
-        set skill[ 1] = 'AOsh'
-        set skill[ 2] = 'AHhb'
-        set skill[ 3] = 'AOsh'
-        set skill[ 4] = 'AHad'
-        set skill[ 5] = 'AOsh'
-        set skill[ 6] = 'AHav'
-        set skill[ 7] = 'AHhb'
-        set skill[ 8] = 'AHhb'
-        set skill[ 9] = 'AHad'
-        set skill[10] = 'AHad'
-    else
-        set skill[ 1] = 'AHhb'
-        set skill[ 2] = 'AHds'
-        set skill[ 3] = 'AHhb'
-        set skill[ 4] = 'AHad'
-        set skill[ 5] = 'AHhb'
-        set skill[ 6] = 'AHre'
-        set skill[ 7] = 'AHad'
-        set skill[ 8] = 'AHad'
-        set skill[ 9] = 'AHds'
-        set skill[10] = 'AHds'
-    endif
+    set skill[ 1] = 'A004'
+    set skill[ 2] = 'A006'
+    set skill[ 3] = 'A004'
+    set skill[ 4] = 'A005'
+    set skill[ 5] = 'A004'
+    set skill[ 6] = 'A007'
+    set skill[ 7] = 'A006'
+    set skill[ 8] = 'A006'
+    set skill[ 9] = 'A005'
+    set skill[10] = 'A005'
 endfunction
 
 function ChooseCHHeroes takes nothing returns nothing
@@ -2585,696 +2560,9 @@ endfunction
 
 def generate_custom_races_jass() -> Tuple[str, str]:
     """
-    Returns `(globals_block, functions_block)` to embed into `war3map.j`.
-    Guaranteed leak-free and 100% compliant with TFT 1.26a/1.27b & Reforged JASS2.
+    Returns `(globals_block, functions_block)` to embed into `war3map.j`
+    (v3: 8 Playable Empires, Host-first AI Difficulty prompt, sleek 1-click
+    Empire picker, 16 Custom 3D `.mdx` Hero Skills, Live Multiboard HUD,
+    and Human-Like Pro AI Tactical Brain).
     """
-    globals_jass = """    // ---- 6-Race Altered Melee Globals ((8) Crown of WarMahdi) ----
-    integer array udg_PlayerFaction
-    boolean array udg_PlayerLockedInLobby
-    boolean array udg_PlayerChoseRace
-    boolean array udg_AIStarted
-
-    dialog array udg_RaceDialog
-    button array udg_BtnKeepLobby
-    button array udg_BtnNaga
-    button array udg_BtnCampHuman
-    button array udg_BtnRandom6
-    button array udg_BtnHuman
-    button array udg_BtnOrc
-    button array udg_BtnUndead
-    button array udg_BtnNightElf
-
-    dialog udg_HostAIDialog = null
-    button udg_BtnAIMix = null
-    button udg_BtnAINaga = null
-    button udg_BtnAICampHuman = null
-    button udg_BtnAIKeepLobby = null
-    integer udg_HostPlayerId = -1
-    boolean udg_HostAIChose = false
-    boolean udg_HasDefaultAI = false
-    boolean udg_SelectionPhaseOpen = true
-
-    timer udg_DialogOpenTimer = null
-    timer udg_DialogExpireTimer = null
-    timer udg_AIMicroTimer = null
-    trigger udg_ChatRaceTrig = null
-    trigger udg_TownPortalTrig = null
-"""
-
-    functions_jass = """//***************************************************************************
-//*
-//*  6-Race Altered Melee Core (Human, Orc, Undead, Night Elf, Naga, Campaign Human)
-//*  - Pre-Game Lobby Handicap Selector:
-//*      90% Handicap in Lobby -> Naga Empire (restores to 100% HP at 0.00s!)
-//*      80% Handicap in Lobby -> Campaign Human (restores to 100% HP at 0.00s!)
-//*      70% Handicap in Lobby -> Random (All 6 Races, restores to 100% HP!)
-//*  - Instant t=0.10s Clickable Race Selection Dialog + Host AI Mode Dialog
-//*  - Chat Commands: -naga, -camphuman, -random6 (first 15s) & -races (anytime)
-//*  - Safe Zero-Flicker Base Spawner + Native Pro AI + Tactical Spell Micro
-//*
-//***************************************************************************
-
-function GetVanillaFactionCode takes player p returns integer
-    local race r = GetPlayerRace(p)
-    if r == RACE_HUMAN then
-        return 1
-    elseif r == RACE_ORC then
-        return 2
-    elseif r == RACE_UNDEAD then
-        return 3
-    elseif r == RACE_NIGHTELF then
-        return 4
-    endif
-    return 1
-endfunction
-
-function GetFactionDisplayName takes integer faction returns string
-    if faction == 1 then
-        return "|cff60a5faHuman Alliance|r"
-    elseif faction == 2 then
-        return "|cfff87171Orcish Horde|r"
-    elseif faction == 3 then
-        return "|cffc084fcUndead Scourge|r"
-    elseif faction == 4 then
-        return "|cff4ade80Night Elf Sentinel|r"
-    elseif faction == 5 then
-        return "|cff22d3eeNaga Empire|r"
-    elseif faction == 6 then
-        return "|cfffbbf24Campaign Human (Silvermoon)|r"
-    endif
-    return "Unknown"
-endfunction
-
-function RegisterCustomHeroLimitsForPlayer takes player p returns nothing
-    call SetPlayerTechMaxAllowed(p, 'Hvsh', 1)
-    call SetPlayerTechMaxAllowed(p, 'N001', 1)
-    call SetPlayerTechMaxAllowed(p, 'N002', 1)
-    call SetPlayerTechMaxAllowed(p, 'N003', 1)
-    call SetPlayerTechMaxAllowed(p, 'Hkal', 1)
-    call SetPlayerTechMaxAllowed(p, 'Hvwd', 1)
-    call SetPlayerTechMaxAllowed(p, 'Hlgr', 1)
-    call SetPlayerTechMaxAllowed(p, 'Huth', 1)
-endfunction
-
-function SpawnFactionStartingUnits takes player p, integer faction returns nothing
-    local integer pid = GetPlayerId(p)
-    local integer startLocIdx = GetPlayerStartLocation(p)
-    local location startLoc = GetStartLocationLoc(startLocIdx)
-    local real sx = GetStartLocationX(startLocIdx)
-    local real sy = GetStartLocationY(startLocIdx)
-    local unit nearestMine = null
-    local unit restoredMine = null
-    local real mx = 0.0
-    local real my = 0.0
-    local integer mgold = 12500
-    local real wx = sx
-    local real wy = sy
-    local real dx = 0.0
-    local real dy = 0.0
-    local real dist = 0.0
-    local real angle = 270.0
-    local group oldUnits = CreateGroup()
-    local group scanUnits = CreateGroup()
-    local unit u = null
-    local unit newHall = null
-    local integer ut = 0
-    local integer hallId = 'htow'
-    local integer workerId = 'hpea'
-    local integer w = 0
-
-    call GroupEnumUnitsOfPlayer(oldUnits, p, null)
-    call GroupEnumUnitsOfPlayer(scanUnits, p, null)
-
-    // Restore clean Neutral Passive 'ngol' Gold Mine & clear Blight if swapping from UD/NE
-    loop
-        set u = FirstOfGroup(scanUnits)
-        exitwhen u == null
-        call GroupRemoveUnit(scanUnits, u)
-        set ut = GetUnitTypeId(u)
-        if ut == 'ugol' or ut == 'egol' then
-            set mx = GetUnitX(u)
-            set my = GetUnitY(u)
-            set mgold = GetResourceAmount(u)
-            if mgold <= 0 then
-                set mgold = 12500
-            endif
-            call GroupRemoveUnit(oldUnits, u)
-            call RemoveUnit(u)
-            set restoredMine = CreateUnit(Player(PLAYER_NEUTRAL_PASSIVE), 'ngol', mx, my, bj_UNIT_FACING)
-            call SetResourceAmount(restoredMine, mgold)
-            call SetBlight(p, mx, my, 960.0, false)
-            call SetBlight(p, sx, sy, 960.0, false)
-        endif
-    endloop
-    call DestroyGroup(scanUnits)
-
-    set nearestMine = MeleeFindNearestMine(startLoc, bj_MELEE_MINE_SEARCH_RADIUS)
-    if nearestMine != null then
-        set dx = GetUnitX(nearestMine) - sx
-        set dy = GetUnitY(nearestMine) - sy
-        set dist = SquareRoot(dx * dx + dy * dy)
-        if dist > 1.0 then
-            set wx = sx + 320.0 * (dx / dist)
-            set wy = sy + 320.0 * (dy / dist)
-            set angle = bj_RADTODEG * Atan2(dy, dx)
-        endif
-    endif
-
-    if faction == 1 then
-        call MeleeStartingUnitsHuman(p, startLoc, true, true, true)
-    elseif faction == 2 then
-        call MeleeStartingUnitsOrc(p, startLoc, true, true, true)
-    elseif faction == 3 then
-        call MeleeStartingUnitsUndead(p, startLoc, true, true, true)
-    elseif faction == 4 then
-        call MeleeStartingUnitsNightElf(p, startLoc, true, true, true)
-    else
-        if faction == 5 then
-            set hallId = 'nntt'
-            set workerId = 'nmpe'
-        else
-            set hallId = 'h001'
-            set workerId = 'nhew'
-        endif
-
-        set newHall = CreateUnit(p, hallId, sx, sy, bj_UNIT_FACING)
-        set w = 0
-        loop
-            exitwhen w >= 5
-            set u = CreateUnit(p, workerId, wx + 44.0 * Cos(I2R(w) * 1.2566), wy + 44.0 * Sin(I2R(w) * 1.2566), angle)
-            if GetLocalPlayer() == p and w == 0 then
-                call ClearSelection()
-                call SelectUnit(newHall, true)
-            endif
-            set w = w + 1
-        endloop
-    endif
-
-    loop
-        set u = FirstOfGroup(oldUnits)
-        exitwhen u == null
-        call GroupRemoveUnit(oldUnits, u)
-        call RemoveUnit(u)
-    endloop
-    call DestroyGroup(oldUnits)
-    call RemoveLocation(startLoc)
-
-    call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, bj_MELEE_STARTING_GOLD_V1)
-    call SetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER, bj_MELEE_STARTING_LUMBER_V1)
-    call SetPlayerState(p, PLAYER_STATE_RESOURCE_HERO_TOKENS, bj_MELEE_STARTING_HERO_TOKENS)
-    call RegisterCustomHeroLimitsForPlayer(p)
-
-    set udg_PlayerFaction[pid] = faction
-
-    if GetLocalPlayer() == p then
-        call SetCameraPosition(sx, sy)
-    endif
-
-    set startLoc = null
-    set oldUnits = null
-    set scanUnits = null
-    set nearestMine = null
-    set restoredMine = null
-    set newHall = null
-    set u = null
-endfunction
-
-function LaunchMeleeAIForPlayer takes integer pid returns nothing
-    local player p = Player(pid)
-    local integer faction = udg_PlayerFaction[pid]
-    if udg_AIStarted[pid] then
-        set p = null
-        return
-    endif
-    if GetPlayerSlotState(p) != PLAYER_SLOT_STATE_PLAYING or GetPlayerController(p) != MAP_CONTROL_COMPUTER then
-        set p = null
-        return
-    endif
-
-    set udg_AIStarted[pid] = true
-    call ShareEverythingWithTeamAI(p)
-
-    if faction == 5 then
-        call StartMeleeAI(p, "naga_melee.ai")
-    elseif faction == 6 then
-        call StartMeleeAI(p, "camphuman_melee.ai")
-    elseif faction == 1 then
-        call StartMeleeAI(p, "human.ai")
-    elseif faction == 2 then
-        call StartMeleeAI(p, "orc.ai")
-    elseif faction == 3 then
-        call StartMeleeAI(p, "undead.ai")
-    else
-        call StartMeleeAI(p, "elf.ai")
-    endif
-    set p = null
-endfunction
-
-function StartAllPendingComputerAIs takes nothing returns nothing
-    local integer i = 0
-    loop
-        exitwhen i >= 8
-        call LaunchMeleeAIForPlayer(i)
-        set i = i + 1
-    endloop
-endfunction
-
-function ApplyHostAIMode takes integer mode returns nothing
-    local integer i = 0
-    local integer aiIdx = 0
-    local integer targetFaction = 1
-    local player p = null
-
-    if udg_HostAIChose then
-        return
-    endif
-    set udg_HostAIChose = true
-
-    if mode != 4 then
-        loop
-            exitwhen i >= 8
-            set p = Player(i)
-            if GetPlayerSlotState(p) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(p) == MAP_CONTROL_COMPUTER and (not udg_PlayerLockedInLobby[i]) then
-                if mode == 2 then
-                    set targetFaction = 5
-                elseif mode == 3 then
-                    set targetFaction = 6
-                else
-                    if ModuloInteger(aiIdx, 4) == 0 then
-                        set targetFaction = 5
-                    elseif ModuloInteger(aiIdx, 4) == 1 then
-                        set targetFaction = 6
-                    elseif ModuloInteger(aiIdx, 4) == 2 then
-                        set targetFaction = GetVanillaFactionCode(p)
-                    else
-                        set targetFaction = GetRandomInt(5, 6)
-                    endif
-                    set aiIdx = aiIdx + 1
-                endif
-
-                if targetFaction != udg_PlayerFaction[i] then
-                    call SpawnFactionStartingUnits(p, targetFaction)
-                endif
-                call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 10.0, "|cff94a3b8[AI Slot " + I2S(i + 1) + "]|r -> " + GetFactionDisplayName(udg_PlayerFaction[i]))
-            endif
-            set i = i + 1
-        endloop
-    endif
-
-    call StartAllPendingComputerAIs()
-    set p = null
-endfunction
-
-function ShowHostAIDialogIfNeeded takes nothing returns nothing
-    if udg_HostPlayerId < 0 or (not udg_HasDefaultAI) or udg_HostAIChose then
-        call StartAllPendingComputerAIs()
-        return
-    endif
-
-    call DialogClear(udg_HostAIDialog)
-    call DialogSetMessage(udg_HostAIDialog, "Crown of WarMahdi — Select Computer AI Races:")
-    set udg_BtnAIMix       = DialogAddButton(udg_HostAIDialog, "|cff22d3ee6-Race Pro Mix|r (Add Naga & Campaign Human AI)", 49)
-    set udg_BtnAINaga      = DialogAddButton(udg_HostAIDialog, "All Unassigned AI -> |cff22d3eeNaga Empire|r", 50)
-    set udg_BtnAICampHuman = DialogAddButton(udg_HostAIDialog, "All Unassigned AI -> |cfffbbf24Campaign Human|r", 51)
-    set udg_BtnAIKeepLobby = DialogAddButton(udg_HostAIDialog, "Keep Lobby AI Races Only", 52)
-    call DialogDisplay(Player(udg_HostPlayerId), udg_HostAIDialog, true)
-endfunction
-
-function OnHostAIDialogClick takes nothing returns boolean
-    local button clicked = GetClickedButton()
-    call DialogDisplay(Player(udg_HostPlayerId), udg_HostAIDialog, false)
-    if clicked == udg_BtnAIMix then
-        call ApplyHostAIMode(1)
-    elseif clicked == udg_BtnAINaga then
-        call ApplyHostAIMode(2)
-    elseif clicked == udg_BtnAICampHuman then
-        call ApplyHostAIMode(3)
-    else
-        call ApplyHostAIMode(4)
-    endif
-    set clicked = null
-    return false
-endfunction
-
-function OnPlayerRaceDialogClick takes nothing returns boolean
-    local dialog d = GetClickedDialog()
-    local button b = GetClickedButton()
-    local integer pid = -1
-    local integer i = 0
-    local integer newFaction = 0
-    local player p = null
-
-    loop
-        exitwhen i >= 8
-        if d == udg_RaceDialog[i] then
-            set pid = i
-        endif
-        set i = i + 1
-    endloop
-
-    if pid < 0 then
-        set d = null
-        set b = null
-        return false
-    endif
-
-    set p = Player(pid)
-    call DialogDisplay(p, d, false)
-    set udg_PlayerChoseRace[pid] = true
-
-    if b == udg_BtnKeepLobby[pid] then
-        set newFaction = udg_PlayerFaction[pid]
-    elseif b == udg_BtnNaga[pid] then
-        set newFaction = 5
-    elseif b == udg_BtnCampHuman[pid] then
-        set newFaction = 6
-    elseif b == udg_BtnRandom6[pid] then
-        set newFaction = GetRandomInt(1, 6)
-    elseif b == udg_BtnHuman[pid] then
-        set newFaction = 1
-    elseif b == udg_BtnOrc[pid] then
-        set newFaction = 2
-    elseif b == udg_BtnUndead[pid] then
-        set newFaction = 3
-    elseif b == udg_BtnNightElf[pid] then
-        set newFaction = 4
-    endif
-
-    if newFaction >= 1 and newFaction != udg_PlayerFaction[pid] then
-        call SpawnFactionStartingUnits(p, newFaction)
-    endif
-
-    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 10.0, "|cffffd700" + GetPlayerName(p) + "|r plays as " + GetFactionDisplayName(udg_PlayerFaction[pid]) + "!")
-
-    if pid == udg_HostPlayerId then
-        call ShowHostAIDialogIfNeeded()
-    endif
-
-    set d = null
-    set b = null
-    set p = null
-    return false
-endfunction
-
-function OnOpenRaceDialogs takes nothing returns nothing
-    local integer i = 0
-    local player p = null
-    local string curName = ""
-
-    loop
-        exitwhen i >= 8
-        set p = Player(i)
-        if GetPlayerSlotState(p) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(p) == MAP_CONTROL_USER then
-            if udg_PlayerLockedInLobby[i] then
-                set udg_PlayerChoseRace[i] = true
-                call DisplayTimedTextToPlayer(p, 0.0, 0.0, 12.0, "|cff38bdf8[Crown of WarMahdi]|r Lobby faction locked: " + GetFactionDisplayName(udg_PlayerFaction[i]) + " (HP Handicap restored to 100%).")
-                if i == udg_HostPlayerId then
-                    call ShowHostAIDialogIfNeeded()
-                endif
-            else
-                set curName = GetFactionDisplayName(udg_PlayerFaction[i])
-                call DialogClear(udg_RaceDialog[i])
-                call DialogSetMessage(udg_RaceDialog[i], "Crown of WarMahdi — Choose Your Race (15s):")
-                set udg_BtnKeepLobby[i] = DialogAddButton(udg_RaceDialog[i], "Keep Lobby Race (" + curName + ")", 32)
-                set udg_BtnNaga[i]      = DialogAddButton(udg_RaceDialog[i], "|cff22d3eeNaga Empire|r  [N]", 78)
-                set udg_BtnCampHuman[i] = DialogAddButton(udg_RaceDialog[i], "|cfffbbf24Campaign Human (Silvermoon)|r  [C]", 67)
-                set udg_BtnRandom6[i]   = DialogAddButton(udg_RaceDialog[i], "Random (All 6 Balanced Races)  [R]", 82)
-                set udg_BtnHuman[i]     = DialogAddButton(udg_RaceDialog[i], "Standard Human", 72)
-                set udg_BtnOrc[i]       = DialogAddButton(udg_RaceDialog[i], "Orcish Horde", 79)
-                set udg_BtnUndead[i]    = DialogAddButton(udg_RaceDialog[i], "Undead Scourge", 85)
-                set udg_BtnNightElf[i]  = DialogAddButton(udg_RaceDialog[i], "Night Elf Sentinel", 69)
-                call DialogDisplay(p, udg_RaceDialog[i], true)
-            endif
-        endif
-        set i = i + 1
-    endloop
-
-    if udg_HostPlayerId < 0 then
-        call ApplyHostAIMode(1)
-    endif
-
-    set p = null
-endfunction
-
-function OnExpireRaceDialogs takes nothing returns nothing
-    local integer i = 0
-    local player p = null
-
-    set udg_SelectionPhaseOpen = false
-    loop
-        exitwhen i >= 8
-        set p = Player(i)
-        if GetPlayerSlotState(p) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(p) == MAP_CONTROL_USER then
-            if not udg_PlayerChoseRace[i] then
-                set udg_PlayerChoseRace[i] = true
-                call DialogDisplay(p, udg_RaceDialog[i], false)
-            endif
-        endif
-        set i = i + 1
-    endloop
-
-    if not udg_HostAIChose then
-        if udg_HostPlayerId >= 0 then
-            call DialogDisplay(Player(udg_HostPlayerId), udg_HostAIDialog, false)
-        endif
-        call ApplyHostAIMode(1)
-    endif
-
-    call StartAllPendingComputerAIs()
-    set p = null
-endfunction
-
-function OnHeroSummonedGrantTP takes nothing returns boolean
-    local unit u = GetTrainedUnit()
-    local player p = null
-    local integer ut = 0
-    if u == null then
-        return false
-    endif
-    set p = GetOwningPlayer(u)
-    set ut = GetUnitTypeId(u)
-    if ut == 'Hvsh' or ut == 'N001' or ut == 'N002' or ut == 'N003' or ut == 'Hkal' or ut == 'Hvwd' or ut == 'Hlgr' or ut == 'Huth' then
-        if not bj_meleeGrantHeroItems then
-            set u = null
-            set p = null
-            return false
-        endif
-        if GetPlayerState(p, PLAYER_STATE_RESOURCE_HERO_TOKENS) >= 0 then
-            if UnitInventoryCount(u) == 0 then
-                call UnitAddItemById(u, 'stwp')
-            endif
-        endif
-    endif
-    set u = null
-    set p = null
-    return false
-endfunction
-
-function OnPlayerChatRaceCmd takes nothing returns boolean
-    local player p = GetTriggerPlayer()
-    local integer pid = GetPlayerId(p)
-    local string msg = StringCase(GetEventPlayerChatString(), false)
-    local integer i = 0
-    local player slotP = null
-
-    if msg == "-races" then
-        call DisplayTimedTextToPlayer(p, 0.0, 0.0, 12.0, "|cffffd700=== (8) Crown of WarMahdi — Active Factions ===|r")
-        loop
-            exitwhen i >= 8
-            set slotP = Player(i)
-            if GetPlayerSlotState(slotP) == PLAYER_SLOT_STATE_PLAYING then
-                call DisplayTimedTextToPlayer(p, 0.0, 0.0, 12.0, "  Slot " + I2S(i + 1) + " (" + GetPlayerName(slotP) + "): " + GetFactionDisplayName(udg_PlayerFaction[i]))
-            endif
-            set i = i + 1
-        endloop
-        set p = null
-        set slotP = null
-        return false
-    endif
-
-    if not udg_SelectionPhaseOpen then
-        set p = null
-        return false
-    endif
-
-    if msg == "-naga" then
-        call DialogDisplay(p, udg_RaceDialog[pid], false)
-        set udg_PlayerChoseRace[pid] = true
-        call SpawnFactionStartingUnits(p, 5)
-        call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 10.0, "|cffffd700" + GetPlayerName(p) + "|r switched to " + GetFactionDisplayName(5) + "!")
-    elseif msg == "-camphuman" or msg == "-human2" or msg == "-silvermoon" then
-        call DialogDisplay(p, udg_RaceDialog[pid], false)
-        set udg_PlayerChoseRace[pid] = true
-        call SpawnFactionStartingUnits(p, 6)
-        call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 10.0, "|cffffd700" + GetPlayerName(p) + "|r switched to " + GetFactionDisplayName(6) + "!")
-    elseif msg == "-random6" then
-        call DialogDisplay(p, udg_RaceDialog[pid], false)
-        set udg_PlayerChoseRace[pid] = true
-        call SpawnFactionStartingUnits(p, GetRandomInt(1, 6))
-        call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 10.0, "|cffffd700" + GetPlayerName(p) + "|r rolled " + GetFactionDisplayName(udg_PlayerFaction[pid]) + "!")
-    endif
-
-    set p = null
-    return false
-endfunction
-
-function FindNearestVisibleEnemy takes player owner, real x, real y, real radius returns unit
-    local group g = CreateGroup()
-    local unit u = null
-    local unit best = null
-    local real bestDistSq = radius * radius
-    local real dx = 0.0
-    local real dy = 0.0
-    local real d2 = 0.0
-
-    call GroupEnumUnitsInRange(g, x, y, radius, null)
-    loop
-        set u = FirstOfGroup(g)
-        exitwhen u == null
-        call GroupRemoveUnit(g, u)
-        if IsUnitEnemy(u, owner) and GetWidgetLife(u) > 0.405 and (not IsUnitType(u, UNIT_TYPE_STRUCTURE)) and (not IsUnitInvisible(u, owner)) then
-            set dx = GetUnitX(u) - x
-            set dy = GetUnitY(u) - y
-            set d2 = dx * dx + dy * dy
-            if d2 < bestDistSq then
-                set bestDistSq = d2
-                set best = u
-            endif
-        endif
-    endloop
-    call DestroyGroup(g)
-    set g = null
-    set u = null
-    return best
-endfunction
-
-function OnAITacticalMicroTick takes nothing returns nothing
-    local integer i = 0
-    local player p = null
-    local group g = CreateGroup()
-    local unit u = null
-    local unit foe = null
-    local integer ut = 0
-
-    loop
-        exitwhen i >= 8
-        set p = Player(i)
-        if udg_AIStarted[i] and (udg_PlayerFaction[i] == 5 or udg_PlayerFaction[i] == 6) and GetPlayerSlotState(p) == PLAYER_SLOT_STATE_PLAYING then
-            call GroupClear(g)
-            call GroupEnumUnitsOfPlayer(g, p, null)
-            loop
-                set u = FirstOfGroup(g)
-                exitwhen u == null
-                call GroupRemoveUnit(g, u)
-                if GetWidgetLife(u) > 0.405 then
-                    set ut = GetUnitTypeId(u)
-                    // Naga Royal Guard Crushing Wave on enemy formations
-                    if ut == 'nnrg' and GetUnitState(u, UNIT_STATE_MANA) >= 90.0 then
-                        set foe = FindNearestVisibleEnemy(p, GetUnitX(u), GetUnitY(u), 650.0)
-                        if foe != null then
-                            call IssuePointOrder(u, "carrionswarm", GetUnitX(foe), GetUnitY(foe))
-                        endif
-                    // Master Naga Siren Cyclone on heavy enemy frontline units
-                    elseif ut == 'nnsw' and GetUnitState(u, UNIT_STATE_MANA) >= 125.0 and GetPlayerTechCount(p, 'Rnsw', true) >= 2 then
-                        set foe = FindNearestVisibleEnemy(p, GetUnitX(u), GetUnitY(u), 550.0)
-                        if foe != null and GetWidgetLife(foe) >= 550.0 and (not IsUnitType(foe, UNIT_TYPE_HERO)) then
-                            call IssueTargetOrder(u, "cyclone", foe)
-                        endif
-                    // Master Dalaran Hydromancer Polymorph on heavy enemy non-Hero units
-                    elseif ut == 'nhym' and GetUnitState(u, UNIT_STATE_MANA) >= 150.0 and GetPlayerTechCount(p, 'Rhst', true) >= 2 then
-                        set foe = FindNearestVisibleEnemy(p, GetUnitX(u), GetUnitY(u), 550.0)
-                        if foe != null and GetWidgetLife(foe) >= 600.0 and (not IsUnitType(foe, UNIT_TYPE_HERO)) then
-                            call IssueTargetOrder(u, "polymorph", foe)
-                        endif
-                    endif
-                endif
-            endloop
-        endif
-        set i = i + 1
-    endloop
-
-    call DestroyGroup(g)
-    set g = null
-    set p = null
-    set u = null
-    set foe = null
-endfunction
-
-function InitSixRaceAlteredMelee takes nothing returns nothing
-    local integer i = 0
-    local player p = null
-    local real hcap = 1.0
-    local integer initFaction = 1
-    local trigger raceTrig = CreateTrigger()
-    local trigger hostAITrig = CreateTrigger()
-
-    set udg_HostAIDialog = DialogCreate()
-    call TriggerRegisterDialogEvent(hostAITrig, udg_HostAIDialog)
-    call TriggerAddCondition(hostAITrig, Condition(function OnHostAIDialogClick))
-
-    set udg_ChatRaceTrig = CreateTrigger()
-    set udg_TownPortalTrig = CreateTrigger()
-
-    loop
-        exitwhen i >= 8
-        set p = Player(i)
-        set udg_RaceDialog[i] = DialogCreate()
-        call TriggerRegisterDialogEvent(raceTrig, udg_RaceDialog[i])
-        call TriggerRegisterPlayerChatEvent(udg_ChatRaceTrig, p, "-", false)
-        call TriggerRegisterPlayerUnitEvent(udg_TownPortalTrig, p, EVENT_PLAYER_UNIT_TRAIN_FINISH, null)
-
-        set udg_PlayerLockedInLobby[i] = false
-        set udg_PlayerChoseRace[i] = false
-        set udg_AIStarted[i] = false
-
-        if GetPlayerSlotState(p) == PLAYER_SLOT_STATE_PLAYING then
-            if GetPlayerController(p) == MAP_CONTROL_USER and udg_HostPlayerId < 0 then
-                set udg_HostPlayerId = i
-            endif
-
-            set hcap = GetPlayerHandicap(p)
-            if hcap >= 0.88 and hcap <= 0.92 then
-                set initFaction = 5
-                set udg_PlayerLockedInLobby[i] = true
-                call SetPlayerHandicap(p, 1.00)
-            elseif hcap >= 0.78 and hcap <= 0.82 then
-                set initFaction = 6
-                set udg_PlayerLockedInLobby[i] = true
-                call SetPlayerHandicap(p, 1.00)
-            elseif hcap >= 0.68 and hcap <= 0.72 then
-                set initFaction = GetRandomInt(1, 6)
-                set udg_PlayerLockedInLobby[i] = true
-                call SetPlayerHandicap(p, 1.00)
-            else
-                set initFaction = GetVanillaFactionCode(p)
-                if GetPlayerController(p) == MAP_CONTROL_COMPUTER then
-                    set udg_HasDefaultAI = true
-                endif
-            endif
-
-            call SpawnFactionStartingUnits(p, initFaction)
-        endif
-        set i = i + 1
-    endloop
-
-    call TriggerAddCondition(raceTrig, Condition(function OnPlayerRaceDialogClick))
-    call TriggerAddCondition(udg_ChatRaceTrig, Condition(function OnPlayerChatRaceCmd))
-    call TriggerAddCondition(udg_TownPortalTrig, Condition(function OnHeroSummonedGrantTP))
-
-    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 14.0, "|cffffd700(8) Crown of WarMahdi|r — |cff22d3ee6 Balanced Races|r (Human, Orc, Undead, Night Elf, |cff22d3eeNaga|r, |cfffbbf24Campaign Human|r) | Type |cff38bdf8-races|r anytime.")
-
-    set udg_DialogOpenTimer = CreateTimer()
-    call TimerStart(udg_DialogOpenTimer, 0.10, false, function OnOpenRaceDialogs)
-
-    set udg_DialogExpireTimer = CreateTimer()
-    call TimerStart(udg_DialogExpireTimer, 15.00, false, function OnExpireRaceDialogs)
-
-    set udg_AIMicroTimer = CreateTimer()
-    call TimerStart(udg_AIMicroTimer, 3.00, true, function OnAITacticalMicroTick)
-
-    set p = null
-    set raceTrig = null
-    set hostAITrig = null
-endfunction
-"""
-    return globals_jass, functions_jass
+    return generate_custom_gameplay_jass()
