@@ -1,43 +1,48 @@
-# `(8) Crown of WarMahdi` — 6-Race Warcraft III Altered Melee Map (`.w3x`)
+# `(8) Crown of WarMahdi` — v4 8-Empire Warcraft III Altered Melee (`.w3x`)
 
-A tournament-grade, 8-player D4-symmetric **6-Race Altered Melee** map (`192×192`, `4v4` / `2v2v2v2` / `FFA`) featuring **Naga Empire** and **Campaign Human (Silvermoon & Alliance Expedition)** alongside all 4 classic races, complete with **Pro-Level Custom Melee AI (`naga_melee.ai` & `camphuman_melee.ai`)**.
+A large **192×192, 8-player** Sunken-Astral Altered Melee map for Warcraft III TFT / Reforged, with 4 classic races plus four custom empires. v4 focuses on the issues from the latest playtest: hero kits no longer share the same four spells, custom races have their own worker/build/unit/building icons, Naga gains a balanced Illidan hero and a measured army buff, damage/armor infocards and the mouse cursor are reskinned, and a JASS worker-build fallback backs up the imported race AIs.
 
-## Direct Download
+## Download
 
-- **Playable `.w3x` Map (`258,792` bytes — Rebalanced v2):** [`maps/(8)CrownOfWarMahdi.w3x`](https://github.com/warmahdi651-stack/Warcraft/raw/arena/483b840a-warcraft/maps/%288%29CrownOfWarMahdi.w3x)
-- **High-Resolution Tactical Preview (`1024×1024`):** `maps/(8)CrownOfWarMahdi_Preview.png`
+- **Map:** [`(8) Crown of WarMahdi.w3x` (2,128,366 bytes)](https://github.com/warmahdi651-stack/Warcraft/raw/arena/483b840a-warcraft/maps/%288%29CrownOfWarMahdi.w3x)
+- **Tactical preview:** `maps/(8)CrownOfWarMahdi_Preview.png`
+- **Web preview:** run `python3 web/server.py` and open the Arena preview on port 8080.
 
-## 6 Balanced Playable Races & Authentic Building Roles (v2)
+Install the map in `Warcraft III/Maps/FrozenThrone/` for classic clients or `Documents/Warcraft III/Maps/Download/` for Reforged.
 
-1. **Naga Empire (`naga_melee.ai` — 9 Dedicated Structures)**
-   - **Town Halls (Workers Only):** Temple of Tides (`nntt`) ➔ Sanctuary of Tides (`n001`) ➔ Abyssal Citadel (`n002`) — trains `nmpe` Mur'gul Slave.
-   - **Coral Forge (`n004`):** Researches `+1/+2/+3` Coral/Chitinous/Razorspine Blades (`Rnat`) & Scales (`Rnam`).
-   - **Spawning Grounds (`nnsg` — Barracks):** `nnmg` Mur'gul Reaver (T1), `nsnp` Snap Dragon (T1.5 Ranged), `nmyr` Naga Myrmidon (T2 Heavy Melee); researches Ensnare & Submerge.
-   - **Shrine of Azshara (`nnsa` — Caster & Flyer Sanctum, T2):** `nnsw` Naga Siren & `nwgs` Couatl; researches Siren Training & Abolish Magic.
-   - **Abyssal Behemoth Pool (`n005` — Siege & T3 Elite Sanctum, T2):** `nhyc` Dragon Turtle (T2 Siege) & `nnrg` Naga Royal Guard (T3 Champion).
-   - **Altar, Shop & Defense:** Altar of the Depths (`Hvsh`, `N001`, `N002`, `N003`), Tidal Treasury (`Orb of the Abyss`), Coral Bed (`+9` Food), Tidal Guardian Tower.
-2. **Campaign Human — Silvermoon & Alliance Expedition (`camphuman_melee.ai` — 11 Dedicated Structures)**
-   - **Town Halls (Workers & Backpack):** Silvermoon Town Hall (`h001`) ➔ Sunwell Keep (`h002`) ➔ Silvermoon Citadel (`h003`) — trains `nhew` Silvermoon Worker.
-   - **Silvermoon Barracks (`h007` — Infantry & Archers):** `hhes` High Elven Swordsman (T1), `nhea` High Elven Archer (T1), `hcth` Alliance Captain (T3 Plate Officer); researches Defend & Veteran War Training.
-   - **High Elven Mage Tower (`nheb` — Spellcaster Sanctum, T2):** `nchp` Silvermoon Chaplain, `nhym` Dalaran Hydromancer, `hspt` Blood Elf Spell Breaker; researches Chaplain/Hydromancer Training & Control Magic.
-   - **Silvermoon Siege Workshop (`h008` — Siege & T3 Champion, T2):** `hgyr` Flying Machine, `h006` Silvermoon Ballista (T2 Siege), `nbel` Blood Elf Lieutenant (T3 Champion); researches Bombs.
-   - **Silvermoon Dragonhawk Aviary (`h009` — Aerial Units, T2):** `hdhw` Dragonhawk Rider (T2) & `hgry` Wildhammer Gryphon Rider (T3); researches Cloud & Storm Hammers.
-   - **Altar, Forge, Shop & Towers:** Altar of Silvermoon (`Hkal`, `Hvwd`, `Hlgr`, `Huth`), Blacksmith, Lumber Mill, High Elven Farm (`+6` Food), Sunwell Reliquary (`Orb of Fire`), Sunspire Scout ➔ Guard / Arcane Towers.
-3. **Classic 4 Ladder Races:** Human, Orc, Undead, Night Elf (100% unmodified ladder stats & AI).
+## v4 roster and systems
 
-## How to Select Naga & Campaign Human (Lobby + In-Game)
+### Eight playable empires
 
-- **Method 1 — Directly in the Pre-Game Lobby (`Handicap` dropdown on any Human or Computer AI row):**
-  - `90%` ➔ **Naga Empire** *(automatically restores HP back to `100%` at `0.00s`!)*
-  - `80%` ➔ **Campaign Human** *(automatically restores HP back to `100%` at `0.00s`!)*
-  - `70%` ➔ **Random (All 6 Balanced Races)** *(restores HP to `100%`!)*
-- **Method 2 — Instant In-Game Clickable Menu (`t = 0.10s`):**
-  - Pops up automatically for Human players left at `100%`, plus a 1-click **Computer AI Race Mode** menu (`6-Race Pro Mix`, `All AI Naga`, `All AI Campaign Human`, or `Keep Lobby AI`).
-- **Method 3 — Chat Commands:** `-naga`, `-camphuman`, `-random6` (first 15s) and `-races` (anytime).
+1. Human
+2. Orc
+3. Undead
+4. Night Elf
+5. **Abyssal Tideborn** — four Naga heroes: Lady Vashj, Illidan Stormrage, Naj'entus, and Athissa. The Naga frontline, ranged units, casters, flyers and siege unit received a measured stat pass.
+6. **Sunfury Imperium** — four Highborne/Silvermoon heroes and faction-specific halls, a forge, lumber conservatory, buildings and unit portraits.
+7. **Voidborn Legion** — four Void heroes, a race-themed worker and dimensional-rift building set.
+8. **Runeforged Bastion** — four Titan/clockwork heroes, a race-themed worker and mechanical building/unit icon set.
 
-## Build & 12-Stage Verification
+Each faction's structures have distinct build-card positions. The 8 player starts remain D4-symmetric and have clear mirrored build zones.
+
+### 16 heroes with 64 exclusive skills
+
+The 16 custom heroes each have their own Q/W/E/R names, effects, icons and 3D visual theme. The MPQ contains 64 individual `BTN_WM_S00..S63` icons and matching disabled icons, plus six original `WM_FX_*.mdx` effects and supporting textures. Hero abilities are serialized into `war3map.w3a` as 64 `ANcl` abilities and handled by the JASS spell engine.
+
+### UI, AI and map theme
+
+- A host-first AI difficulty dialog, followed by the custom-empires picker; `[A]` chooses randomly from all eight races.
+- Custom cursor atlases, RPG-style Damage/Armor/Strength/Agility/Intelligence infocards, action buttons, race build icons, and astral resource/tooltip textures.
+- Four imported melee AI scripts plus JASS tactical macro/micro. The JASS fallback can issue actual construction orders for the four custom empires, and AI heroes can use carried healing/mana items, pick up nearby items, retreat, learn their own skill kits and attack.
+- Sunken-Astral `Z` tiles, Ashenvale twilight lighting, Outland sky, the embedded lobby art, and the central Crown Shrine.
+
+## Verification and build
 
 ```bash
 python3 src/build_map.py
 python3 src/verify_map.py
 ```
+
+The current generated archive passed **15 automated static/binary verification stages**, including StormLib archive checks, TFT v25 structure checks, JASS2 static typechecks against 1.27b and Reforged 1.32.8 APIs plus a 1.24.4-era API compatibility proxy, AI-script typechecks, object/hero/rally-flag checks, 64-skill/icon checks, D4 symmetry, pathing, and ladder stat bounds.
+
+These checks are not a substitute for launching Warcraft III. Please run a short LAN/local-client smoke test on the intended 1.26a/1.27b and Reforged clients—especially AI construction, cursor rendering, and hero spell targeting—and share any game log or screenshot if something behaves differently in a client.

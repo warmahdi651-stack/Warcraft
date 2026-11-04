@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 Custom Playable Races, Object Modifications & Pro-Level Melee AI Generator
-for `(8) Crown of WarMahdi` (Warcraft III TFT 1.26a/1.27b & Reforged).
+for `(8) Crown of WarMahdi` v4 (Warcraft III TFT 1.26a/1.27b & Reforged).
 
-Implements two complete, strictly ladder-balanced Altered Melee factions alongside
-the 4 unmodified standard Warcraft III races:
-  5. Naga Empire (`RACE_NAGA = 5`)
-  6. Campaign Human — Silvermoon & Alliance Expedition (`RACE_CAMPHUMAN = 6`)
+Implements four ladder-bounded custom empires alongside the 4 classic Warcraft III races:
+  5. Abyssal Tideborn / Naga (`RACE_NAGA = 5`, now includes Illidan Stormrage)
+  6. Sunfury Imperium / Campaign Human (`RACE_CAMPHUMAN = 6`)
+  7. Voidborn Legion
+  8. Runeforged Bastion
 
-Key v2 Engineering & Balance Guarantees:
+Key v4 Engineering & Balance Guarantees:
   - Every unit, caster, siege engine, flying unit, hero, tower, and upgrade is
     placed in its authentic, dedicated production building with clean 4x3 button
     coordinates and Tier-1 / Tier-2 / Tier-3 tech gating (zero misplaced units!).
@@ -120,7 +121,7 @@ def build_unit_modifications() -> Tuple[
           * `nntt` -> `n001` -> `n002` (Town Hall T1/T2/T3): trains ONLY `nmpe` Slave.
           * `nnfm` Coral Bed: +9 Food (`90g/25L`, `500 HP`).
           * `n004` Coral Forge (Armory): researches `Rnat` Blades & `Rnam` Scales.
-          * `nnad` Altar of the Depths: summons `Hvsh`, `N001`, `N002`, `N003`.
+          * `nnad` Altar of the Depths: summons `Hvsh`, Illidan (`N004`), `N001`, and `N002`.
           * `n003` Tidal Treasury (Shop): sells scrolls, potions, TP, Orb of the Abyss.
           * `nntg` Tidal Guardian (Tower, req `n004`): `500 HP`, `24.1` Pierce DPS.
           * `nnsg` Spawning Grounds (Barracks): trains `nnmg` Mur'gul Reaver (T1),
@@ -167,6 +168,12 @@ def build_unit_modifications() -> Tuple[
         ("harm", NULL_ID, [("udep", VT_STR, "h008,v019,t019")]),
         ("hgra", NULL_ID, [("udep", VT_STR, "h009")]),
 
+        # Sunfury's campaign units use faction-owned race portraits, not stock Human icons.
+        ("hspt", NULL_ID, [("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunSpellbreaker.blp")]),
+        ("hgyr", NULL_ID, [("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunGyro.blp")]),
+        ("hdhw", NULL_ID, [("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunDragonhawk.blp")]),
+        ("hgry", NULL_ID, [("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunGryphon.blp")]),
+
         # ======================================================================
         # NAGA EMPIRE — ORIGINAL UNITS, BUILDINGS & HERO (`Hvsh`)
         # ======================================================================
@@ -192,6 +199,7 @@ def build_unit_modifications() -> Tuple[
             ("ua1d", VT_INT, 1),
             ("ua1s", VT_INT, 2),
             ("ua1c", VT_UNREAL, 2.0),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaWorker.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "S"),
@@ -213,6 +221,7 @@ def build_unit_modifications() -> Tuple[
             ("ures", VT_STR, ""),
             ("uupt", VT_STR, "n001"),
             ("uabi", VT_STR, "Abdl,Argl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaHall1.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "T"),
@@ -230,6 +239,7 @@ def build_unit_modifications() -> Tuple[
             ("uhpm", VT_INT, 500),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaFarm.blp"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "C"),
@@ -248,6 +258,7 @@ def build_unit_modifications() -> Tuple[
             ("udty", VT_STR, "fort"),
             ("utra", VT_STR, "nnmg,nsnp,nmyr"),
             ("ures", VT_STR, "Rnen,Rnsb"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaBarracks.blp"),
             ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "G"),
@@ -255,47 +266,49 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Primary Naga troop production structure. Trains Mur'gul Reavers, Snap Dragons, and Naga Myrmidons. Also researches Ensnare and Submerge."),
         ]),
 
-        # Altar: Altar of the Depths (`nnad`) — Summons 4 Naga Heroes
+        # Altar: Altar of the Depths (`nnad`) — Summons 4 Naga Heroes (Vashj, Illidan, Naj'entus, Athissa!)
         ("nnad", NULL_ID, [
             ("upap", VT_STR, "unbuildable"),
             ("ugol", VT_INT, 180),
             ("ulum", VT_INT, 50),
-            ("ubld", VT_INT, 60),
-            ("uhpm", VT_INT, 900),
+            ("ubld", VT_INT, 58),
+            ("uhpm", VT_INT, 950),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
-            ("utra", VT_STR, "Hvsh,N001,N002,N003"),
+            ("utra", VT_STR, "Hvsh,N004,N001,N002"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaAltar.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 1),
             ("uhot", VT_STR, "A"),
             ("utip", VT_STR, "Build |cffffcc00A|rltar of the Depths"),
-            ("utub", VT_STR, "Summons Naga Heroes (Lady Vashj, Abyssal Warlord, Azshara's Tideweaver, and Makrura Deepking) and revives fallen Heroes."),
+            ("utub", VT_STR, "Summons Naga Heroes (Empress Lady Vashj, Illidan Stormrage, Leviathan Warlord Naj'entus, and Nazjatar Tideweaver Athissa) and revives fallen Heroes."),
         ]),
 
-        # Defensive Tower: Tidal Guardian (`nntg`) — Requires Coral Forge (`n004`), Pierce 24.1 DPS
+        # Defensive Tower: Tidal Guardian (`nntg`) — Requires Spawning Grounds (`nnsg`), 29.0 Pierce DPS
         ("nntg", NULL_ID, [
             ("upap", VT_STR, "unbuildable"),
-            ("ureq", VT_STR, "n004"),
+            ("ureq", VT_STR, "nnsg"),
             ("ugol", VT_INT, 135),
             ("ulum", VT_INT, 80),
-            ("ubld", VT_INT, 50),
-            ("uhpm", VT_INT, 500),
+            ("ubld", VT_INT, 45),
+            ("uhpm", VT_INT, 600),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
             ("uaen", VT_INT, 1),
             ("ua1t", VT_STR, "pierce"),
-            ("ua1b", VT_INT, 22),
+            ("ua1b", VT_INT, 25),
             ("ua1d", VT_INT, 1),
-            ("ua1s", VT_INT, 8),
-            ("ua1c", VT_UNREAL, 1.10),
-            ("ua1r", VT_INT, 700),
+            ("ua1s", VT_INT, 7),
+            ("ua1c", VT_UNREAL, 1.00),
+            ("ua1r", VT_INT, 750),
             ("ua1g", VT_STR, "ground,structure,debris,air,item,ward"),
             ("uabi", VT_STR, "Abds,Adts"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaTower.blp"),
             ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 1),
             ("uhot", VT_STR, "U"),
             ("utip", VT_STR, "Build Tidal G|cffffcc00u|rardian"),
-            ("utub", VT_STR, "Defensive coral spire that hurls lightning bolts at ground and air attackers. Has Magic Sentry to reveal invisible enemies."),
+            ("utub", VT_STR, "Defensive coral spire that hurls abyssal lightning bolts at ground and air attackers. Has Magic Sentry to reveal invisible enemies."),
         ]),
 
         # Caster & Flyer Sanctum: Shrine of Azshara (`nnsa`) — Requires Tier 2 (`n001`)
@@ -304,12 +317,13 @@ def build_unit_modifications() -> Tuple[
             ("ureq", VT_STR, "n001"),
             ("ugol", VT_INT, 150),
             ("ulum", VT_INT, 140),
-            ("ubld", VT_INT, 60),
-            ("uhpm", VT_INT, 950),
+            ("ubld", VT_INT, 58),
+            ("uhpm", VT_INT, 1050),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
             ("utra", VT_STR, "nnsw,nwgs"),
             ("ures", VT_STR, "Rnsw,Rnsi"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaSanctum.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 2),
             ("uhot", VT_STR, "S"),
@@ -317,239 +331,239 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Spellcaster and flying creature sanctum. Trains Naga Sirens and Couatls, and researches Naga Siren Training and Abolish Magic."),
         ]),
 
-        # Tier 1 Light Melee: Mur'gul Reaver (`nnmg`) — Trained at Spawning Grounds (`nnsg`) (0,0)
-        # 2 Food, 125g, 20s, 410 HP, 1 Large armor, 11+1d5=14.0 Normal / 1.45s = 9.7 DPS
+        # Tier 1 Light Melee: Mur'gul Reaver (`nnmg`) — Buffed v4 Amphibious Vanguard!
+        # 2 Food, 120g, 19s, 455 HP, +0.65 HP/s tidal regen, 2 Large armor, 12+1d5=15.0 Normal / 1.42s = 10.6 DPS
         ("nnmg", NULL_ID, [
-            ("ugol", VT_INT, 125),
+            ("ugol", VT_INT, 120),
             ("ulum", VT_INT, 0),
             ("ufoo", VT_INT, 2),
-            ("ubld", VT_INT, 20),
-            ("uhpm", VT_INT, 410),
-            ("uhpr", VT_UNREAL, 0.50),
+            ("ubld", VT_INT, 19),
+            ("uhpm", VT_INT, 455),
+            ("uhpr", VT_UNREAL, 0.65),
             ("uhrt", VT_STR, "always"),
-            ("udef", VT_INT, 1),
+            ("udef", VT_INT, 2),
             ("udty", VT_STR, "large"),
-            ("umvs", VT_INT, 270),
+            ("umvs", VT_INT, 285),
             ("uaen", VT_INT, 1),
             ("ua1t", VT_STR, "normal"),
-            ("ua1b", VT_INT, 11),
+            ("ua1b", VT_INT, 12),
             ("ua1d", VT_INT, 1),
             ("ua1s", VT_INT, 5),
-            ("ua1c", VT_UNREAL, 1.45),
+            ("ua1c", VT_UNREAL, 1.42),
             ("upgr", VT_STR, "Rnat,Rnam"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaReaver.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "R"),
             ("utip", VT_STR, "Train Mur'gul |cffffcc00R|reaver"),
-            ("utub", VT_STR, "Agile amphibious Tier-1 shock infantry. Can traverse deep water and engage land forces."),
+            ("utub", VT_STR, "Swift amphibious Tier-1 vanguard with rapid tidal regeneration. Can traverse deep water and engage land forces."),
         ]),
 
-        # Tier 1.5 Ranged Piercing: Snap Dragon (`nsnp`) — Trained at Spawning Grounds (`nnsg`) (1,0)
-        # Requires Coral Forge (`n004`) — matches Crypt Fiend / Rifleman timing & EHP/DPS!
-        # 3 Food, 205g/35L, 28s, 520 HP, 0 Medium armor, 19+1d7=23.0 Pierce / 2.0s = 11.5 DPS + Slow Poison
+        # Tier 1 Ranged Piercing: Snap Dragon (`nsnp`) — Buffed v4: Available at Tier 1 (`ureq=""`)!
+        # 3 Food, 195g/30L, 25s, 540 HP, 1 Medium armor, 19+1d7=23.0 Pierce / 1.75s = 13.1 DPS + Slow Poison
         ("nsnp", NULL_ID, [
-            ("ureq", VT_STR, "n004"),
-            ("ugol", VT_INT, 205),
-            ("ulum", VT_INT, 35),
+            ("ureq", VT_STR, ""),
+            ("ugol", VT_INT, 195),
+            ("ulum", VT_INT, 30),
             ("ufoo", VT_INT, 3),
-            ("ubld", VT_INT, 28),
-            ("uhpm", VT_INT, 520),
+            ("ubld", VT_INT, 25),
+            ("uhpm", VT_INT, 540),
             ("uhpr", VT_UNREAL, 0.50),
             ("uhrt", VT_STR, "always"),
-            ("udef", VT_INT, 0),
+            ("udef", VT_INT, 1),
             ("udty", VT_STR, "medium"),
-            ("umvs", VT_INT, 280),
+            ("umvs", VT_INT, 290),
             ("uaen", VT_INT, 1),
             ("ua1t", VT_STR, "pierce"),
             ("ua1b", VT_INT, 19),
             ("ua1d", VT_INT, 1),
             ("ua1s", VT_INT, 7),
-            ("ua1c", VT_UNREAL, 2.00),
-            ("ua1r", VT_INT, 500),
+            ("ua1c", VT_UNREAL, 1.75),
+            ("ua1r", VT_INT, 550),
             ("ua1g", VT_STR, "ground,structure,debris,air,item,ward"),
             ("uabi", VT_STR, "Aspo,Asb3"),
             ("upgr", VT_STR, "Rnat,Rnam,Rnsb"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaSnap.blp"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "D"),
             ("utip", VT_STR, "Train Snap |cffffcc00D|rragon"),
-            ("utub", VT_STR, "Venomous ranged reptile armed with Slow Poison spines. Can learn Submerge. Attacks land and air units."),
+            ("utub", VT_STR, "Venomous ranged reptile armed with Slow Poison spines that slow enemy attack and movement speed. Attacks land and air units."),
         ]),
 
-        # Tier 2 Heavy Melee: Naga Myrmidon (`nmyr`) — Trained at Spawning Grounds (`nnsg`) (2,0)
-        # Requires Sanctuary of Tides (`n001`) — matches Druid of the Claw / Knight / Abomination tier!
-        # 4 Food, 235g/50L, 36s, 860 HP, 3 Large armor, 26+1d7=30.0 Normal / 1.75s = 17.1 DPS
+        # Tier 2 Heavy Melee: Naga Myrmidon (`nmyr`) — Buffed v4 Heavy Bruiser!
+        # 4 Food, 235g/50L, 33s, 920 HP, 4 Large armor, 28+1d7=32.0 Normal / 1.60s = 20.0 DPS + Ensnare & Submerge
         ("nmyr", NULL_ID, [
             ("ureq", VT_STR, "n001"),
             ("ugol", VT_INT, 235),
             ("ulum", VT_INT, 50),
             ("ufoo", VT_INT, 4),
-            ("ubld", VT_INT, 36),
-            ("uhpm", VT_INT, 860),
-            ("uhpr", VT_UNREAL, 0.50),
+            ("ubld", VT_INT, 33),
+            ("uhpm", VT_INT, 920),
+            ("uhpr", VT_UNREAL, 0.65),
             ("uhrt", VT_STR, "always"),
-            ("udef", VT_INT, 3),
+            ("udef", VT_INT, 4),
             ("udty", VT_STR, "large"),
-            ("umvs", VT_INT, 270),
+            ("umvs", VT_INT, 285),
             ("uaen", VT_INT, 1),
             ("ua1t", VT_STR, "normal"),
-            ("ua1b", VT_INT, 26),
+            ("ua1b", VT_INT, 28),
             ("ua1d", VT_INT, 1),
             ("ua1s", VT_INT, 7),
-            ("ua1c", VT_UNREAL, 1.75),
+            ("ua1c", VT_UNREAL, 1.60),
             ("uabi", VT_STR, "ANen,Asb1"),
             ("upgr", VT_STR, "Rnat,Rnam,Rnen,Rnsb"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaMyrmidon.blp"),
             ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "M"),
             ("utip", VT_STR, "Train Naga |cffffcc00M|ryrmidon"),
-            ("utub", VT_STR, "Heavy Tier-2 amphibious warrior. Can learn Ensnare to pull down air units and Submerge to regenerate underwater. Attacks land units."),
+            ("utub", VT_STR, "Armored Tier-2 amphibious juggernaut. Wields Ensnare to pull down air units and Submerge to regenerate rapidly."),
         ]),
 
-        # Tier 2 Spellcaster: Naga Siren (`nnsw`) — Trained at Shrine of Azshara (`nnsa`) (0,0)
-        # Normalized from 400 campaign MP -> 200 base MP (75 initial), 310 HP, 2 Food, 140g/25L
+        # Tier 2 Spellcaster: Naga Siren (`nnsw`) — Buffed v4: 365 HP, 300 MP (150 start), Parasite + Frost Armor + Cyclone
         ("nnsw", NULL_ID, [
             ("ureq", VT_STR, "n001"),
             ("ugol", VT_INT, 140),
-            ("ulum", VT_INT, 25),
+            ("ulum", VT_INT, 30),
             ("ufoo", VT_INT, 2),
-            ("ubld", VT_INT, 28),
-            ("uhpm", VT_INT, 310),
-            ("uhpr", VT_UNREAL, 0.35),
+            ("ubld", VT_INT, 26),
+            ("uhpm", VT_INT, 365),
+            ("uhpr", VT_UNREAL, 0.50),
             ("uhrt", VT_STR, "always"),
-            ("umpm", VT_INT, 200),
-            ("umpi", VT_INT, 75),
-            ("umpr", VT_UNREAL, 0.67),
-            ("udef", VT_INT, 0),
+            ("umpm", VT_INT, 300),
+            ("umpi", VT_INT, 150),
+            ("umpr", VT_UNREAL, 1.05),
+            ("udef", VT_INT, 1),
             ("udty", VT_STR, "none"),
-            ("umvs", VT_INT, 270),
+            ("umvs", VT_INT, 280),
             ("uaen", VT_INT, 1),
             ("ua1t", VT_STR, "magic"),
-            ("ua1b", VT_INT, 8),
+            ("ua1b", VT_INT, 11),
             ("ua1d", VT_INT, 1),
-            ("ua1s", VT_INT, 4),
-            ("ua1c", VT_UNREAL, 1.75),
+            ("ua1s", VT_INT, 5),
+            ("ua1c", VT_UNREAL, 1.60),
             ("ua1r", VT_INT, 600),
             ("ua1g", VT_STR, "ground,structure,debris,air,item,ward"),
             ("uabi", VT_STR, "ANpa,ACfu,Acny"),
-            ("udaa", VT_STR, "ANpa"),
+            ("udaa", VT_STR, "ACfu"),
             ("upgr", VT_STR, "Rnsw"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaSiren.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "S"),
             ("utip", VT_STR, "Train Naga |cffffcc00S|riren"),
-            ("utub", VT_STR, "Mystic Naga spellcaster. Initially casts Parasite; can learn Frost Armor (Adept) and Cyclone (Master). Attacks land and air units."),
+            ("utub", VT_STR, "Mystic Naga spellcaster armed with Frost Armor, Parasite, and Cyclone (Master). Attacks land and air units."),
         ]),
 
-        # Tier 2 Flying Anti-Caster: Couatl (`nwgs`) — Trained at Shrine of Azshara (`nnsa`) (1,0)
-        # FIXED campaign 29.0 DPS -> 9.4 Magic DPS (matches Faerie Dragon / Destroyer per food!)
-        # 2 Food, 150g/35L, 28s, 430 HP, 1 Small (Light) armor, 200 MP, Abolish Magic (`Andm`)
+        # Tier 2 Flying Anti-Caster: Couatl (`nwgs`) — Buffed v4: 460 HP, 2 Light armor, 11.5 Magic DPS + Abolish Magic
         ("nwgs", NULL_ID, [
             ("ureq", VT_STR, "n001"),
-            ("ugol", VT_INT, 150),
+            ("ugol", VT_INT, 155),
             ("ulum", VT_INT, 35),
             ("ufoo", VT_INT, 2),
-            ("ubld", VT_INT, 28),
-            ("uhpm", VT_INT, 430),
-            ("uhpr", VT_UNREAL, 0.35),
+            ("ubld", VT_INT, 26),
+            ("uhpm", VT_INT, 460),
+            ("uhpr", VT_UNREAL, 0.50),
             ("uhrt", VT_STR, "always"),
-            ("umpm", VT_INT, 200),
-            ("umpi", VT_INT, 75),
-            ("umpr", VT_UNREAL, 0.67),
-            ("udef", VT_INT, 1),
+            ("umpm", VT_INT, 250),
+            ("umpi", VT_INT, 125),
+            ("umpr", VT_UNREAL, 0.80),
+            ("udef", VT_INT, 2),
             ("udty", VT_STR, "small"),
-            ("umvs", VT_INT, 320),
+            ("umvs", VT_INT, 330),
             ("uaen", VT_INT, 1),
             ("ua1t", VT_STR, "magic"),
-            ("ua1b", VT_INT, 14),
+            ("ua1b", VT_INT, 16),
             ("ua1d", VT_INT, 1),
             ("ua1s", VT_INT, 5),
-            ("ua1c", VT_UNREAL, 1.80),
-            ("ua1r", VT_INT, 450),
+            ("ua1c", VT_UNREAL, 1.65),
+            ("ua1r", VT_INT, 500),
             ("ua1g", VT_STR, "ground,structure,debris,air,item,ward"),
             ("uabi", VT_STR, "Andm"),
             ("udaa", VT_STR, "Andm"),
             ("upgr", VT_STR, "Rnat,Rnam,Rnsi"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaCouatl.blp"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "C"),
             ("utip", VT_STR, "Train |cffffcc00C|rouatl"),
-            ("utub", VT_STR, "Swift flying sky-serpent. Deals Magic damage to ground and air targets and can learn Abolish Magic to dispel buffs and damage summons."),
+            ("utub", VT_STR, "Swift sky-serpent dealing potent Magic damage to ground and air targets, with Abolish Magic to dispel buffs and shred summons."),
         ]),
 
-        # Tier 2 Siege Beast: Dragon Turtle (`nhyc`) — Trained at Abyssal Behemoth Pool (`n005`) (0,0)
-        # FIXED campaign Chaos + 1150 HP + Devour -> 650 HP, Pierce vs units + 18.6 Siege DPS vs buildings!
+        # Tier 2 Siege Beast: Dragon Turtle (`nhyc`) — Buffed v4: 840 HP, 3 Large armor, 23.6 Siege DPS + Spiked Shell & Hardened Skin
         ("nhyc", NULL_ID, [
             ("ureq", VT_STR, "n001,n004"),
             ("ugol", VT_INT, 230),
             ("ulum", VT_INT, 65),
             ("ufoo", VT_INT, 4),
-            ("ubld", VT_INT, 38),
-            ("uhpm", VT_INT, 650),
-            ("uhpr", VT_UNREAL, 0.50),
+            ("ubld", VT_INT, 36),
+            ("uhpm", VT_INT, 840),
+            ("uhpr", VT_UNREAL, 0.65),
             ("uhrt", VT_STR, "always"),
-            ("udef", VT_INT, 2),
+            ("udef", VT_INT, 3),
             ("udty", VT_STR, "large"),
-            ("umvs", VT_INT, 230),
+            ("umvs", VT_INT, 240),
             ("uaen", VT_INT, 3),
             ("ua1t", VT_STR, "pierce"),
-            ("ua1b", VT_INT, 16),
+            ("ua1b", VT_INT, 21),
             ("ua1d", VT_INT, 1),
-            ("ua1s", VT_INT, 6),
-            ("ua1c", VT_UNREAL, 1.80),
-            ("ua1r", VT_INT, 450),
+            ("ua1s", VT_INT, 7),
+            ("ua1c", VT_UNREAL, 1.65),
+            ("ua1r", VT_INT, 480),
             ("ua1g", VT_STR, "ground,debris,item,ward"),
             ("ua2t", VT_STR, "siege"),
-            ("ua2b", VT_INT, 47),
+            ("ua2b", VT_INT, 53),
             ("ua2d", VT_INT, 1),
-            ("ua2s", VT_INT, 9),
-            ("ua2c", VT_UNREAL, 2.80),
-            ("ua2r", VT_INT, 550),
+            ("ua2s", VT_INT, 11),
+            ("ua2c", VT_UNREAL, 2.50),
+            ("ua2r", VT_INT, 600),
             ("ua2g", VT_STR, "structure,tree,wall"),
             ("uabi", VT_STR, "ANth,Ansk"),
             ("upgr", VT_STR, "Rnat,Rnam"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaTurtle.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "T"),
             ("utip", VT_STR, "Train Dragon |cffffcc00T|rurtle"),
-            ("utub", VT_STR, "Armored amphibious siege beast protected by Hardened Skin and Thorny Shield. Bombards enemy structures from range."),
+            ("utub", VT_STR, "Colossal armored siege leviathan protected by Hardened Skin and Thorny Shield. Bombards enemy fortifications from range."),
         ]),
 
-        # Tier 3 Elite Champion: Naga Royal Guard (`nnrg`) — Trained at Abyssal Behemoth Pool (`n005`) (1,0)
-        # FIXED campaign Chaos + 1350 HP + 500 MP + Stun + Summon -> 5 Food, 300g/90L, 1100 HP,
-        # 4 Large armor, 20.6 Normal DPS (exact Tauren / Mountain Giant / Frost Wyrm Tier-3 budget!)
+        # Tier 3 Elite Champion: Naga Royal Guard (`nnrg`) — Buffed v4 Apex Champion!
+        # 5 Food, 300g/90L, 1150 HP, 4 Large armor, 21.2 Normal DPS + Crushing Wave, Frost Bolt, Cleave, Resistant Skin & Submerge!
         ("nnrg", NULL_ID, [
             ("ureq", VT_STR, "n002"),
             ("ugol", VT_INT, 300),
             ("ulum", VT_INT, 90),
             ("ufoo", VT_INT, 5),
-            ("ubld", VT_INT, 44),
-            ("uhpm", VT_INT, 1100),
-            ("uhpr", VT_UNREAL, 0.50),
+            ("ubld", VT_INT, 42),
+            ("uhpm", VT_INT, 1150),
+            ("uhpr", VT_UNREAL, 0.65),
             ("uhrt", VT_STR, "always"),
-            ("umpm", VT_INT, 250),
-            ("umpi", VT_INT, 100),
-            ("umpr", VT_UNREAL, 0.75),
+            ("umpm", VT_INT, 300),
+            ("umpi", VT_INT, 175),
+            ("umpr", VT_UNREAL, 1.00),
             ("udef", VT_INT, 4),
             ("udty", VT_STR, "large"),
-            ("umvs", VT_INT, 280),
-            ("usca", VT_REAL, 1.05),
+            ("umvs", VT_INT, 285),
+            ("usca", VT_REAL, 1.06),
             ("uaen", VT_INT, 1),
             ("ua1t", VT_STR, "normal"),
             ("ua1b", VT_INT, 31),
             ("ua1d", VT_INT, 1),
             ("ua1s", VT_INT, 9),
-            ("ua1c", VT_UNREAL, 1.75),
-            ("uabi", VT_STR, "ACcv,ACsk,Asb2"),
+            ("ua1c", VT_UNREAL, 1.70),
+            ("uabi", VT_STR, "ACcv,ACcb,ACce,ACsk,Asb2"),
             ("upgr", VT_STR, "Rnat,Rnam,Rnsb"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaRoyalGuard.blp"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "G"),
             ("utip", VT_STR, "Train Naga Royal |cffffcc00G|ruard"),
-            ("utub", VT_STR, "Supreme Tier-3 Naga champion. Has Resistant Skin, Submerge, and Crushing Wave to devastate enemy formations."),
+            ("utub", VT_STR, "Supreme Tier-3 Naga sovereign warrior armed with Crushing Wave, Frost Bolt, Cleaving Attack, Resistant Skin, and Submerge."),
         ]),
 
-        # Naga Hero 1: Lady Vashj (`Hvsh`, INT) — Exact melee Hero cost/supply/tier gating
+        # Naga Hero 1: Empress Lady Vashj (`Hvsh`, INT) — Exclusive Kit `A000..A003`!
         ("Hvsh", NULL_ID, [
             ("urac", VT_STR, "naga"),
             ("ugol", VT_INT, 425),
@@ -557,23 +571,24 @@ def build_unit_modifications() -> Tuple[
             ("ufoo", VT_INT, 5),
             ("ubld", VT_INT, 55),
             ("uhpm", VT_INT, 100),
-            ("ustr", VT_INT, 16),
-            ("uagi", VT_INT, 19),
-            ("uint", VT_INT, 21),
-            ("ustp", VT_UNREAL, 1.80),
-            ("uagp", VT_UNREAL, 1.50),
-            ("uinp", VT_UNREAL, 2.70),
-            ("umvs", VT_INT, 290),
+            ("ustr", VT_INT, 17),
+            ("uagi", VT_INT, 18),
+            ("uint", VT_INT, 20),
+            ("ustp", VT_UNREAL, 1.90),
+            ("uagp", VT_UNREAL, 1.60),
+            ("uinp", VT_UNREAL, 2.90),
+            ("umvs", VT_INT, 295),
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "n001"),
             ("urq2", VT_STR, "n002"),
             ("uhab", VT_STR, "A000,A001,A002,A003"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaHeroVashj.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "V"),
             ("utip", VT_STR, "Summon Empress |cffffcc00V|rashj"),
             ("utpr", VT_STR, "Revive Empress |cffffcc00V|rashj"),
-            ("utub", VT_STR, "Abyssal Tideborn Intelligence Hero. Commands Maelstrom Vortex, Riptide Prism Lance, Abyssal Carapace Pulse, and Cataclysmic Tsunami."),
+            ("utub", VT_STR, "Abyssal Tideborn Intelligence Sovereign. Exclusive kit: Maelstrom Vortex (Q), Forked Tempest Arc (W), Mana-Tide Aegis (E), and Cataclysmic Tsunami (R)."),
         ]),
 
         # ======================================================================
@@ -588,7 +603,7 @@ def build_unit_modifications() -> Tuple[
         ("nhew", NULL_ID, [
             ("unam", VT_STR, "Silvermoon Worker"),
             ("urac", VT_STR, "human"),
-            ("ubui", VT_STR, "h001,nefm,h007,hlum,hbla,h004,h005,negt,nheb,h008,h009"),
+            ("ubui", VT_STR, "h001,nefm,h007,h011,h010,h004,h005,negt,nheb,h008,h009"),
             ("uabi", VT_STR, "Ahar,Ahrp,Aneu,Aihn"),
             ("upgr", VT_STR, "Rhpm"),
             ("ugol", VT_INT, 75),
@@ -607,6 +622,7 @@ def build_unit_modifications() -> Tuple[
             ("ua1d", VT_INT, 1),
             ("ua1s", VT_INT, 2),
             ("ua1c", VT_UNREAL, 2.00),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunWorker.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "W"),
@@ -626,11 +642,12 @@ def build_unit_modifications() -> Tuple[
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
             ("upgr", VT_STR, "Rhac"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunFarm.blp"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "F"),
             ("utip", VT_STR, "Build High Elven |cffffcc00F|rarm"),
-            ("utub", VT_STR, "Provides 6 food, increasing the maximum number of Expedition units that can be trained."),
+            ("utub", VT_STR, "Provides 6 food, increasing the maximum number of Sunfury Imperium units that can be trained."),
         ]),
 
         # Tier-2 Caster Sanctum: High Elven Mage Tower (`nheb`, `MageTower.mdl`!)
@@ -650,8 +667,9 @@ def build_unit_modifications() -> Tuple[
             ("utra", VT_STR, "nchp,nhym,hspt"),
             ("ures", VT_STR, "Rhst,Rhpt,Rhss"),
             ("upgr", VT_STR, "Rhac"),
-            ("ubpx", VT_INT, 2),
-            ("ubpy", VT_INT, 1),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunMageTower.blp"),
+            ("ubpx", VT_INT, 0),
+            ("ubpy", VT_INT, 2),
             ("uhot", VT_STR, "T"),
             ("utip", VT_STR, "Build High Elven Mage |cffffcc00T|rower"),
             ("utub", VT_STR, "Silvermoon spellcaster sanctum. Trains Silvermoon Chaplains, Dalaran Hydromancers, and Blood Elf Spell Breakers. Also researches Hydromancer Training, Chaplain Training, and Control Magic."),
@@ -671,8 +689,9 @@ def build_unit_modifications() -> Tuple[
             ("uupt", VT_STR, "negf,negm"),
             ("uabi", VT_STR, "Abds,Adts"),
             ("upgr", VT_STR, "Rhac"),
-            ("ubpx", VT_INT, 0),
-            ("ubpy", VT_INT, 2),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunTower.blp"),
+            ("ubpx", VT_INT, 3),
+            ("ubpy", VT_INT, 1),
             ("uhot", VT_STR, "O"),
             ("utip", VT_STR, "Build Sunspire Sc|cffffcc00o|rut Tower"),
             ("utub", VT_STR, "Observation spire with Magic Sentry. Has no attack, but can be upgraded into a Sunspire Guard Tower or a Sunspire Arcane Tower."),
@@ -683,7 +702,7 @@ def build_unit_modifications() -> Tuple[
             ("unam", VT_STR, "Sunspire Guard Tower"),
             ("urac", VT_STR, "human"),
             ("ureq", VT_STR, "hlum"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNGuardTower.blp"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunGuardTower.blp"),
             ("ugol", VT_INT, 70),
             ("ulum", VT_INT, 50),
             ("ubld", VT_INT, 50),
@@ -712,7 +731,7 @@ def build_unit_modifications() -> Tuple[
             ("unam", VT_STR, "Sunspire Arcane Tower"),
             ("urac", VT_STR, "human"),
             ("ureq", VT_STR, "h005"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNHumanArcaneTower.blp"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunArcaneTower.blp"),
             ("ugol", VT_INT, 70),
             ("ulum", VT_INT, 50),
             ("ubld", VT_INT, 50),
@@ -741,7 +760,7 @@ def build_unit_modifications() -> Tuple[
         ("hhes", NULL_ID, [
             ("unam", VT_STR, "High Elven Swordsman"),
             ("urac", VT_STR, "human"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNFootman.blp"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunSwordsman.blp"),
             ("ugol", VT_INT, 135),
             ("ulum", VT_INT, 0),
             ("ufoo", VT_INT, 2),
@@ -793,6 +812,7 @@ def build_unit_modifications() -> Tuple[
             ("ua1g", VT_STR, "ground,structure,debris,air,item,ward"),
             ("uabi", VT_STR, "Aihn"),
             ("upgr", VT_STR, "Rhra,Rhla,Rhpm"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunArcher.blp"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "A"),
@@ -826,6 +846,7 @@ def build_unit_modifications() -> Tuple[
             ("ua1c", VT_UNREAL, 1.45),
             ("uabi", VT_STR, "Adef,Aihn"),
             ("upgr", VT_STR, "Rhme,Rhar,Rhde,Rhan,Rhpm"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunCaptain.blp"),
             ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "C"),
@@ -839,7 +860,7 @@ def build_unit_modifications() -> Tuple[
             ("unam", VT_STR, "Silvermoon Chaplain"),
             ("urac", VT_STR, "human"),
             ("ureq", VT_STR, "h002"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNPriest.blp"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunChaplain.blp"),
             ("ugol", VT_INT, 135),
             ("ulum", VT_INT, 10),
             ("ufoo", VT_INT, 2),
@@ -877,7 +898,7 @@ def build_unit_modifications() -> Tuple[
             ("unam", VT_STR, "Dalaran Hydromancer"),
             ("urac", VT_STR, "human"),
             ("ureq", VT_STR, "h002"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNSorceress.blp"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunHydromancer.blp"),
             ("ugol", VT_INT, 155),
             ("ulum", VT_INT, 20),
             ("ufoo", VT_INT, 2),
@@ -935,6 +956,7 @@ def build_unit_modifications() -> Tuple[
             ("ua1r", VT_INT, 180),
             ("uabi", VT_STR, "ACsk,Afbk,Adts,Aihn"),
             ("upgr", VT_STR, "Rhme,Rhar,Rhpm"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunLieutenant.blp"),
             ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "L"),
@@ -942,7 +964,7 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Elite Tier-3 runeblade officer with Resistant Skin, Arcane Feedback (burns enemy mana on hit), and Magic Sentry. Attacks land units."),
         ]),
 
-        # ---- Sunfury Imperium 4 Summonable Heroes (`Hkal`, `Hvwd`, `Hlgr`, `Huth`) — ZERO `urev`! ----
+        # ---- Sunfury Imperium 4 Summonable Heroes (`Hkal`, `Hvwd`, `Hlgr`, `Huth`) — Exclusive Kits `A016..A031` & ZERO `urev`! ----
         ("Hkal", NULL_ID, [
             ("unam", VT_STR, "Sovereign Kael'thas"),
             ("ugol", VT_INT, 425),
@@ -951,21 +973,22 @@ def build_unit_modifications() -> Tuple[
             ("ubld", VT_INT, 55),
             ("uhpm", VT_INT, 100),
             ("ustr", VT_INT, 18),
-            ("uagi", VT_INT, 14),
-            ("uint", VT_INT, 21),
+            ("uagi", VT_INT, 15),
+            ("uint", VT_INT, 22),
             ("ustp", VT_UNREAL, 2.00),
-            ("uagp", VT_UNREAL, 1.20),
-            ("uinp", VT_UNREAL, 3.00),
+            ("uagp", VT_UNREAL, 1.30),
+            ("uinp", VT_UNREAL, 3.05),
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "h002"),
             ("urq2", VT_STR, "h003"),
-            ("uhab", VT_STR, "A004,A005,A006,A007"),
+            ("uhab", VT_STR, "A016,A017,A018,A019"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunHeroKael.blp"),
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "K"),
             ("utip", VT_STR, "Summon Sovereign |cffffcc00K|rael'thas"),
             ("utpr", VT_STR, "Revive Sovereign |cffffcc00K|rael'thas"),
-            ("utub", VT_STR, "Solar Archmage of the Sunfury Imperium. Wields Solar Flare Sigil, Phoenix Wing Dash, Sunblade Judgment, and Supernova Crown."),
+            ("utub", VT_STR, "Solar Archmage of the Sunfury Imperium. Exclusive kit: Flamestrike Pyre (Q), Verdant Gravity Lapse (W), Arcane Mana Siphon (E), and Al'ar Phoenix Rebirth (R)."),
         ]),
 
         ("Hvwd", NULL_ID, [
@@ -978,22 +1001,23 @@ def build_unit_modifications() -> Tuple[
             ("uhpm", VT_INT, 100),
             ("ustr", VT_INT, 17),
             ("uagi", VT_INT, 22),
-            ("uint", VT_INT, 17),
+            ("uint", VT_INT, 16),
             ("ustp", VT_UNREAL, 1.85),
-            ("uagp", VT_UNREAL, 2.55),
+            ("uagp", VT_UNREAL, 2.65),
             ("uinp", VT_UNREAL, 1.95),
             ("umvs", VT_INT, 310),
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "h002"),
             ("urq2", VT_STR, "h003"),
-            ("uhab", VT_STR, "A004,A005,A006,A007"),
+            ("uhab", VT_STR, "A020,A021,A022,A023"),
             ("uabi", VT_STR, "AInv"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunHeroSylvanas.blp"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "S"),
             ("utip", VT_STR, "Summon |cffffcc00S|runstrider Sylvanas"),
             ("utpr", VT_STR, "Revive |cffffcc00S|runstrider Sylvanas"),
-            ("utub", VT_STR, "Ranger-General of the Sunfury Imperium. Swift Agility Hero commanding Solar Flare Sigil, Phoenix Wing Dash, Sunblade Judgment, and Supernova Crown."),
+            ("utub", VT_STR, "Ranger-General of Quel'Thalas. Exclusive kit: Sunhawk Volley (Q), Windrunner's Gale Vault (W), Heartseeker Mark (E), and Eclipse Starfall Arrow (R)."),
         ]),
 
         ("Hlgr", NULL_ID, [
@@ -1004,22 +1028,23 @@ def build_unit_modifications() -> Tuple[
             ("ubld", VT_INT, 55),
             ("uhpm", VT_INT, 100),
             ("ustr", VT_INT, 24),
-            ("uagi", VT_INT, 13),
-            ("uint", VT_INT, 16),
-            ("ustp", VT_UNREAL, 2.85),
+            ("uagi", VT_INT, 14),
+            ("uint", VT_INT, 17),
+            ("ustp", VT_UNREAL, 2.90),
             ("uagp", VT_UNREAL, 1.35),
             ("uinp", VT_UNREAL, 1.80),
             ("umvs", VT_INT, 295),
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "h002"),
             ("urq2", VT_STR, "h003"),
-            ("uhab", VT_STR, "A004,A005,A006,A007"),
+            ("uhab", VT_STR, "A024,A025,A026,A027"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunHeroGarithos.blp"),
             ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "G"),
             ("utip", VT_STR, "Summon Grand Marshal |cffffcc00G|rarithos"),
             ("utpr", VT_STR, "Revive Grand Marshal |cffffcc00G|rarithos"),
-            ("utub", VT_STR, "Armored cavalry commander of the Sunfury Imperium. Commands Solar Flare Sigil, Phoenix Wing Dash, Sunblade Judgment, and Supernova Crown."),
+            ("utub", VT_STR, "Armored War-Marshal of the Sunfury Expedition. Exclusive kit: Cavalry Shock Charge (Q), Marshal's Execution Axe (W), Iron Phalanx Decree (E), and Grand Crusade Stampede (R)."),
         ]),
 
         ("Huth", NULL_ID, [
@@ -1031,57 +1056,105 @@ def build_unit_modifications() -> Tuple[
             ("uhpm", VT_INT, 100),
             ("ustr", VT_INT, 23),
             ("uagi", VT_INT, 13),
-            ("uint", VT_INT, 18),
+            ("uint", VT_INT, 19),
             ("ustp", VT_UNREAL, 2.75),
             ("uagp", VT_UNREAL, 1.50),
-            ("uinp", VT_UNREAL, 1.90),
+            ("uinp", VT_UNREAL, 1.95),
             ("umvs", VT_INT, 290),
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "h002"),
             ("urq2", VT_STR, "h003"),
-            ("uhab", VT_STR, "A004,A005,A006,A007"),
+            ("uhab", VT_STR, "A028,A029,A030,A031"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunHeroUther.blp"),
             ("ubpx", VT_INT, 3),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "U"),
             ("utip", VT_STR, "Summon Highlord |cffffcc00U|rther"),
             ("utpr", VT_STR, "Revive Highlord |cffffcc00U|rther"),
-            ("utub", VT_STR, "Radiant Sun-Paladin of the Imperium. Commands Solar Flare Sigil, Phoenix Wing Dash, Sunblade Judgment, and Supernova Crown."),
+            ("utub", VT_STR, "Radiant Sun-Paladin of the Imperium. Exclusive kit: Sunwell Consecration (Q), Hammer of Dawnlight (W), Golden Bastion Blessing (E), and Lightbringer's Miracle (R)."),
         ]),
     ]
 
     # ==========================================================================
-    # CUSTOM UNITS, HEROES & BUILDINGS (`N001..N003`, `n001..n005`, `h001..h009`,
+    # CUSTOM UNITS, HEROES & BUILDINGS (`N004`, `N001..N002`, `n001..n005`, `h001..h009`,
     # PLUS `v001..v019`, `V001..V004`, `t001..t019`, `T001..T004`)
     # ==========================================================================
     custom: List[Tuple[str, str, List[ModEntry]]] = [
-        # ---- NAGA CUSTOM HEROES (`N001..N003`) — ZERO `urev`! ----
+        # ---- NAGA CUSTOM HEROES (`N004` ILLIDAN + `N001..N002`) — ZERO `urev`! ----
+        # N004: Illidan Stormrage, Betrayer of Tides (Balanced AGI Hero on `nnad` Slot (1,0)!)
+        ("Eevi", "N004", [
+            ("unam", VT_STR, "Betrayer of Tides"),
+            ("upro", VT_STR, "Illidan Stormrage"),
+            ("upru", VT_INT, 1),
+            ("uhot", VT_STR, "I"),
+            ("urac", VT_STR, "naga"),
+            ("upra", VT_STR, "AGI"),
+            ("ustr", VT_INT, 19),
+            ("uagi", VT_INT, 21),
+            ("uint", VT_INT, 15),
+            ("ustp", VT_UNREAL, 2.10),
+            ("uagp", VT_UNREAL, 2.65),
+            ("uinp", VT_UNREAL, 1.75),
+            ("umdl", VT_STR, r"units\nightelf\EvilIllidan\IllidanEvil.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_HeroIllidan.blp"),
+            ("usnd", VT_STR, "EvilIllidan"),
+            ("usca", VT_REAL, 1.08),
+            ("umvt", VT_STR, "amph"),
+            ("umvs", VT_INT, 310),
+            ("uhpm", VT_INT, 100),
+            ("uhpr", VT_UNREAL, 0.35),
+            ("uhrt", VT_STR, "always"),
+            ("umpm", VT_INT, 100),
+            ("umpi", VT_INT, 100),
+            ("umpr", VT_UNREAL, 0.05),
+            ("udef", VT_INT, 2),
+            ("ua1b", VT_INT, 2),
+            ("ua1d", VT_INT, 2),
+            ("ua1s", VT_INT, 6),
+            ("ua1c", VT_UNREAL, 1.65),
+            ("ufoo", VT_INT, 5),
+            ("ugol", VT_INT, 425),
+            ("ulum", VT_INT, 100),
+            ("ubld", VT_INT, 55),
+            ("urqc", VT_INT, 3),
+            ("urq1", VT_STR, "n001"),
+            ("urq2", VT_STR, "n002"),
+            ("uhab", VT_STR, "A004,A005,A006,A007"),
+            ("uabi", VT_STR, "AInv"),
+            ("ubpx", VT_INT, 1),
+            ("ubpy", VT_INT, 0),
+            ("utip", VT_STR, "Summon |cffffcc00I|rllidan Stormrage"),
+            ("utpr", VT_STR, "Revive |cffffcc00I|rllidan Stormrage"),
+            ("utub", VT_STR, "Agile Warglaive Lord of the Abyssal Tideborn. Exclusive kit: Azzinoth Glaive Barrage (Q), Shadowstep of the Betrayer (W), Demon-Scale Immolation (E), and Metamorphosis: Abyssal Overlord (R)."),
+        ]),
+
         ("Otch", "N001", [
             ("unam", VT_STR, "Leviathan Warlord"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaHeroNaj.blp"),
             ("upro", VT_STR, "Naj'entus,Zar'jira,Vash'kor,Skar'this"),
             ("upru", VT_INT, 4),
             ("uhot", VT_STR, "W"),
             ("urac", VT_STR, "naga"),
             ("upra", VT_STR, "STR"),
-            ("ustr", VT_INT, 24),
+            ("ustr", VT_INT, 25),
             ("uagi", VT_INT, 14),
             ("uint", VT_INT, 16),
-            ("ustp", VT_UNREAL, 2.90),
+            ("ustp", VT_UNREAL, 2.95),
             ("uagp", VT_UNREAL, 1.50),
-            ("uinp", VT_UNREAL, 1.70),
+            ("uinp", VT_UNREAL, 1.75),
             ("umdl", VT_STR, r"units\naga\NagaRoyalGuard\NagaRoyalGuard.mdl"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNNagaMyrmidonRoyalGuard.blp"),
             ("usnd", VT_STR, "NagaRoyalGuard"),
             ("usca", VT_REAL, 1.15),
             ("umvt", VT_STR, "amph"),
             ("umvs", VT_INT, 290),
             ("uhpm", VT_INT, 100),
-            ("uhpr", VT_UNREAL, 0.25),
+            ("uhpr", VT_UNREAL, 0.35),
             ("uhrt", VT_STR, "always"),
             ("udef", VT_INT, 2),
             ("ua1b", VT_INT, 0),
             ("ua1d", VT_INT, 2),
             ("ua1s", VT_INT, 5),
-            ("ua1c", VT_UNREAL, 1.90),
+            ("ua1c", VT_UNREAL, 1.85),
             ("ufoo", VT_INT, 5),
             ("ugol", VT_INT, 425),
             ("ulum", VT_INT, 100),
@@ -1089,36 +1162,36 @@ def build_unit_modifications() -> Tuple[
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "n001"),
             ("urq2", VT_STR, "n002"),
-            ("uhab", VT_STR, "A000,A001,A002,A003"),
+            ("uhab", VT_STR, "A008,A009,A010,A011"),
             ("uabi", VT_STR, "AInv"),
-            ("ubpx", VT_INT, 1),
+            ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 0),
             ("utip", VT_STR, "Summon Leviathan |cffffcc00W|rarlord"),
             ("utpr", VT_STR, "Revive Leviathan |cffffcc00W|rarlord"),
-            ("utub", VT_STR, "Colossal Abyssal Tideborn Strength commander. Masters Maelstrom Vortex, Riptide Prism Lance, Abyssal Carapace Pulse, and Cataclysmic Tsunami."),
+            ("utub", VT_STR, "Colossal Abyssal Tideborn Strength commander. Exclusive kit: Crushing Trench Wave (Q), Impaling Spine Skewer (W), Tidal Bulwark Roar (E), and Wrath of Naj'entus (R)."),
         ]),
 
         ("Hamg", "N002", [
             ("unam", VT_STR, "Nazjatar Tideweaver"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaHeroAthissa.blp"),
             ("upro", VT_STR, "Athissa,Sira'kess,Zin'azshari,Thal'issa"),
             ("upru", VT_INT, 4),
             ("uhot", VT_STR, "T"),
             ("urac", VT_STR, "naga"),
             ("upra", VT_STR, "INT"),
-            ("ustr", VT_INT, 15),
+            ("ustr", VT_INT, 16),
             ("uagi", VT_INT, 16),
             ("uint", VT_INT, 23),
             ("ustp", VT_UNREAL, 1.80),
-            ("uagp", VT_UNREAL, 1.40),
-            ("uinp", VT_UNREAL, 3.05),
+            ("uagp", VT_UNREAL, 1.45),
+            ("uinp", VT_UNREAL, 3.10),
             ("umdl", VT_STR, r"Units\Naga\NagaSummoner\NagaSummoner.mdl"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNNagaSummoner.blp"),
             ("usnd", VT_STR, "NagaSiren"),
             ("usca", VT_REAL, 1.15),
             ("umvt", VT_STR, "amph"),
             ("umvs", VT_INT, 290),
             ("uhpm", VT_INT, 100),
-            ("uhpr", VT_UNREAL, 0.25),
+            ("uhpr", VT_UNREAL, 0.30),
             ("uhrt", VT_STR, "always"),
             ("ufoo", VT_INT, 5),
             ("ugol", VT_INT, 425),
@@ -1127,67 +1200,33 @@ def build_unit_modifications() -> Tuple[
             ("urqc", VT_INT, 3),
             ("urq1", VT_STR, "n001"),
             ("urq2", VT_STR, "n002"),
-            ("uhab", VT_STR, "A000,A001,A002,A003"),
-            ("uabi", VT_STR, "AInv"),
-            ("ubpx", VT_INT, 2),
-            ("ubpy", VT_INT, 0),
-            ("utip", VT_STR, "Summon Nazjatar |cffffcc00T|rideweaver"),
-            ("utpr", VT_STR, "Revive Nazjatar |cffffcc00T|rideweaver"),
-            ("utub", VT_STR, "Highborne Arch-Siren of Nazjatar. Amplifies Maelstrom Vortex, Riptide Prism Lance, Abyssal Carapace Pulse, and Cataclysmic Tsunami."),
-        ]),
-
-        ("Ucrl", "N003", [
-            ("unam", VT_STR, "Makrura Deepking"),
-            ("upro", VT_STR, "Gish'kar,Krakenor,Mol'gora,Scyllon"),
-            ("upru", VT_INT, 4),
-            ("uhot", VT_STR, "D"),
-            ("urac", VT_STR, "naga"),
-            ("upra", VT_STR, "STR"),
-            ("ustr", VT_INT, 25),
-            ("uagi", VT_INT, 13),
-            ("uint", VT_INT, 16),
-            ("ustp", VT_UNREAL, 3.10),
-            ("uagp", VT_UNREAL, 1.30),
-            ("uinp", VT_UNREAL, 1.80),
-            ("umdl", VT_STR, r"units\creeps\Lobstrokkred\Lobstrokkred.mdl"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNLobstrokkRed.blp"),
-            ("usnd", VT_STR, "Lobstrokk"),
-            ("usca", VT_REAL, 1.25),
-            ("umvt", VT_STR, "amph"),
-            ("umvs", VT_INT, 290),
-            ("uhpm", VT_INT, 100),
-            ("uhpr", VT_UNREAL, 0.25),
-            ("uhrt", VT_STR, "always"),
-            ("ufoo", VT_INT, 5),
-            ("ugol", VT_INT, 425),
-            ("ulum", VT_INT, 100),
-            ("ubld", VT_INT, 55),
-            ("urqc", VT_INT, 3),
-            ("urq1", VT_STR, "n001"),
-            ("urq2", VT_STR, "n002"),
-            ("uhab", VT_STR, "A000,A001,A002,A003"),
+            ("uhab", VT_STR, "A012,A013,A014,A015"),
             ("uabi", VT_STR, "AInv"),
             ("ubpx", VT_INT, 3),
             ("ubpy", VT_INT, 0),
-            ("utip", VT_STR, "Summon Makrura |cffffcc00D|reepking"),
-            ("utpr", VT_STR, "Revive Makrura |cffffcc00D|reepking"),
-            ("utub", VT_STR, "Armored crustacean monarch of the Abyssal Trench. Excels at frontline durability with Abyssal Carapace Pulse, Maelstrom Vortex, Prism Lance, and Tsunami."),
+            ("utip", VT_STR, "Summon Nazjatar |cffffcc00T|rideweaver"),
+            ("utpr", VT_STR, "Revive Nazjatar |cffffcc00T|rideweaver"),
+            ("utub", VT_STR, "Highborne Arch-Siren of Nazjatar. Exclusive kit: Bioluminescent Geyser (Q), Pearl-frost Prison (W), Siren's Vital Chorus (E), and Summon Abyssal Kraken (R)."),
         ]),
 
-        # ---- NAGA CUSTOM STRUCTURES (`n001..n005`) ----
+
+        # ---- NAGA CUSTOM STRUCTURES (`n001..n005`) — Authentic Naga Icons & `utyp`! ----
         # n001: Sanctuary of Tides (Tier 2 Naga Town Hall — trains ONLY `nmpe`!)
         ("nntt", "n001", [
             ("unam", VT_STR, "Sanctuary of Tides"),
+            ("urac", VT_STR, "naga"),
+            ("utyp", VT_STR, "TownHall,Mechanical"),
             ("upap", VT_STR, "unbuildable"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaHall2.blp"),
             ("usca", VT_REAL, 1.15),
-            ("uclr", VT_INT, 185),
-            ("uclg", VT_INT, 235),
+            ("uclr", VT_INT, 175),
+            ("uclg", VT_INT, 240),
             ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 320),
             ("ulum", VT_INT, 190),
-            ("ubld", VT_INT, 120),
+            ("ubld", VT_INT, 115),
             ("ufma", VT_INT, 11),
-            ("uhpm", VT_INT, 1950),
+            ("uhpm", VT_INT, 2000),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
             ("utra", VT_STR, "nmpe"),
@@ -1204,17 +1243,20 @@ def build_unit_modifications() -> Tuple[
         # n002: Abyssal Citadel (Tier 3 Naga Town Hall — trains ONLY `nmpe`!)
         ("nntt", "n002", [
             ("unam", VT_STR, "Abyssal Citadel"),
+            ("urac", VT_STR, "naga"),
+            ("utyp", VT_STR, "TownHall,Mechanical"),
             ("upap", VT_STR, "unbuildable"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaHall3.blp"),
             ("usca", VT_REAL, 1.28),
-            ("uclr", VT_INT, 145),
-            ("uclg", VT_INT, 210),
+            ("uclr", VT_INT, 130),
+            ("uclg", VT_INT, 220),
             ("uclb", VT_INT, 255),
             ("ureq", VT_STR, "nnad"),
             ("ugol", VT_INT, 360),
             ("ulum", VT_INT, 210),
-            ("ubld", VT_INT, 120),
+            ("ubld", VT_INT, 115),
             ("ufma", VT_INT, 11),
-            ("uhpm", VT_INT, 2350),
+            ("uhpm", VT_INT, 2450),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
             ("utra", VT_STR, "nmpe"),
@@ -1228,22 +1270,23 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Upgrade to Abyssal Citadel (Tier 3) to unlock Naga Royal Guards, Master Sirens, Orb of the Abyss, a 3rd Naga Hero, and Tier-3 Razorspine upgrades."),
         ]),
 
-        # n003: Tidal Treasury (Naga Racial Item Shop)
+        # n003: Tidal Treasury (Naga Racial Item Shop — Custom Naga Icon & `utyp="mechanical"`!)
         ("hvlt", "n003", [
             ("unam", VT_STR, "Tidal Treasury"),
             ("urac", VT_STR, "naga"),
+            ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("ureq", VT_STR, "nnad"),
             ("umdl", VT_STR, r"buildings\other\MagicVault\MagicVault.mdl"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNArcaneVault.blp"),
-            ("usca", VT_REAL, 0.90),
-            ("uclr", VT_INT, 130),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaVault.blp"),
+            ("usca", VT_REAL, 0.92),
+            ("uclr", VT_INT, 115),
             ("uclg", VT_INT, 235),
             ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 130),
             ("ulum", VT_INT, 30),
-            ("ubld", VT_INT, 55),
-            ("uhpm", VT_INT, 550),
+            ("ubld", VT_INT, 52),
+            ("uhpm", VT_INT, 600),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
             ("uabi", VT_STR, "Abds,Aall,Apit"),
@@ -1255,23 +1298,23 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Creates an abyssal shop stocked with Scroll of Regeneration, Lesser Clarity, Scroll of Tidal Surge, Potions, Town Portal, Staff of Sanctuary, and Orb of the Abyss."),
         ]),
 
-        # n004: Coral Forge (Dedicated Naga Armory/Blacksmith — `FountainOfPower.mdl`!)
-        # Houses `Rnat` (Coral/Chitinous/Razorspine Blades) & `Rnam` (Scales), and unlocks Snap Dragons & Tidal Guardians!
+        # n004: Coral Forge (Dedicated Naga Armory — Custom Naga Icon & `utyp="mechanical"`!)
         ("hbla", "n004", [
             ("unam", VT_STR, "Coral Forge"),
             ("urac", VT_STR, "naga"),
+            ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("ureq", VT_STR, "nntt"),
             ("umdl", VT_STR, r"buildings\other\FountainOfPower\FountainOfPower.mdl"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNNagaWeaponUp1.blp"),
-            ("usca", VT_REAL, 0.85),
-            ("uclr", VT_INT, 150),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaForge.blp"),
+            ("usca", VT_REAL, 0.88),
+            ("uclr", VT_INT, 130),
             ("uclg", VT_INT, 235),
             ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 140),
             ("ulum", VT_INT, 60),
-            ("ubld", VT_INT, 55),
-            ("uhpm", VT_INT, 1100),
+            ("ubld", VT_INT, 52),
+            ("uhpm", VT_INT, 1150),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
             ("uabi", VT_STR, "Abds,Arlm"),
@@ -1282,26 +1325,26 @@ def build_unit_modifications() -> Tuple[
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "F"),
             ("utip", VT_STR, "Build Coral |cffffcc00F|rorge"),
-            ("utub", VT_STR, "Abyssal armory where Coral, Chitinous, and Razorspine Blades and Scales are forged. Also required for Snap Dragons and Tidal Guardians."),
+            ("utub", VT_STR, "Abyssal coral armory where Coral, Chitinous, and Razorspine Blades and Scales are forged. Unlocks Dragon Turtles."),
         ]),
 
-        # n005: Abyssal Behemoth Pool (Dedicated Naga Siege & T3 Elite Sanctum — `DragonBuildingBlue.mdl`!)
-        # Houses `nhyc` Dragon Turtle (T2 Siege) and `nnrg` Naga Royal Guard (T3 Elite)!
+        # n005: Abyssal Behemoth Pool (Dedicated Naga Siege & T3 Elite Sanctum — Custom Naga Icon!)
         ("nnsg", "n005", [
             ("unam", VT_STR, "Abyssal Behemoth Pool"),
             ("urac", VT_STR, "naga"),
+            ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("ureq", VT_STR, "n001,n004"),
             ("umdl", VT_STR, r"buildings\other\DragonBuildingBlue\DragonBuildingBlue.mdl"),
-            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTNDragonRoost.blp"),
-            ("usca", VT_REAL, 0.90),
-            ("uclr", VT_INT, 155),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_NagaPool.blp"),
+            ("usca", VT_REAL, 0.92),
+            ("uclr", VT_INT, 145),
             ("uclg", VT_INT, 225),
             ("uclb", VT_INT, 255),
-            ("ugol", VT_INT, 160),
-            ("ulum", VT_INT, 150),
-            ("ubld", VT_INT, 65),
-            ("uhpm", VT_INT, 1150),
+            ("ugol", VT_INT, 155),
+            ("ulum", VT_INT, 140),
+            ("ubld", VT_INT, 60),
+            ("uhpm", VT_INT, 1200),
             ("udef", VT_INT, 5),
             ("udty", VT_STR, "fort"),
             ("utra", VT_STR, "nhyc,nnrg"),
@@ -1313,14 +1356,47 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Deep-sea spawning sanctum for heavy war beasts and royal champions. Trains Dragon Turtles (Tier 2 Siege) and Naga Royal Guards (Tier 3 Elite)."),
         ]),
 
-        # ---- CAMPAIGN HUMAN CUSTOM STRUCTURES & UNITS (`h001..h009`) ----
-        # NOTE: `h001..h003` explicitly strip `Amic` (Call to Arms) so Silvermoon Workers
-        # never exhibit Militia bell issues while preserving 100% Town Hall drop-off & Backpack!
+        # ---- SUNFURY IMPERIUM CUSTOM STRUCTURES & UNITS (`h001..h011`) ----
+        # Authentic Quel'Thalas / Sunspire Models + Custom Solar-Gold `BTN_WM_Sun*` Icons!
+        ("hbla", "h010", [
+            ("unam", VT_STR, "Sunfury Forge of the Sunwell"),
+            ("urac", VT_STR, "human"),
+            ("umdl", VT_STR, r"buildings\other\FountainOfPower\FountainOfPower.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunForge.blp"),
+            ("usca", VT_REAL, 0.92),
+            ("uclr", VT_INT, 255), ("uclg", VT_INT, 210), ("uclb", VT_INT, 145),
+            ("ugol", VT_INT, 140), ("ulum", VT_INT, 60), ("ubld", VT_INT, 55),
+            ("uhpm", VT_INT, 1100), ("udef", VT_INT, 5), ("udty", VT_STR, "fort"),
+            ("ureq", VT_STR, "h001"), ("uabi", VT_STR, "Abds,Arlm"),
+            ("ures", VT_STR, "Rhme,Rhra,Rhar,Rhla"),
+            ("ubpx", VT_INT, 0), ("ubpy", VT_INT, 1), ("uhot", VT_STR, "F"),
+            ("utip", VT_STR, "Build Sunfury |cffffcc00F|rorge"),
+            ("utub", VT_STR, "Sunfury armory and lumber drop-off. Forges melee, ranged, and armor upgrades for the Imperium's troops."),
+        ]),
+
+        ("hlum", "h011", [
+            ("unam", VT_STR, "Sunspire Lumber Conservatory"),
+            ("urac", VT_STR, "human"),
+            ("umdl", VT_STR, r"buildings\other\ElvenVillageBuilding0\ElvenVillageBuilding0.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunLumberMill.blp"),
+            ("usca", VT_REAL, 0.98),
+            ("uclr", VT_INT, 255), ("uclg", VT_INT, 225), ("uclb", VT_INT, 165),
+            ("ugol", VT_INT, 120), ("ulum", VT_INT, 60), ("ubld", VT_INT, 60),
+            ("uhpm", VT_INT, 900), ("udef", VT_INT, 5), ("udty", VT_STR, "fort"),
+            ("uabi", VT_STR, "Arlm"), ("ures", VT_STR, "Rhac,Rhlh"),
+            ("ubpx", VT_INT, 3), ("ubpy", VT_INT, 0), ("uhot", VT_STR, "L"),
+            ("utip", VT_STR, "Build Sunspire |cffffcc00L|rumber Conservatory"),
+            ("utub", VT_STR, "Quel'Thalas timber guild and lumber drop-off. Supports Arcane Conservatory construction and advanced masonry."),
+        ]),
+
         ("htow", "h001", [
-            ("unam", VT_STR, "Silvermoon Town Hall"),
+            ("unam", VT_STR, "Silvermoon Sanctum"),
+            ("umdl", VT_STR, r"buildings\other\ArcaneObservatory\ArcaneObservatory.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunHall1.blp"),
+            ("usca", VT_REAL, 0.92),
             ("uclr", VT_INT, 255),
-            ("uclg", VT_INT, 240),
-            ("uclb", VT_INT, 200),
+            ("uclg", VT_INT, 235),
+            ("uclb", VT_INT, 185),
             ("uabi", VT_STR, "Abdl,Argl"),
             ("utra", VT_STR, "nhew"),
             ("ures", VT_STR, "Rhpm"),
@@ -1328,15 +1404,18 @@ def build_unit_modifications() -> Tuple[
             ("ubpx", VT_INT, 0),
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "H"),
-            ("utip", VT_STR, "Build Silvermoon Town |cffffcc00H|rall"),
-            ("utub", VT_STR, "Primary Campaign Human center. Trains Silvermoon Workers, researches Backpack, and receives gathered Gold and Lumber. Upgrades to Sunwell Keep."),
+            ("utip", VT_STR, "Build Silvermoon |cffffcc00H|rall"),
+            ("utub", VT_STR, "Primary Sunfury Imperium spire. Trains Silvermoon Workers, researches Backpack, and receives gathered Gold and Lumber. Upgrades to Sunwell Keep."),
         ]),
 
         ("hkee", "h002", [
             ("unam", VT_STR, "Sunwell Keep"),
+            ("umdl", VT_STR, r"buildings\other\ArcaneObservatory\ArcaneObservatory.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunHall2.blp"),
+            ("usca", VT_REAL, 1.06),
             ("uclr", VT_INT, 255),
-            ("uclg", VT_INT, 235),
-            ("uclb", VT_INT, 190),
+            ("uclg", VT_INT, 220),
+            ("uclb", VT_INT, 145),
             ("uabi", VT_STR, "Abdl,Argl"),
             ("utra", VT_STR, "nhew"),
             ("ures", VT_STR, "Rhpm"),
@@ -1345,14 +1424,17 @@ def build_unit_modifications() -> Tuple[
             ("ubpy", VT_INT, 2),
             ("uhot", VT_STR, "U"),
             ("utip", VT_STR, "|cffffcc00U|rpgrade to Sunwell Keep"),
-            ("utub", VT_STR, "Upgrade to Sunwell Keep (Tier 2) to unlock the High Elven Mage Tower, Siege Workshop, Dragonhawk Aviary, a 2nd Expedition Hero, and Tier-2 upgrades."),
+            ("utub", VT_STR, "Upgrade to Sunwell Keep (Tier 2) to unlock the High Elven Mage Tower, Sunfury Artificer Hall, Dragonhawk Sky-Roost, a 2nd Sunfury Hero, and Tier-2 upgrades."),
         ]),
 
         ("hcas", "h003", [
             ("unam", VT_STR, "Silvermoon Citadel"),
+            ("umdl", VT_STR, r"buildings\other\ArcaneObservatory\ArcaneObservatory.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunHall3.blp"),
+            ("usca", VT_REAL, 1.20),
             ("uclr", VT_INT, 255),
-            ("uclg", VT_INT, 225),
-            ("uclb", VT_INT, 175),
+            ("uclg", VT_INT, 195),
+            ("uclb", VT_INT, 115),
             ("ureq", VT_STR, "h004"),
             ("uabi", VT_STR, "Abdl,Argl"),
             ("utra", VT_STR, "nhew"),
@@ -1362,41 +1444,49 @@ def build_unit_modifications() -> Tuple[
             ("ubpy", VT_INT, 2),
             ("uhot", VT_STR, "U"),
             ("utip", VT_STR, "|cffffcc00U|rpgrade to Silvermoon Citadel"),
-            ("utub", VT_STR, "Upgrade to Silvermoon Citadel (Tier 3) to unlock Alliance Captains, Blood Elf Lieutenants, Gryphon Riders, Orb of Fire, a 3rd Hero, and Tier-3 upgrades."),
+            ("utub", VT_STR, "Upgrade to Silvermoon Citadel (Tier 3) to unlock Alliance Captains, Blood Elf Lieutenants, Gryphon Riders, Orb of Fire, a 3rd Sunfury Hero, and Tier-3 upgrades."),
         ]),
 
         ("halt", "h004", [
-            ("unam", VT_STR, "Altar of Silvermoon"),
+            ("unam", VT_STR, "Altar of the Sunwell"),
+            ("umdl", VT_STR, r"buildings\other\FountainOfLife\FountainOfHealth.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunAltar.blp"),
+            ("usca", VT_REAL, 0.88),
             ("uclr", VT_INT, 255),
-            ("uclg", VT_INT, 235),
-            ("uclb", VT_INT, 185),
+            ("uclg", VT_INT, 225),
+            ("uclb", VT_INT, 165),
             ("utra", VT_STR, "Hkal,Hvwd,Hlgr,Huth"),
             ("ubpx", VT_INT, 1),
             ("ubpy", VT_INT, 1),
             ("uhot", VT_STR, "A"),
-            ("utip", VT_STR, "Build |cffffcc00A|rltar of Silvermoon"),
-            ("utub", VT_STR, "Summons Campaign Human Heroes (Prince Kael'thas, Sylvanas Windrunner, Lord Garithos, and Uther the Lightbringer) and revives fallen Heroes."),
+            ("utip", VT_STR, "Build |cffffcc00A|rltar of the Sunwell"),
+            ("utub", VT_STR, "Summons Sunfury Imperium Heroes (Sovereign Kael'thas, Sunstrider Sylvanas, Grand Marshal Garithos, and Highlord Uther) and revives fallen Heroes."),
         ]),
 
         ("hvlt", "h005", [
             ("unam", VT_STR, "Sunwell Reliquary"),
+            ("umdl", VT_STR, r"buildings\other\MagicVault\MagicVault.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunVault.blp"),
+            ("usca", VT_REAL, 0.92),
             ("uclr", VT_INT, 255),
-            ("uclg", VT_INT, 230),
-            ("uclb", VT_INT, 180),
+            ("uclg", VT_INT, 215),
+            ("uclb", VT_INT, 145),
             ("ubpx", VT_INT, 2),
-            ("ubpy", VT_INT, 2),
+            ("ubpy", VT_INT, 1),
             ("uhot", VT_STR, "R"),
             ("utip", VT_STR, "Build Sunwell |cffffcc00R|reliquary"),
-            ("utub", VT_STR, "Creates an Expedition shop stocked with Scrolls, Potions, Town Portals, Scout Towers, Staff of Sanctuary, and Orb of Fire."),
+            ("utub", VT_STR, "Creates a Quel'Thalas reliquary stocked with Scrolls, Potions, Town Portals, Scout Towers, Staff of Sanctuary, and Orb of Fire."),
         ]),
 
-        # h006: Silvermoon Ballista (Tier-2 Siege Engine — Trained at Siege Workshop `h008`!)
-        # Exact Mortar Team / Glaive Thrower parity: 3 Food, 195g/65L, 36s, 340 HP, 2 Large armor,
-        # 49+1d9=54.0 Siege dmg / 3.5s = 15.4 Siege DPS at 1150 range!
+        # h006: Silvermoon Ballista (Tier-2 Siege Engine — Custom Sunfury Ballista Icon!)
         ("ebal", "h006", [
             ("unam", VT_STR, "Silvermoon Ballista"),
             ("urac", VT_STR, "human"),
-            ("ureq", VT_STR, "h002,hbla"),
+            ("ureq", VT_STR, "h002,h010"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunBallista.blp"),
+            ("uclr", VT_INT, 255),
+            ("uclg", VT_INT, 220),
+            ("uclb", VT_INT, 155),
             ("ugol", VT_INT, 195),
             ("ulum", VT_INT, 65),
             ("ufoo", VT_INT, 3),
@@ -1418,15 +1508,18 @@ def build_unit_modifications() -> Tuple[
             ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "B"),
             ("utip", VT_STR, "Train Silvermoon |cffffcc00B|rallista"),
-            ("utub", VT_STR, "Long-range High Elven mechanical siege engine. Hurls giant runed bolts to demolish enemy towers and fortifications from afar."),
+            ("utub", VT_STR, "Long-range High Elven mechanical siege engine. Hurls giant sun-runed bolts to demolish enemy towers and fortifications from afar."),
         ]),
 
-        # h007: Silvermoon Barracks (Authentic Barracks `HumanBarracks.mdl` for Infantry & Archers!)
+        # h007: Sunspire Barracks (Slot `(1,0)` — Custom Sunfury Icon & Golden Quel'Thalas Stone!)
         ("hbar", "h007", [
-            ("unam", VT_STR, "Silvermoon Barracks"),
+            ("unam", VT_STR, "Sunspire Barracks"),
+            ("umdl", VT_STR, r"buildings\other\ElvenVillageBuilding3\ElvenVillageBuilding3.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunBarracks.blp"),
+            ("usca", VT_REAL, 1.35),
             ("uclr", VT_INT, 255),
-            ("uclg", VT_INT, 235),
-            ("uclb", VT_INT, 195),
+            ("uclg", VT_INT, 225),
+            ("uclb", VT_INT, 165),
             ("ugol", VT_INT, 160),
             ("ulum", VT_INT, 60),
             ("ubld", VT_INT, 60),
@@ -1434,20 +1527,22 @@ def build_unit_modifications() -> Tuple[
             ("utra", VT_STR, "hhes,nhea,hcth"),
             ("ures", VT_STR, "Rhde,Rhan"),
             ("upgr", VT_STR, "Rhac"),
-            ("ubpx", VT_INT, 0),
-            ("ubpy", VT_INT, 1),
+            ("ubpx", VT_INT, 2),
+            ("ubpy", VT_INT, 0),
             ("uhot", VT_STR, "B"),
-            ("utip", VT_STR, "Build Silvermoon |cffffcc00B|rarracks"),
-            ("utub", VT_STR, "Primary troop production building. Trains High Elven Swordsmen, High Elven Archers, and Alliance Captains (Tier 3). Also researches Defend and Veteran War Training."),
+            ("utip", VT_STR, "Build Sunspire |cffffcc00B|rarracks"),
+            ("utub", VT_STR, "Primary Quel'Thalas troop bastion. Trains High Elven Swordsmen, High Elven Archers, and Alliance Captains (Tier 3). Also researches Defend and Veteran War Training."),
         ]),
 
-        # h008: Silvermoon Siege Workshop (Authentic `Workshop.mdl` for Siege, Scout Air & T3 Lieutenant!)
+        # h008: Sunfury Artificer Hall (Slot `(3,1)` — Custom Sunfury Icon & Solar-Tinted Armory!)
         ("harm", "h008", [
-            ("unam", VT_STR, "Silvermoon Siege Workshop"),
-            ("ureq", VT_STR, "h002,hbla"),
+            ("unam", VT_STR, "Sunfury Artificer Hall"),
+            ("ureq", VT_STR, "h002,h010"),
+            ("umdl", VT_STR, r"buildings\other\ElvenVillageBuilding4\ElvenVillageBuilding4.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunWorkshop.blp"),
             ("uclr", VT_INT, 255),
-            ("uclg", VT_INT, 235),
-            ("uclb", VT_INT, 195),
+            ("uclg", VT_INT, 210),
+            ("uclb", VT_INT, 135),
             ("ugol", VT_INT, 140),
             ("ulum", VT_INT, 140),
             ("ubld", VT_INT, 60),
@@ -1455,20 +1550,23 @@ def build_unit_modifications() -> Tuple[
             ("utra", VT_STR, "hgyr,h006,nbel"),
             ("ures", VT_STR, "Rhgb"),
             ("upgr", VT_STR, "Rhac"),
-            ("ubpx", VT_INT, 3),
-            ("ubpy", VT_INT, 1),
+            ("ubpx", VT_INT, 1),
+            ("ubpy", VT_INT, 2),
             ("uhot", VT_STR, "W"),
-            ("utip", VT_STR, "Build Silvermoon Siege |cffffcc00W|rorkshop"),
-            ("utub", VT_STR, "Heavy war-machine and armory workshop. Produces Flying Machines, Silvermoon Ballistas, and Blood Elf Lieutenants (Tier 3). Also researches Flying Machine Bombs."),
+            ("utip", VT_STR, "Build Sunfury Artificer |cffffcc00W|rorkshop"),
+            ("utub", VT_STR, "Sun-forged war-machine hall. Produces Flying Machines, Silvermoon Ballistas, and Blood Elf Lieutenants (Tier 3). Also researches Flying Machine Bombs."),
         ]),
 
-        # h009: Silvermoon Dragonhawk Aviary (Authentic `GryphonAviary.mdl` for Flying Units ONLY!)
+        # h009: Dragonhawk Sky-Roost (Slot `(1,2)` — Authentic Red Dragon Roost `DragonRoost.mdl` + Custom Sunfury Icon!)
         ("hgra", "h009", [
-            ("unam", VT_STR, "Silvermoon Dragonhawk Aviary"),
-            ("ureq", VT_STR, "h002,hlum"),
+            ("unam", VT_STR, "Dragonhawk Sky-Roost"),
+            ("ureq", VT_STR, "h002,h011"),
+            ("umdl", VT_STR, r"buildings\other\DragonRoost\DragonRoost.mdl"),
+            ("uico", VT_STR, r"ReplaceableTextures\CommandButtons\BTN_WM_SunAviary.blp"),
+            ("usca", VT_REAL, 0.90),
             ("uclr", VT_INT, 255),
-            ("uclg", VT_INT, 238),
-            ("uclb", VT_INT, 195),
+            ("uclg", VT_INT, 220),
+            ("uclb", VT_INT, 155),
             ("ugol", VT_INT, 140),
             ("ulum", VT_INT, 150),
             ("ubld", VT_INT, 65),
@@ -1476,10 +1574,10 @@ def build_unit_modifications() -> Tuple[
             ("utra", VT_STR, "hdhw,hgry"),
             ("ures", VT_STR, "Rhcd,Rhhb"),
             ("upgr", VT_STR, "Rhac"),
-            ("ubpx", VT_INT, 1),
+            ("ubpx", VT_INT, 2),
             ("ubpy", VT_INT, 2),
             ("uhot", VT_STR, "V"),
-            ("utip", VT_STR, "Build Silvermoon Dragonhawk A|cffffcc00v|riary"),
+            ("utip", VT_STR, "Build Dragonhawk Sky-A|cffffcc00v|riary"),
             ("utub", VT_STR, "Aerial roost for Dragonhawk Riders (Tier 2) and Wildhammer Gryphon Riders (Tier 3). Also researches Cloud and Storm Hammers."),
         ]),
     ]
@@ -1622,13 +1720,19 @@ def serialize_w3q() -> bytes:
             ("glmb", VT_INT, 0, 0, 75),  ("glmm", VT_INT, 0, 0, 100),
             ("greq", VT_STR, 2, 0, "n001"), ("greq", VT_STR, 3, 0, "n002"),
         ]),
-        ("Rnen", NULL_ID, [("greq", VT_STR, 1, 0, "n001")]),
+        ("Rnen", NULL_ID, [
+            ("gglb", VT_INT, 0, 0, 50), ("glmb", VT_INT, 0, 0, 50), ("gtib", VT_INT, 0, 0, 25),
+            ("greq", VT_STR, 1, 0, "n001"),
+        ]),
         ("Rnsb", NULL_ID, [
-            ("gglb", VT_INT, 0, 0, 75), ("glmb", VT_INT, 0, 0, 75), ("gtib", VT_INT, 0, 0, 40),
+            ("gglb", VT_INT, 0, 0, 60), ("glmb", VT_INT, 0, 0, 60), ("gtib", VT_INT, 0, 0, 30),
             ("gbpx", VT_INT, 0, 0, 1), ("gbpy", VT_INT, 0, 0, 2), ("greq", VT_STR, 1, 0, "n001"),
         ]),
         ("Rnsw", NULL_ID, [("greq", VT_STR, 1, 0, "n001"), ("greq", VT_STR, 2, 0, "n002")]),
-        ("Rnsi", NULL_ID, [("greq", VT_STR, 1, 0, "n001")]),
+        ("Rnsi", NULL_ID, [
+            ("gglb", VT_INT, 0, 0, 50), ("glmb", VT_INT, 0, 0, 50), ("gtib", VT_INT, 0, 0, 25),
+            ("greq", VT_STR, 1, 0, "n001"),
+        ]),
     ]
     cust: List[Tuple[str, str, List[LevelModEntry]]] = [
         _make_3tier_upgrade("Rnat", "R000", ("Void Blades", "Riftforged Blades", "Oblivion Blades"), "B", 0, "v002", "v003", False),
@@ -1645,13 +1749,14 @@ def serialize_w3q() -> bytes:
 
 def serialize_w3a() -> bytes:
     """
-    Serialize `war3map.w3a` (v2, `use_optional_ints = True`) containing all
-    16 Custom Hero Skills (`A000..A015`).
+    Serialize `war3map.w3a` (v2, `use_optional_ints = True`) containing all 64
+    Unique Custom Hero Skills (`A000..A063`), 16 exclusive four-skill kits, and
+    zero shared abilities across the playable custom heroes.
     """
-    cust = build_ability_modifications()
+    orig, cust = build_ability_modifications()
     return (
         struct.pack("<i", 2)
-        + _pack_mod_table([], use_optional_ints=True)
+        + _pack_mod_table(orig, use_optional_ints=True)
         + _pack_mod_table(cust, use_optional_ints=True)
     )
 
@@ -1662,12 +1767,12 @@ def serialize_w3a() -> bytes:
 
 def serialize_war3map_misc() -> bytes:
     """
-    Registers all 8 Playable Empires' Town Halls, Altars, and Heroes in
-    Warcraft III's native Gameplay Constants (`[TWN1..3]`, `[TALT]`, `[HERO]`).
+    Registers all 8 Playable Empires' Town Halls, Altars, and Heroes (including `N004` Illidan!)
+    in Warcraft III's native Gameplay Constants (`[TWN1..3]`, `[TALT]`, `[HERO]`).
     """
     lines = [
         "[HERO]",
-        "DependencyOr=Hamg,Hmkg,Hpal,Hblm,Obla,Ofar,Otch,Oshd,Udea,Udre,Ulic,Ucrl,Edem,Ekee,Emoo,Ewar,Nbrn,Nbst,Nngs,Npbm,Nalc,Ntin,Nfir,Nplh,Hvsh,N001,N002,N003,Hkal,Hvwd,Hlgr,Huth,V001,V002,V003,V004,T001,T002,T003,T004",
+        "DependencyOr=Hamg,Hmkg,Hpal,Hblm,Obla,Ofar,Otch,Oshd,Udea,Udre,Ulic,Ucrl,Edem,Ekee,Emoo,Ewar,Nbrn,Nbst,Nngs,Npbm,Nalc,Ntin,Nfir,Nplh,Hvsh,N004,N001,N002,Hkal,Hvwd,Hlgr,Huth,V001,V002,V003,V004,T001,T002,T003,T004",
         "",
         "[TALT]",
         "DependencyOr=halt,oalt,uaod,eate,nnad,h004,v007,t007",
@@ -1748,9 +1853,9 @@ globals
     constant integer NAGA_ROYAL_GUARD  = 'nnrg'
 
     constant integer HERO_VASHJ        = 'Hvsh'
+    constant integer HERO_ILLIDAN      = 'N004'
     constant integer HERO_WARLORD      = 'N001'
     constant integer HERO_TIDEWEAVER   = 'N002'
-    constant integer HERO_DEEPKING     = 'N003'
 
     constant integer UPG_NAGA_BLADES   = 'Rnat'
     constant integer UPG_NAGA_SCALES   = 'Rnam'
@@ -1789,36 +1894,71 @@ function NagaNeedUnit takes integer qty, integer id, integer town returns nothin
 endfunction
 
 function NagaSetSkills takes integer heroId, integer slot returns nothing
-    set skill[ 1] = 'A000'
-    set skill[ 2] = 'A001'
-    set skill[ 3] = 'A000'
-    set skill[ 4] = 'A002'
-    set skill[ 5] = 'A000'
-    set skill[ 6] = 'A003'
-    set skill[ 7] = 'A001'
-    set skill[ 8] = 'A001'
-    set skill[ 9] = 'A002'
-    set skill[10] = 'A002'
+    if heroId == HERO_VASHJ then
+        set skill[ 1] = 'A000'
+        set skill[ 2] = 'A001'
+        set skill[ 3] = 'A000'
+        set skill[ 4] = 'A002'
+        set skill[ 5] = 'A000'
+        set skill[ 6] = 'A003'
+        set skill[ 7] = 'A001'
+        set skill[ 8] = 'A001'
+        set skill[ 9] = 'A002'
+        set skill[10] = 'A002'
+    elseif heroId == HERO_ILLIDAN then
+        set skill[ 1] = 'A004'
+        set skill[ 2] = 'A005'
+        set skill[ 3] = 'A004'
+        set skill[ 4] = 'A006'
+        set skill[ 5] = 'A004'
+        set skill[ 6] = 'A007'
+        set skill[ 7] = 'A005'
+        set skill[ 8] = 'A005'
+        set skill[ 9] = 'A006'
+        set skill[10] = 'A006'
+    elseif heroId == HERO_WARLORD then
+        set skill[ 1] = 'A008'
+        set skill[ 2] = 'A009'
+        set skill[ 3] = 'A008'
+        set skill[ 4] = 'A010'
+        set skill[ 5] = 'A008'
+        set skill[ 6] = 'A011'
+        set skill[ 7] = 'A009'
+        set skill[ 8] = 'A009'
+        set skill[ 9] = 'A010'
+        set skill[10] = 'A010'
+    else
+        set skill[ 1] = 'A012'
+        set skill[ 2] = 'A013'
+        set skill[ 3] = 'A012'
+        set skill[ 4] = 'A014'
+        set skill[ 5] = 'A012'
+        set skill[ 6] = 'A015'
+        set skill[ 7] = 'A013'
+        set skill[ 8] = 'A013'
+        set skill[ 9] = 'A014'
+        set skill[10] = 'A014'
+    endif
 endfunction
 
 function ChooseNagaHeroes takes nothing returns nothing
     local integer roll = GetRandomInt(1, 4)
     if roll == 1 then
-        set hero_id  = HERO_VASHJ
-        set hero_id2 = HERO_WARLORD
-        set hero_id3 = HERO_TIDEWEAVER
-    elseif roll == 2 then
-        set hero_id  = HERO_WARLORD
-        set hero_id2 = HERO_VASHJ
-        set hero_id3 = HERO_DEEPKING
-    elseif roll == 3 then
-        set hero_id  = HERO_TIDEWEAVER
-        set hero_id2 = HERO_DEEPKING
-        set hero_id3 = HERO_VASHJ
-    else
-        set hero_id  = HERO_DEEPKING
+        set hero_id  = HERO_ILLIDAN
         set hero_id2 = HERO_VASHJ
         set hero_id3 = HERO_WARLORD
+    elseif roll == 2 then
+        set hero_id  = HERO_VASHJ
+        set hero_id2 = HERO_ILLIDAN
+        set hero_id3 = HERO_TIDEWEAVER
+    elseif roll == 3 then
+        set hero_id  = HERO_WARLORD
+        set hero_id2 = HERO_ILLIDAN
+        set hero_id3 = HERO_VASHJ
+    else
+        set hero_id  = HERO_TIDEWEAVER
+        set hero_id2 = HERO_VASHJ
+        set hero_id3 = HERO_ILLIDAN
     endif
 
     call NagaSetSkills(hero_id, 1)
@@ -1897,12 +2037,13 @@ function NagaBuildLoop takes nothing returns nothing
 
         if GetUnitCountDone(NAGA_SPAWNING) >= 1 then
             call NagaNeedUnit(4, NAGA_REAVER, -1)
+            call NagaNeedUnit(3, NAGA_SNAP_DRAGON, -1)
+            call NagaNeedUnit(1, NAGA_GUARDIAN, 0)
             call NagaNeedUnit(1, NAGA_FORGE, -1)
         endif
 
         if GetUnitCountDone(NAGA_FORGE) >= 1 then
-            call NagaNeedUnit(3, NAGA_SNAP_DRAGON, -1)
-            call NagaNeedUnit(1, NAGA_GUARDIAN, 0)
+            call NagaNeedUnit(4, NAGA_SNAP_DRAGON, -1)
             if GetGold() > 150 then
                 if GetUpgradeLevel(UPG_NAGA_BLADES) < 1 then
                     call SetUpgrade(UPG_NAGA_BLADES)
@@ -2110,8 +2251,8 @@ globals
     constant integer CH_HALL_T3        = 'h003'
     constant integer CH_ELVEN_FARM     = 'nefm'
     constant integer CH_BARRACKS       = 'h007'
-    constant integer CH_LUMBER_MILL    = 'hlum'
-    constant integer CH_FORGE          = 'hbla'
+    constant integer CH_LUMBER_MILL    = 'h011'
+    constant integer CH_FORGE          = 'h010'
     constant integer CH_ALTAR          = 'h004'
     constant integer CH_RELIQUARY      = 'h005'
     constant integer CH_MAGE_TOWER     = 'nheb'
@@ -2186,16 +2327,51 @@ function CHNeedUnit takes integer qty, integer id, integer town returns nothing
 endfunction
 
 function CHSetSkills takes integer heroId, integer slot returns nothing
-    set skill[ 1] = 'A004'
-    set skill[ 2] = 'A006'
-    set skill[ 3] = 'A004'
-    set skill[ 4] = 'A005'
-    set skill[ 5] = 'A004'
-    set skill[ 6] = 'A007'
-    set skill[ 7] = 'A006'
-    set skill[ 8] = 'A006'
-    set skill[ 9] = 'A005'
-    set skill[10] = 'A005'
+    if heroId == HERO_KAEL then
+        set skill[ 1] = 'A016'
+        set skill[ 2] = 'A017'
+        set skill[ 3] = 'A016'
+        set skill[ 4] = 'A018'
+        set skill[ 5] = 'A016'
+        set skill[ 6] = 'A019'
+        set skill[ 7] = 'A017'
+        set skill[ 8] = 'A017'
+        set skill[ 9] = 'A018'
+        set skill[10] = 'A018'
+    elseif heroId == HERO_SYLVANAS then
+        set skill[ 1] = 'A020'
+        set skill[ 2] = 'A021'
+        set skill[ 3] = 'A020'
+        set skill[ 4] = 'A022'
+        set skill[ 5] = 'A020'
+        set skill[ 6] = 'A023'
+        set skill[ 7] = 'A021'
+        set skill[ 8] = 'A021'
+        set skill[ 9] = 'A022'
+        set skill[10] = 'A022'
+    elseif heroId == HERO_GARITHOS then
+        set skill[ 1] = 'A024'
+        set skill[ 2] = 'A025'
+        set skill[ 3] = 'A024'
+        set skill[ 4] = 'A026'
+        set skill[ 5] = 'A024'
+        set skill[ 6] = 'A027'
+        set skill[ 7] = 'A025'
+        set skill[ 8] = 'A025'
+        set skill[ 9] = 'A026'
+        set skill[10] = 'A026'
+    else
+        set skill[ 1] = 'A028'
+        set skill[ 2] = 'A029'
+        set skill[ 3] = 'A028'
+        set skill[ 4] = 'A030'
+        set skill[ 5] = 'A028'
+        set skill[ 6] = 'A031'
+        set skill[ 7] = 'A029'
+        set skill[ 8] = 'A029'
+        set skill[ 9] = 'A030'
+        set skill[10] = 'A030'
+    endif
 endfunction
 
 function ChooseCHHeroes takes nothing returns nothing
@@ -2555,14 +2731,14 @@ endfunction
 
 
 # ==============================================================================
-# 6. JASS2 6-RACE SELECTION (LOBBY + DIALOG + CHAT) & AI TACTICAL MICRO SYSTEM
+# 6. JASS2 8-EMPIRE SELECTION (LOBBY + DIALOG + CHAT) & AI TACTICAL MICRO SYSTEM
 # ==============================================================================
 
 def generate_custom_races_jass() -> Tuple[str, str]:
     """
     Returns `(globals_block, functions_block)` to embed into `war3map.j`
-    (v3: 8 Playable Empires, Host-first AI Difficulty prompt, sleek 1-click
-    Empire picker, 16 Custom 3D `.mdx` Hero Skills, Live Multiboard HUD,
-    and Human-Like Pro AI Tactical Brain).
+    (v4: 8 Playable Empires, Host-first AI Difficulty, smoother picker, 16 exclusive
+    Heroes with 64 Custom 3D/Geometric Skills, RPG UI/cursor skins, Live Multiboard
+    HUD, imported race AIs plus JASS worker-build fallback and tactical micro).
     """
     return generate_custom_gameplay_jass()

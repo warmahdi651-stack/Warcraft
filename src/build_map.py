@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Deterministic Procedural Generator for `(8) Crown of Lordaeron`
-A tournament-grade, 8-player D4-symmetric Standard Melee map for Warcraft III
-(compatible with Frozen Throne 1.26a / 1.27b / Atinad / GameRanger / LAN AND Reforged 1.32-2.0+).
+Deterministic Procedural Generator for `(8) Crown of WarMahdi` v4.
+An 8-player D4-symmetric Sunken-Astral Altered Melee map with 8 playable empires,
+64 exclusive hero skills, custom cursor/RPG UI, 4 race AI scripts and a JASS safety net.
+Targets Frozen Throne 1.26a/1.27b-era APIs and Warcraft III Reforged 1.32+.
 """
 
 from __future__ import annotations
@@ -45,10 +46,11 @@ MAP_DISPLAY_NAME = "(8) Crown of WarMahdi"
 MAP_AUTHOR = "WarMahdi Studio"
 MAP_RECOMMENDED_PLAYERS = "8 Empires • Host AI Menu"
 MAP_DESCRIPTION = (
-    "|cffffd700★ (8) Crown of WarMahdi v3 ★|r — 8-Empire Astral Altered Melee (4v4 / 2v2 / FFA). "
-    "4 Classic Races + 4 Custom Empires: |cff22d3eeAbyssal Tideborn|r, |cfffbbf24Sunfury Imperium|r, "
-    "|cffc084fcVoidborn Legion|r & |cfff97316Runeforged Bastion|r! "
-    "Features 16 Custom 3D Skills & Icons, Dark Astral UI, Host AI Difficulty Menu & Human-Like Pro AI!"
+    "|cffffd700★ (8) Crown of WarMahdi v4 ★|r — 8-Empire Sunken-Astral Altered Melee (4v4 / 2v2 / FFA). "
+    "4 Classic Races + 4 Custom Empires: |cff22d3eeAbyssal Tideborn (with Illidan)|r, |cfffbbf24Sunfury Imperium|r, "
+    "|cfff97316Voidborn Legion|r & |cff38bdf8Runeforged Bastion|r! "
+    "Features 16 Heroes with 64 truly exclusive hero-specific abilities/icons, 414 custom BLP/TGA/MDX assets, "
+    "custom animated race cursor, RPG Damage/Armor infocards, strengthened Naga, host-first AI menu & reliable Pro AI!"
 )
 
 # 192x192 tiles => 193x193 terrain corners; 1 tile = 128 world units; 1 pathing cell = 32 world units
@@ -1128,8 +1130,8 @@ def serialize_wts() -> bytes:
         (3, MAP_DESCRIPTION),
         (4, MAP_RECOMMENDED_PLAYERS),
         (5, "Forces"),
-        (6, "8-Empire Astral Altered Melee • v3"),
-        (7, "4 Custom Empires (Abyssal Tideborn, Sunfury Imperium, Voidborn Legion, Runeforged Bastion) + 4 Classic Races, 16 Custom 3D Skills, Host AI Difficulty Menu & Pro AI."),
+        (6, "8-Empire Sunken-Astral Altered Melee • v4"),
+        (7, "4 Custom Empires + 4 Classic Races, 16 Heroes with 64 unique custom skills, Dark Astral UI, host-first AI difficulty, and resilient Pro AI."),
     ]
     for pid in range(8):
         entries.append((10 + pid, f"Player {pid + 1}"))
@@ -1835,6 +1837,7 @@ def export_web_metadata(
     camps: List[Dict[str, object]],
     w3x_size: int,
     packer_used: str,
+    custom_assets_count: int,
 ) -> None:
     """Export compact JSON telemetry for the interactive Warcraft III Map Studio web preview."""
     # Downsample 193x193 terrain & 192x192 pathing summary for instant 60fps HTML5 canvas rendering
@@ -1878,7 +1881,10 @@ def export_web_metadata(
         "stats": {
             "players": 8,
             "playableRaces": 8,
-            "customSkills": 16,
+            "customSkills": 64,
+            "customHeroes": 16,
+            "customAssets": custom_assets_count,
+            "customVfxModels": 6,
             "goldMines": sum(1 for u in units if u.uid == "ngol"),
             "totalGoldOnMap": sum(u.gold for u in units if u.uid == "ngol"),
             "neutralBuildings": sum(1 for u in units if u.player == 15 and u.uid != "ngol"),
@@ -1891,97 +1897,101 @@ def export_web_metadata(
             {
                 "id": "abyssal",
                 "name": "Abyssal Tideborn (Naga Empire)",
-                "badge": "v3 OVERHAULED • 4 Custom 3D Skills + 9 Buildings",
+                "badge": "v4 • 16 Hero-Specific Skills • 4 Heroes (Illidan Added)",
                 "lobbyHandicap": "Menu [1] or 90% Handicap",
                 "color": "#22d3ee",
                 "halls": ["Temple of Tides (T1)", "Sanctuary of Tides (T2)", "Abyssal Citadel (T3)"],
                 "heroes": [
-                    "Empress Vashj (INT) • Leviathan Warlord (STR)",
-                    "Nazjatar Tideweaver (INT) • Makrura Deepking (STR)",
-                    "Skills: [Q] Maelstrom Vortex • [W] Riptide Prism Lance • [E] Abyssal Carapace • [R] Cataclysmic Tsunami",
+                    "Empress Vashj • Q Maelstrom Vortex • W Forked Tempest Arc • E Mana-Tide Aegis • R Cataclysmic Tsunami",
+                    "Illidan Stormrage • Q Azzinoth Glaive Barrage • W Shadowstep • E Demon-Scale Immolation • R Metamorphosis",
+                    "Leviathan Warlord Naj'entus • Q Spine Quake • W Harpoon Undertow • E Tidal Bulwark • R Wrath of Naj'entus",
+                    "Nazjatar Tideweaver Athissa • Q Bioluminescent Geyser • W Pearl-frost Prison • E Siren's Vital Chorus • R Abyssal Kraken",
                 ],
                 "units": [
-                    "Mur'gul Slave (Worker) • Mur'gul Reaver (T1) • Snap Dragon (T1.5) • Naga Myrmidon (T2)",
-                    "Naga Siren (T2 Caster) • Couatl (T2 Flyer) • Dragon Turtle (T2 Siege) • Naga Royal Guard (T3)",
+                    "Buffed Mur'gul Reaver and Tier-1 Snap Dragon; faster Naga Myrmidon frontline",
+                    "Enhanced Siren, Couatl, Dragon Turtle and Royal Guard with classic-style food/DPS budget",
                 ],
                 "buildings": [
-                    "Temple / Sanctuary / Citadel • Coral Bed (+9f) • Spawning Grounds • Coral Forge",
-                    "Altar of the Depths • Tidal Treasury • Shrine of Azshara • Behemoth Pool • Tidal Guardian",
+                    "Temple / Sanctuary / Citadel • Coral Bed • Spawning Grounds • Coral Forge • Altar of Depths",
+                    "Tidal Treasury • Shrine of Azshara • Behemoth Pool • Tidal Guardian; 11 distinct race icons",
                 ],
             },
             {
                 "id": "sunfury",
                 "name": "Sunfury Imperium (Solar Highborne)",
-                "badge": "v3 OVERHAULED • 4 Custom 3D Skills + 11 Buildings",
+                "badge": "v4 • 16 Unique Solar/Ranger/Marshal/Paladin Skills • 11 Buildings",
                 "lobbyHandicap": "Menu [2] or 80% Handicap",
                 "color": "#fbbf24",
-                "halls": ["Silvermoon Town Hall (T1)", "Sunwell Keep (T2)", "Silvermoon Citadel (T3)"],
+                "halls": ["Silvermoon Sanctum (T1)", "Sunwell Keep (T2)", "Silvermoon Citadel (T3)"],
                 "heroes": [
-                    "Sovereign Kael'thas (INT) • Sunstrider Sylvanas (AGI)",
-                    "Grand Marshal Garithos (STR) • Highlord Uther (STR)",
-                    "Skills: [Q] Solar Flare Sigil • [W] Phoenix Wing Dash • [E] Sunblade Judgment • [R] Supernova Crown",
+                    "Kael'thas • Verdant Sunfire Pillar • Arcane Gravity Lapse • Molten Barrier • Al'ar Rebirth",
+                    "Sylvanas • Sunhawk Volley • Windrunner's Piercing Shot • Gale Stride • Eclipse Starfall",
+                    "Garithos • Shock Charge • Execution Decree • Iron Phalanx • Grand Crusade",
+                    "Uther • Sunwell Consecration • Dawnlight Hammer • Golden Bastion • Lightbringer's Miracle",
                 ],
                 "units": [
-                    "Silvermoon Worker • Swordsman (T1) • Archer (T1) • Alliance Captain (T3)",
-                    "Chaplain • Hydromancer • Spell Breaker • Ballista • Lieutenant (T3) • Dragonhawk & Gryphon",
+                    "Silvermoon Worker • Swordsman • Archer • Alliance Captain • Chaplain • Hydromancer • Spell Breaker",
+                    "Ballista • Gyro • Blood Elf Lieutenant • Dragonhawk • Gryphon; bespoke unit portraits",
                 ],
                 "buildings": [
-                    "Town Hall / Sunwell Keep / Citadel • High Elven Farm (+6f) • Barracks • Mill & Blacksmith",
-                    "Altar of Silvermoon • Sunwell Reliquary • Mage Tower • Siege Workshop • Aviary • Sunspire Towers",
+                    "Three Sunwell halls • High Elven Farm • Sunspire Barracks • Lumber Conservatory • Sunfury Forge",
+                    "Altar • Reliquary • Scout/Guard/Arcane Towers • Mage Tower • Artificer Hall • Sky-Roost",
                 ],
             },
             {
                 "id": "voidborn",
                 "name": "Voidborn Legion [NEW]",
-                "badge": "BRAND-NEW RACE • 4 Custom 3D Skills + 9 Buildings",
+                "badge": "4 Distinct Hero Kits • Rift Build UI • Themed Building & Unit Icons",
                 "lobbyHandicap": "Menu [3] or 70% Handicap",
                 "color": "#c084fc",
                 "halls": ["Void Nexus (T1)", "Astral Riftcore (T2)", "Citadel of Oblivion (T3)"],
                 "heroes": [
-                    "Rift Sovereign (STR) • Nether Inquisitor (INT)",
-                    "Abyssal Stalker-Lord (AGI) • Entropy Archon (STR/INT)",
-                    "Skills: [Q] Event Horizon • [W] Rift Sever • [E] Entropy Shroud • [R] Cosmic Collapse",
+                    "Rift Sovereign • Event Horizon Crater • Oblivion Cleave • Dread Howl • Dark Portal Cataclysm",
+                    "Nether Inquisitor • Entropy Rift Storm • Soul Siphon • Astral Phase • Singularity Collapse",
+                    "Shadowblade Akama • Shuriken Fan • Phantom Ambush • Smoke Veil • Thousand-Shadow Dance",
+                    "Entropy Archon • Starfall Singularity • Banish Bolt • Null-Field Barrier • Twilight of the Cosmos",
                 ],
                 "units": [
-                    "Void Thrall (Worker) • Void Zealot (T1) • Astral Arbalist (T1.5) • Dread Enforcer (T2)",
-                    "Void Weaver (T2 Caster) • Nether Drakelet (T2 Flyer) • Rift Devastator (T2 Siege) • Oblivion Colossus (T3)",
+                    "Void Thrall • Void Zealot • Astral Arbalist • Dread Enforcer • Void Weaver • Nether Drakelet",
+                    "Rift Devastator siege engine • Oblivion Colossus • custom icons and race-specific visuals",
                 ],
                 "buildings": [
-                    "Void Nexus / Riftcore / Citadel • Astral Pylon (+9f) • Rift Gate • Obsidian Crucible (+1/+2/+3)",
-                    "Altar of the Void • Reliquary of Shadows • Sanctum of Stars • Oblivion Pit • Entropy Obelisk",
+                    "Void Nexus / Riftcore / Citadel • Pylon • Rift Gate • Obsidian Crucible • Altar",
+                    "Reliquary • Entropy Obelisk • Sanctum • Oblivion Pit; rift build on normal ground",
                 ],
             },
             {
                 "id": "runeforged",
                 "name": "Runeforged Bastion [NEW]",
-                "badge": "BRAND-NEW RACE • 4 Custom 3D Skills + 9 Buildings",
+                "badge": "4 Distinct Titan/Forge/Clockwork/Storm Kits • Custom Mechanical Icons",
                 "lobbyHandicap": "Menu [4] or 60% Handicap",
                 "color": "#f97316",
                 "halls": ["Titan Foundry (T1)", "Stormforge Hold (T2)", "Apex Pantheon (T3)"],
                 "heroes": [
-                    "Stormforged Prime (STR) • Runesmith Highlord (INT)",
-                    "Plasma Vanguard (AGI) • Tempest Savant (INT)",
-                    "Skills: [Q] Thunderous Tectonics • [W] Arc-Reactor Overload • [E] Runic Aegis • [R] Orbital Hammer",
+                    "Thorim • Mjolnir Thunderfall • Magnetic Titan Grip • Overcharged Aegis • Pantheon Wrath",
+                    "Ignis • Molten Slag • Forgehammer • Tempered Runic Plating • Awaken Forge Colossus",
+                    "Mimiron • Cluster Rockets • Railgun Snipe • Pocket Turrets • Omega Orbital Laser",
+                    "Loken • Ionosphere Field • Arc-Conduit Surge • Chrono-Dynamo • Stormcore Superconductor",
                 ],
                 "units": [
-                    "Runeforged Automaton (Worker) • Runic Sentinel (T1) • Thunder Arquebusier (T1.5) • Stormforged Juggernaut (T2)",
-                    "Rune Diviner (T2 Caster) • Gyro-Interceptor (T2 Flyer) • Siege Behemoth (T2 Siege) • Titan Construct (T3)",
+                    "Runeforged Automaton • Runic Sentinel • Thunder Arquebusier • Stormforged Juggernaut",
+                    "Rune Diviner • Gyro-Interceptor • Siege Behemoth • Titan Construct; every altered unit has custom icon",
                 ],
                 "buildings": [
-                    "Titan Foundry / Stormforge Hold / Apex Pantheon • Dynamo Core (+9f) • Iron Garrison • Runic Anvil",
-                    "Altar of the Titans • Artificer Vault • Arcane Conduit • Colossus Bay • Tesla Turret",
+                    "Titan Foundry / Stormforge Hold / Apex Pantheon • Dynamo Core • Iron Garrison • Runic Anvil",
+                    "Altar • Artificer Vault • Tesla Turret • Arcane Conduit • Colossus Bay",
                 ],
             },
             {
                 "id": "classic4",
                 "name": "Human • Orc • Undead • Night Elf",
-                "badge": "4 Classic Ladder Races (100% Unmodified Balance)",
+                "badge": "4 Classic Ladder Races (Balanced) + Updated Damage/Armor UI",
                 "lobbyHandicap": "Menu [K] Keep Lobby Race",
                 "color": "#38bdf8",
                 "halls": ["Town Hall / Great Hall / Necropolis / Tree of Life (T1-T3)"],
-                "heroes": ["All 16 Classic Ladder Heroes + 8 Neutral Tavern Heroes"],
-                "units": ["100% authentic Frozen Throne melee stats, upgrades, and items"],
-                "buildings": ["Full unmodified techtrees & upgraded Pro AI micro"],
+                "heroes": ["All original classic melee heroes; the 16 custom heroes have individual spell kits"],
+                "units": ["Authentic Frozen Throne melee techtrees, upgrades, items and native AI"],
+                "buildings": ["Classic race-specific building lists, damage types and armor classes"],
             },
         ],
         "players": [
@@ -2024,7 +2034,7 @@ def export_web_metadata(
 # ==============================================================================
 
 def build_all(repo_root: Path) -> Path:
-    print(f"[1/6] Sculpting D4-symmetric 192x192 Lordaeron Summer terrain for {MAP_DISPLAY_NAME}...")
+    print(f"[1/6] Sculpting D4-symmetric 192x192 Sunken-Astral Ruins terrain for {MAP_DISPLAY_NAME}...")
     corners_data: List[List[Tuple[float, float, int, int, int, int]]] = []
     terrain_heights: List[List[float]] = []
     terrain_water: List[List[int]] = []
@@ -2066,7 +2076,7 @@ def build_all(repo_root: Path) -> Path:
     misc_bytes = serialize_war3map_misc()
     skin_bytes = serialize_war3map_skin()
 
-    print("[4.5/6] Generating 49 custom assets (256x256 Lobby TGA, 36 BTN/DISBTN BLPs, 4 UI BLPs, 4 Sigil BLPs, 4 3D MDX VFX)...")
+    print("[4.5/6] Generating 64 unique hero kits, custom animated cursor, RPG Damage/Armor UI and race-specific assets...")
     custom_assets_map = generate_all_custom_assets()
     imp_bytes = serialize_imp(list(custom_assets_map.keys()))
 
@@ -2129,6 +2139,7 @@ def build_all(repo_root: Path) -> Path:
         camp_summaries,
         w3x_size,
         packer_used,
+        len(custom_assets_map),
     )
     import base64
     import hashlib

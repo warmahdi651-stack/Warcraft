@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 JASS2 Gameplay, Custom 3D Spell Engine, Sleek Menus, Live Multiboard HUD,
-and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v3.
+and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v4.
 
 Strict Classic 1.26a/1.27b + Reforged JASS2 Guarantees:
   - Every `local` variable is declared at the top of its `function`.
@@ -18,13 +18,15 @@ from __future__ import annotations
 
 from typing import Tuple
 
+from src.spell_engine_v4 import SPELL_ENGINE_V4
+
 
 def generate_custom_gameplay_jass() -> Tuple[str, str]:
     """
     Return `(globals_jass_lines, functions_jass_code)` to embed inside `war3map.j`.
     """
     globals_jass = """
-    // ---- Crown of WarMahdi v3: Factions, Menus, Custom HUD, Spells & Pro AI ----
+    // ---- Crown of WarMahdi v4: 8 Empires, 16 Exclusive Heroes, 64 Skills, Dark UI & Pro AI ----
     integer array udg_PlayerFaction
     boolean array udg_PlayerChoseRace
     boolean array udg_PlayerLockedInLobby
@@ -53,6 +55,7 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     button array udg_BtnPickVoid
     button array udg_BtnPickRunic
     button array udg_BtnPickRandom
+    button array udg_BtnPickRandomAll
 
     timer udg_BootTimer = null
     timer udg_DiffTimeoutTimer = null
@@ -74,6 +77,9 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     real udg_NearestTreeDist = 0.0
     real udg_SearchX = 0.0
     real udg_SearchY = 0.0
+    unit udg_ItemPickupHero = null
+    item udg_ItemPickupCandidate = null
+    real udg_ItemPickupDistance = 99999999.0
 
     // Multi-wave Ultimate pulse queue (supports simultaneous Ultimates cleanly)
     integer udg_UltCount = 0
@@ -217,469 +223,16 @@ function WM_PullOrPushUnit takes unit u, real cx, real cy, real deltaDist return
     endif
     set nx = WM_ClampMapCoord(ux + (dx / dist) * deltaDist)
     set ny = WM_ClampMapCoord(uy + (dy / dist) * deltaDist)
-    call SetUnitX(u, nx)
-    call SetUnitY(u, ny)
+    if not IsTerrainPathable(nx, ny, PATHING_TYPE_WALKABILITY) then
+        call SetUnitPosition(u, nx, ny)
+    endif
 endfunction
 
 // ============================================================================
 // CUSTOM 3D `.mdx` + GEOMETRIC SPELL ENGINE (ALL 16 CUSTOM HERO SKILLS `A000..A015`)
 // ============================================================================
 
-function WM_EnqueueUltPulse takes unit caster, integer abilId, real tx, real ty, integer pulses returns nothing
-    local integer idx = udg_UltCount
-    if idx >= 48 then
-        set idx = 0
-    endif
-    set udg_UltCaster[idx] = caster
-    set udg_UltAbil[idx] = abilId
-    set udg_UltX[idx] = tx
-    set udg_UltY[idx] = ty
-    set udg_UltTicksLeft[idx] = pulses
-    if idx == udg_UltCount then
-        set udg_UltCount = udg_UltCount + 1
-    endif
-endfunction
-
-function WM_OnUltWaveTick takes nothing returns nothing
-    local integer idx = 0
-    local unit caster = null
-    local player owner = null
-    local integer abil = 0
-    local real tx = 0.0
-    local real ty = 0.0
-    local real rad = 0.0
-    local unit u = null
-
-    loop
-        exitwhen idx >= udg_UltCount
-        if udg_UltTicksLeft[idx] > 0 and udg_UltCaster[idx] != null then
-            set caster = udg_UltCaster[idx]
-            set owner = GetOwningPlayer(caster)
-            set abil = udg_UltAbil[idx]
-            set tx = udg_UltX[idx]
-            set ty = udg_UltY[idx]
-            set rad = 160.0 + I2R(4 - udg_UltTicksLeft[idx]) * 95.0
-
-            if abil == 'A003' then
-                // Cataclysmic Tsunami (Abyssal Ultimate)
-                call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", tx, ty))
-                call WM_SpawnRingFX("Objects\\Spawnmodels\\Naga\\NagaDeath\\NagaDeath.mdl", tx, ty, rad, 8, I2R(udg_UltTicksLeft[idx]) * 0.4)
-                call GroupClear(udg_SpellGroup)
-                call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 380.0, null)
-                loop
-                    set u = FirstOfGroup(udg_SpellGroup)
-                    exitwhen u == null
-                    call GroupRemoveUnit(udg_SpellGroup, u)
-                    if WM_IsValidSpellEnemy(u, owner) then
-                        call WM_DealSpellDamage(caster, u, 95.0)
-                    elseif IsUnitAlly(u, owner) and not IsUnitType(u, UNIT_TYPE_STRUCTURE) and GetWidgetLife(u) > 0.405 then
-                        call SetWidgetLife(u, GetWidgetLife(u) + 46.0)
-                    endif
-                endloop
-            elseif abil == 'A007' then
-                // Supernova Crown (Sunfury Ultimate)
-                call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
-                call WM_SpawnRingFX("Abilities\\Spells\\Human\\MarkOfChaos\\MarkOfChaosTarget.mdl", tx, ty, rad, 8, I2R(udg_UltTicksLeft[idx]) * 0.5)
-                call GroupClear(udg_SpellGroup)
-                call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 400.0, null)
-                loop
-                    set u = FirstOfGroup(udg_SpellGroup)
-                    exitwhen u == null
-                    call GroupRemoveUnit(udg_SpellGroup, u)
-                    if WM_IsValidSpellEnemy(u, owner) then
-                        call WM_DealSpellDamage(caster, u, 100.0)
-                    elseif IsUnitAlly(u, owner) and not IsUnitType(u, UNIT_TYPE_STRUCTURE) and GetWidgetLife(u) > 0.405 then
-                        call SetWidgetLife(u, GetWidgetLife(u) + 55.0)
-                        if GetUnitState(u, UNIT_STATE_MAX_MANA) > 0.0 then
-                            call SetUnitState(u, UNIT_STATE_MANA, GetUnitState(u, UNIT_STATE_MANA) + 25.0)
-                        endif
-                    endif
-                endloop
-            elseif abil == 'A011' then
-                // Cosmic Collapse (Voidborn Ultimate)
-                call DestroyEffect(AddSpecialEffect("WM_FX_Void.mdx", tx, ty))
-                call WM_SpawnRingFX("Abilities\\Spells\\Undead\\DarkRitual\\DarkRitualTarget.mdl", tx, ty, 420.0 - rad * 0.65, 8, I2R(udg_UltTicksLeft[idx]) * 0.45)
-                call GroupClear(udg_SpellGroup)
-                call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 390.0, null)
-                loop
-                    set u = FirstOfGroup(udg_SpellGroup)
-                    exitwhen u == null
-                    call GroupRemoveUnit(udg_SpellGroup, u)
-                    if WM_IsValidSpellEnemy(u, owner) then
-                        call WM_PullOrPushUnit(u, tx, ty, -55.0)
-                        call WM_DealSpellDamage(caster, u, 98.0)
-                        if GetUnitState(u, UNIT_STATE_MAX_MANA) > 0.0 then
-                            call SetUnitState(u, UNIT_STATE_MANA, RMaxBJ(0.0, GetUnitState(u, UNIT_STATE_MANA) - 30.0))
-                        endif
-                    endif
-                endloop
-            elseif abil == 'A015' then
-                // Orbital Hammer Protocol (Runeforged Ultimate)
-                call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
-                call WM_SpawnRingFX("Abilities\\Spells\\Other\\Monsoon\\MonsoonBoltTarget.mdl", tx, ty, rad * 0.85, 8, I2R(udg_UltTicksLeft[idx]) * 0.35)
-                call GroupClear(udg_SpellGroup)
-                call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 400.0, null)
-                loop
-                    set u = FirstOfGroup(udg_SpellGroup)
-                    exitwhen u == null
-                    call GroupRemoveUnit(udg_SpellGroup, u)
-                    if WM_IsValidSpellEnemy(u, owner) then
-                        call WM_DealSpellDamage(caster, u, 100.0)
-                    endif
-                endloop
-            endif
-
-            set udg_UltTicksLeft[idx] = udg_UltTicksLeft[idx] - 1
-            if udg_UltTicksLeft[idx] <= 0 then
-                set udg_UltCaster[idx] = null
-            endif
-        endif
-        set idx = idx + 1
-    endloop
-
-    set caster = null
-    set owner = null
-    set u = null
-endfunction
-
-function WM_OnCustomHeroSpellEffect takes nothing returns boolean
-    local integer abil = GetSpellAbilityId()
-    local unit caster = null
-    local unit targ = null
-    local unit u = null
-    local player owner = null
-    local integer lvl = 1
-    local real cx = 0.0
-    local real cy = 0.0
-    local real tx = 0.0
-    local real ty = 0.0
-    local real dx = 0.0
-    local real dy = 0.0
-    local real dist = 0.0
-    local real statBonus = 0.0
-    local real dmg = 0.0
-    local integer step = 0
-    local integer chainLeft = 0
-
-    if abil < 'A000' or abil > 'A015' then
-        return false
-    endif
-
-    set caster = GetTriggerUnit()
-    set owner = GetOwningPlayer(caster)
-    set lvl = GetUnitAbilityLevel(caster, abil)
-    if lvl < 1 then
-        set lvl = 1
-    endif
-    set cx = GetUnitX(caster)
-    set cy = GetUnitY(caster)
-    set statBonus = WM_HeroPrimaryBonus(caster)
-
-    // ---------------- ABYSSAL TIDEBORN SKILLS (`A000..A003`) ----------------
-    if abil == 'A000' then
-        // Maelstrom Vortex: Point AoE pull + spiral vortex burst
-        set tx = GetSpellTargetX()
-        set ty = GetSpellTargetY()
-        set dmg = 30.0 + 58.0 * I2R(lvl) + statBonus
-        call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", tx, ty))
-        call WM_SpawnRingFX("Objects\\Spawnmodels\\Naga\\NagaDeath\\NagaDeath.mdl", tx, ty, 225.0, 8, 0.35)
-        call GroupClear(udg_SpellGroup)
-        call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 275.0, null)
-        loop
-            set u = FirstOfGroup(udg_SpellGroup)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_SpellGroup, u)
-            if WM_IsValidSpellEnemy(u, owner) then
-                call WM_PullOrPushUnit(u, tx, ty, -95.0)
-                call WM_DealSpellDamage(caster, u, dmg)
-            endif
-        endloop
-
-    elseif abil == 'A001' then
-        // Riptide Prism Lance: Unit target + geometric Y-chain to 2 foes + self tidal mend
-        set targ = GetSpellTargetUnit()
-        if targ != null then
-            set tx = GetUnitX(targ)
-            set ty = GetUnitY(targ)
-            set dmg = 45.0 + 62.0 * I2R(lvl) + statBonus
-            call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", tx, ty))
-            call DestroyEffect(AddSpecialEffectTarget("Abilities\\Weapons\\ChimaeraLightningMissile\\ChimaeraLightningMissile.mdl", targ, "chest"))
-            if WM_IsValidSpellEnemy(targ, owner) then
-                call WM_DealSpellDamage(caster, targ, dmg)
-            endif
-            call SetWidgetLife(caster, GetWidgetLife(caster) + 20.0 + 25.0 * I2R(lvl))
-            set chainLeft = 2
-            call GroupClear(udg_SpellGroup)
-            call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 320.0, null)
-            loop
-                set u = FirstOfGroup(udg_SpellGroup)
-                exitwhen u == null or chainLeft <= 0
-                call GroupRemoveUnit(udg_SpellGroup, u)
-                if u != targ and WM_IsValidSpellEnemy(u, owner) then
-                    call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", GetUnitX(u), GetUnitY(u)))
-                    call WM_DealSpellDamage(caster, u, dmg * 0.55)
-                    set chainLeft = chainLeft - 1
-                endif
-            endloop
-        endif
-
-    elseif abil == 'A002' then
-        // Abyssal Carapace Pulse: Instant self heal + 300-AoE tidal ring burst
-        set dmg = 25.0 + 45.0 * I2R(lvl) + statBonus * 0.75
-        call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", cx, cy))
-        call WM_SpawnRingFX("Abilities\\Spells\\Other\\CrushingWave\\CrushingWaveDamage.mdl", cx, cy, 200.0, 6, 0.0)
-        call SetWidgetLife(caster, GetWidgetLife(caster) + 45.0 + 55.0 * I2R(lvl) + statBonus)
-        call GroupClear(udg_SpellGroup)
-        call GroupEnumUnitsInRange(udg_SpellGroup, cx, cy, 300.0, null)
-        loop
-            set u = FirstOfGroup(udg_SpellGroup)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_SpellGroup, u)
-            if WM_IsValidSpellEnemy(u, owner) then
-                call WM_DealSpellDamage(caster, u, dmg)
-            endif
-        endloop
-
-    elseif abil == 'A003' then
-        set tx = GetSpellTargetX()
-        set ty = GetSpellTargetY()
-        call WM_EnqueueUltPulse(caster, abil, tx, ty, 3)
-
-    // ---------------- SUNFURY IMPERIUM SKILLS (`A004..A007`) ----------------
-    elseif abil == 'A004' then
-        // Solar Flare Sigil: Hexagonal solar sigil + AoE damage & mana burn
-        set tx = GetSpellTargetX()
-        set ty = GetSpellTargetY()
-        set dmg = 35.0 + 60.0 * I2R(lvl) + statBonus
-        call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
-        call WM_SpawnRingFX("Abilities\\Spells\\Human\\FlameStrike\\FlameStrikeEmbers.mdl", tx, ty, 210.0, 6, 0.0)
-        call GroupClear(udg_SpellGroup)
-        call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 265.0, null)
-        loop
-            set u = FirstOfGroup(udg_SpellGroup)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_SpellGroup, u)
-            if WM_IsValidSpellEnemy(u, owner) then
-                call WM_DealSpellDamage(caster, u, dmg)
-                if GetUnitState(u, UNIT_STATE_MAX_MANA) > 0.0 then
-                    call SetUnitState(u, UNIT_STATE_MANA, RMaxBJ(0.0, GetUnitState(u, UNIT_STATE_MANA) - (15.0 + 18.0 * I2R(lvl))))
-                endif
-            endif
-        endloop
-
-    elseif abil == 'A005' then
-        // Phoenix Wing Dash: Blink-surge to point + arrival solar burst + radiant heal
-        set tx = WM_ClampMapCoord(GetSpellTargetX())
-        set ty = WM_ClampMapCoord(GetSpellTargetY())
-        set dx = tx - cx
-        set dy = ty - cy
-        set dist = SquareRoot(dx * dx + dy * dy)
-        if dist > 550.0 then
-            set tx = WM_ClampMapCoord(cx + (dx / dist) * 550.0)
-            set ty = WM_ClampMapCoord(cy + (dy / dist) * 550.0)
-        endif
-        call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", cx, cy))
-        if not IsTerrainPathable(tx, ty, PATHING_TYPE_WALKABILITY) then
-            call SetUnitPosition(caster, tx, ty)
-        endif
-        call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", GetUnitX(caster), GetUnitY(caster)))
-        call SetWidgetLife(caster, GetWidgetLife(caster) + 55.0 + 55.0 * I2R(lvl))
-        set dmg = 25.0 + 50.0 * I2R(lvl) + statBonus * 0.8
-        call GroupClear(udg_SpellGroup)
-        call GroupEnumUnitsInRange(udg_SpellGroup, GetUnitX(caster), GetUnitY(caster), 260.0, null)
-        loop
-            set u = FirstOfGroup(udg_SpellGroup)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_SpellGroup, u)
-            if WM_IsValidSpellEnemy(u, owner) then
-                call WM_DealSpellDamage(caster, u, dmg)
-            endif
-        endloop
-
-    elseif abil == 'A006' then
-        // Sunblade Judgment: Converging 4-point solar cross burst + 190-AoE splash
-        set targ = GetSpellTargetUnit()
-        if targ != null then
-            set tx = GetUnitX(targ)
-            set ty = GetUnitY(targ)
-            set dmg = 50.0 + 65.0 * I2R(lvl) + statBonus
-            call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
-            call WM_SpawnRingFX("Abilities\\Spells\\Human\\HolyBolt\\HolyBoltSpecialArt.mdl", tx, ty, 130.0, 4, 0.785)
-            if WM_IsValidSpellEnemy(targ, owner) then
-                call WM_DealSpellDamage(caster, targ, dmg)
-            endif
-            call GroupClear(udg_SpellGroup)
-            call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 195.0, null)
-            loop
-                set u = FirstOfGroup(udg_SpellGroup)
-                exitwhen u == null
-                call GroupRemoveUnit(udg_SpellGroup, u)
-                if u != targ and WM_IsValidSpellEnemy(u, owner) then
-                    call WM_DealSpellDamage(caster, u, dmg * 0.45)
-                endif
-            endloop
-        endif
-
-    elseif abil == 'A007' then
-        set tx = GetSpellTargetX()
-        set ty = GetSpellTargetY()
-        call WM_EnqueueUltPulse(caster, abil, tx, ty, 3)
-
-    // ---------------- VOIDBORN LEGION SKILLS (`A008..A011`) ----------------
-    elseif abil == 'A008' then
-        // Event Horizon: Singularity implosion pulling enemies 115u inward
-        set tx = GetSpellTargetX()
-        set ty = GetSpellTargetY()
-        set dmg = 32.0 + 58.0 * I2R(lvl) + statBonus
-        call DestroyEffect(AddSpecialEffect("WM_FX_Void.mdx", tx, ty))
-        call WM_SpawnRingFX("Abilities\\Spells\\Undead\\Possession\\PossessionMissile.mdl", tx, ty, 235.0, 8, 0.2)
-        call GroupClear(udg_SpellGroup)
-        call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 280.0, null)
-        loop
-            set u = FirstOfGroup(udg_SpellGroup)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_SpellGroup, u)
-            if WM_IsValidSpellEnemy(u, owner) then
-                call WM_PullOrPushUnit(u, tx, ty, -110.0)
-                call WM_DealSpellDamage(caster, u, dmg)
-            endif
-        endloop
-
-    elseif abil == 'A009' then
-        // Rift Sever: 5-node dimensional void line slash + mana siphon
-        set tx = GetSpellTargetX()
-        set ty = GetSpellTargetY()
-        set dx = tx - cx
-        set dy = ty - cy
-        set dist = SquareRoot(dx * dx + dy * dy)
-        if dist < 10.0 then
-            set dx = 1.0
-            set dy = 0.0
-            set dist = 1.0
-        endif
-        set dx = dx / dist
-        set dy = dy / dist
-        set dmg = 38.0 + 60.0 * I2R(lvl) + statBonus
-        set step = 1
-        loop
-            exitwhen step > 5
-            set tx = WM_ClampMapCoord(cx + dx * (105.0 * I2R(step)))
-            set ty = WM_ClampMapCoord(cy + dy * (105.0 * I2R(step)))
-            call DestroyEffect(AddSpecialEffect("WM_FX_Void.mdx", tx, ty))
-            set step = step + 1
-        endloop
-        // Damage each enemy along the rift corridor once using midpoint gather + projection
-        set tx = WM_ClampMapCoord(cx + dx * 300.0)
-        set ty = WM_ClampMapCoord(cy + dy * 300.0)
-        call GroupClear(udg_SpellGroup)
-        call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 340.0, null)
-        loop
-            set u = FirstOfGroup(udg_SpellGroup)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_SpellGroup, u)
-            if WM_IsValidSpellEnemy(u, owner) then
-                call WM_DealSpellDamage(caster, u, dmg)
-                call SetUnitState(caster, UNIT_STATE_MANA, GetUnitState(caster, UNIT_STATE_MANA) + 12.0)
-            endif
-        endloop
-
-    elseif abil == 'A010' then
-        // Entropy Shroud: Self HP + Mana restore + rotating astral star shock
-        set dmg = 24.0 + 44.0 * I2R(lvl) + statBonus * 0.75
-        call DestroyEffect(AddSpecialEffect("WM_FX_Void.mdx", cx, cy))
-        call WM_SpawnRingFX("Abilities\\Spells\\Undead\\DarkRitual\\DarkRitualTarget.mdl", cx, cy, 190.0, 6, 0.5)
-        call SetWidgetLife(caster, GetWidgetLife(caster) + 45.0 + 50.0 * I2R(lvl) + statBonus * 0.8)
-        call SetUnitState(caster, UNIT_STATE_MANA, GetUnitState(caster, UNIT_STATE_MANA) + 25.0 + 20.0 * I2R(lvl))
-        call GroupClear(udg_SpellGroup)
-        call GroupEnumUnitsInRange(udg_SpellGroup, cx, cy, 290.0, null)
-        loop
-            set u = FirstOfGroup(udg_SpellGroup)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_SpellGroup, u)
-            if WM_IsValidSpellEnemy(u, owner) then
-                call WM_DealSpellDamage(caster, u, dmg)
-            endif
-        endloop
-
-    elseif abil == 'A011' then
-        set tx = GetSpellTargetX()
-        set ty = GetSpellTargetY()
-        call WM_EnqueueUltPulse(caster, abil, tx, ty, 3)
-
-    // ---------------- RUNEFORGED BASTION SKILLS (`A012..A015`) ----------------
-    elseif abil == 'A012' then
-        // Thunderous Tectonics: Runic matrix slam + radial shockwave knockback
-        set tx = GetSpellTargetX()
-        set ty = GetSpellTargetY()
-        set dmg = 34.0 + 58.0 * I2R(lvl) + statBonus
-        call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
-        call WM_SpawnRingFX("Abilities\\Spells\\Orc\\WarStomp\\WarStompCaster.mdl", tx, ty, 195.0, 6, 0.0)
-        call GroupClear(udg_SpellGroup)
-        call GroupEnumUnitsInRange(udg_SpellGroup, tx, ty, 275.0, null)
-        loop
-            set u = FirstOfGroup(udg_SpellGroup)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_SpellGroup, u)
-            if WM_IsValidSpellEnemy(u, owner) then
-                call WM_PullOrPushUnit(u, tx, ty, 75.0)
-                call WM_DealSpellDamage(caster, u, dmg)
-            endif
-        endloop
-
-    elseif abil == 'A013' then
-        // Arc-Reactor Overload: Orbital lightning strike + nearby ally energize
-        set targ = GetSpellTargetUnit()
-        if targ != null then
-            set tx = GetUnitX(targ)
-            set ty = GetUnitY(targ)
-            set dmg = 48.0 + 64.0 * I2R(lvl) + statBonus
-            call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
-            call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Other\\Monsoon\\MonsoonBoltTarget.mdl", tx, ty))
-            if WM_IsValidSpellEnemy(targ, owner) then
-                call WM_DealSpellDamage(caster, targ, dmg)
-            endif
-            call GroupClear(udg_SpellGroup)
-            call GroupEnumUnitsInRange(udg_SpellGroup, cx, cy, 350.0, null)
-            loop
-                set u = FirstOfGroup(udg_SpellGroup)
-                exitwhen u == null
-                call GroupRemoveUnit(udg_SpellGroup, u)
-                if IsUnitAlly(u, owner) and not IsUnitType(u, UNIT_TYPE_STRUCTURE) and GetWidgetLife(u) > 0.405 then
-                    call SetWidgetLife(u, GetWidgetLife(u) + 20.0 + 22.0 * I2R(lvl))
-                endif
-            endloop
-        endif
-
-    elseif abil == 'A014' then
-        // Runic Aegis Matrix: Self Titan barrier repair + arc discharge
-        set dmg = 24.0 + 42.0 * I2R(lvl) + statBonus * 0.75
-        call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", cx, cy))
-        call WM_SpawnRingFX("Abilities\\Spells\\Human\\Thunderclap\\ThunderClapCaster.mdl", cx, cy, 175.0, 6, 0.3)
-        call SetWidgetLife(caster, GetWidgetLife(caster) + 55.0 + 58.0 * I2R(lvl) + statBonus)
-        call GroupClear(udg_SpellGroup)
-        call GroupEnumUnitsInRange(udg_SpellGroup, cx, cy, 285.0, null)
-        loop
-            set u = FirstOfGroup(udg_SpellGroup)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_SpellGroup, u)
-            if WM_IsValidSpellEnemy(u, owner) then
-                call WM_DealSpellDamage(caster, u, dmg)
-            endif
-        endloop
-
-    elseif abil == 'A015' then
-        set tx = GetSpellTargetX()
-        set ty = GetSpellTargetY()
-        call WM_EnqueueUltPulse(caster, abil, tx, ty, 3)
-    endif
-
-    set caster = null
-    set targ = null
-    set u = null
-    set owner = null
-    return false
-endfunction
-
+""" + SPELL_ENGINE_V4 + r"""
 // ============================================================================
 // BASE SPAWNING, GOLD MINE RESTORATION & AUTO-HARVEST WORKER DISPATCH
 // ============================================================================
@@ -732,10 +285,10 @@ endfunction
 function WM_ConfigureTechCaps takes player p returns nothing
     // Cap all 16 Custom Heroes to 1 each per player (identical to standard MeleeHeroes)
     call SetPlayerTechMaxAllowed(p, 'Hvsh', 1)
+    call SetPlayerTechMaxAllowed(p, 'N004', 1)
     call SetPlayerTechMaxAllowed(p, 'N001', 1)
     call SetPlayerTechMaxAllowed(p, 'N002', 1)
-    call SetPlayerTechMaxAllowed(p, 'N003', 1)
-    call SetPlayerTechMaxAllowed(p, 'Hkal', 1)
+        call SetPlayerTechMaxAllowed(p, 'Hkal', 1)
     call SetPlayerTechMaxAllowed(p, 'Hvwd', 1)
     call SetPlayerTechMaxAllowed(p, 'Hlgr', 1)
     call SetPlayerTechMaxAllowed(p, 'Huth', 1)
@@ -1161,76 +714,256 @@ function WM_StartNativeAIScriptForPlayer takes player p, integer faction returns
     endif
 endfunction
 
+function WM_AIChooseHeroSkill takes unit hero, integer q, integer w, integer e, integer r returns nothing
+    local integer heroLevel = GetHeroLevel(hero)
+    local integer learnedQ = GetUnitAbilityLevel(hero, q)
+    local integer learnedW = GetUnitAbilityLevel(hero, w)
+    local integer learnedE = GetUnitAbilityLevel(hero, e)
+    local integer learnedR = GetUnitAbilityLevel(hero, r)
+    if GetHeroSkillPoints(hero) <= 0 then
+        return
+    endif
+    if heroLevel >= 6 and learnedR == 0 then
+        call SelectHeroSkill(hero, r)
+    elseif (heroLevel == 1 or heroLevel == 3 or heroLevel == 5) and learnedQ < 3 then
+        call SelectHeroSkill(hero, q)
+    elseif (heroLevel == 2 or heroLevel == 7 or heroLevel == 8) and learnedW < 3 then
+        call SelectHeroSkill(hero, w)
+    elseif learnedE < 3 then
+        call SelectHeroSkill(hero, e)
+    elseif learnedQ < 3 then
+        call SelectHeroSkill(hero, q)
+    elseif learnedW < 3 then
+        call SelectHeroSkill(hero, w)
+    else
+        call SelectHeroSkill(hero, e)
+    endif
+endfunction
+
 function WM_AICastCustomHeroCombo takes unit hero, unit enemy returns nothing
     local integer hid = GetUnitTypeId(hero)
+    local integer q = 0
+    local integer w = 0
+    local integer e = 0
+    local integer r = 0
+    local integer orderSlot = 0
     local real ex = GetUnitX(enemy)
     local real ey = GetUnitY(enemy)
     local real hpPct = GetWidgetLife(hero) / RMaxBJ(1.0, GetUnitState(hero, UNIT_STATE_MAX_LIFE))
 
-    // Auto-learn custom skills (`Q, W, E, R`) immediately whenever skill points > 0
-    if GetHeroSkillPoints(hero) > 0 then
-        if hid == 'Hvsh' or hid == 'N001' or hid == 'N002' or hid == 'N003' then
-            call SelectHeroSkill(hero, 'A003')
-            call SelectHeroSkill(hero, 'A000')
-            call SelectHeroSkill(hero, 'A001')
-            call SelectHeroSkill(hero, 'A002')
-        elseif hid == 'Hkal' or hid == 'Hvwd' or hid == 'Hlgr' or hid == 'Huth' then
-            call SelectHeroSkill(hero, 'A007')
-            call SelectHeroSkill(hero, 'A004')
-            call SelectHeroSkill(hero, 'A006')
-            call SelectHeroSkill(hero, 'A005')
-        elseif hid == 'V001' or hid == 'V002' or hid == 'V003' or hid == 'V004' then
-            call SelectHeroSkill(hero, 'A011')
-            call SelectHeroSkill(hero, 'A008')
-            call SelectHeroSkill(hero, 'A009')
-            call SelectHeroSkill(hero, 'A010')
-        elseif hid == 'T001' or hid == 'T002' or hid == 'T003' or hid == 'T004' then
-            call SelectHeroSkill(hero, 'A015')
-            call SelectHeroSkill(hero, 'A012')
-            call SelectHeroSkill(hero, 'A013')
-            call SelectHeroSkill(hero, 'A014')
-        endif
+    // Each of the sixteen custom heroes learns its own four exclusive skills.
+    if hid == 'Hvsh' then
+        set q = 'A000'
+        set w = 'A001'
+        set e = 'A002'
+        set r = 'A003'
+    elseif hid == 'N004' then
+        set q = 'A004'
+        set w = 'A005'
+        set e = 'A006'
+        set r = 'A007'
+    elseif hid == 'N001' then
+        set q = 'A008'
+        set w = 'A009'
+        set e = 'A010'
+        set r = 'A011'
+    elseif hid == 'N002' then
+        set q = 'A012'
+        set w = 'A013'
+        set e = 'A014'
+        set r = 'A015'
+    elseif hid == 'Hkal' then
+        set q = 'A016'
+        set w = 'A017'
+        set e = 'A018'
+        set r = 'A019'
+    elseif hid == 'Hvwd' then
+        set q = 'A020'
+        set w = 'A021'
+        set e = 'A022'
+        set r = 'A023'
+    elseif hid == 'Hlgr' then
+        set q = 'A024'
+        set w = 'A025'
+        set e = 'A026'
+        set r = 'A027'
+    elseif hid == 'Huth' then
+        set q = 'A028'
+        set w = 'A029'
+        set e = 'A030'
+        set r = 'A031'
+    elseif hid == 'V001' then
+        set q = 'A032'
+        set w = 'A033'
+        set e = 'A034'
+        set r = 'A035'
+    elseif hid == 'V002' then
+        set q = 'A036'
+        set w = 'A037'
+        set e = 'A038'
+        set r = 'A039'
+    elseif hid == 'V003' then
+        set q = 'A040'
+        set w = 'A041'
+        set e = 'A042'
+        set r = 'A043'
+    elseif hid == 'V004' then
+        set q = 'A044'
+        set w = 'A045'
+        set e = 'A046'
+        set r = 'A047'
+    elseif hid == 'T001' then
+        set q = 'A048'
+        set w = 'A049'
+        set e = 'A050'
+        set r = 'A051'
+    elseif hid == 'T002' then
+        set q = 'A052'
+        set w = 'A053'
+        set e = 'A054'
+        set r = 'A055'
+    elseif hid == 'T003' then
+        set q = 'A056'
+        set w = 'A057'
+        set e = 'A058'
+        set r = 'A059'
+    elseif hid == 'T004' then
+        set q = 'A060'
+        set w = 'A061'
+        set e = 'A062'
+        set r = 'A063'
     endif
 
+    if q == 0 then
+        return
+    endif
+    call WM_AIChooseHeroSkill(hero, q, w, e, r)
     if GetUnitState(hero, UNIT_STATE_MANA) < 65.0 then
         return
     endif
 
-    // Defensive self-sustain skills (`E`) when HP < 72%
-    if hpPct < 0.72 then
-        if GetUnitAbilityLevel(hero, 'A002') > 0 or GetUnitAbilityLevel(hero, 'A010') > 0 or GetUnitAbilityLevel(hero, 'A014') > 0 then
-            call IssueImmediateOrder(hero, "thunderclap")
+    // Defensive self/ally E skills are prioritized below 72% health.
+    if hpPct < 0.72 and GetUnitAbilityLevel(hero, e) > 0 then
+        call IssueImmediateOrder(hero, "thunderclap")
+        return
+    endif
+
+    if udg_AIDiff >= 2 and GetUnitAbilityLevel(hero, r) > 0 then
+        if r == 'A007' or r == 'A043' then
+            call IssueImmediateOrder(hero, "roar")
+        else
+            call IssuePointOrder(hero, "monsoon", ex, ey)
+        endif
+        return
+    endif
+
+    if GetUnitAbilityLevel(hero, q) > 0 then
+        if IssuePointOrder(hero, "flamestrike", ex, ey) then
             return
         endif
     endif
-
-    // Ultimate (`R` -> order `monsoon`) when unlocked on Grandmaster / Mythic or mid-fight
-    if udg_AIDiff >= 2 and (GetUnitAbilityLevel(hero, 'A003') > 0 or GetUnitAbilityLevel(hero, 'A007') > 0 or GetUnitAbilityLevel(hero, 'A011') > 0 or GetUnitAbilityLevel(hero, 'A015') > 0) then
-        if IssuePointOrder(hero, "monsoon", ex, ey) then
+    if GetUnitAbilityLevel(hero, w) > 0 then
+        if IssueTargetOrder(hero, "chainlightning", enemy) then
             return
         endif
     endif
-
-    // Primary AoE (`Q` -> order `flamestrike`) or Target (`W` -> `chainlightning` / `blink`)
-    if not IssuePointOrder(hero, "flamestrike", ex, ey) then
-        if not IssueTargetOrder(hero, "chainlightning", enemy) then
-            call IssuePointOrder(hero, "blink", ex, ey)
+    if GetUnitAbilityLevel(hero, e) > 0 then
+        call IssueImmediateOrder(hero, "thunderclap")
+    endif
+endfunction
+function WM_EnumAIItemPickup takes nothing returns nothing
+    local item it = GetEnumItem()
+    local real dx = 0.0
+    local real dy = 0.0
+    local real dist = 0.0
+    if it != null and IsItemVisible(it) and GetItemTypeId(it) != 0 then
+        set dx = GetItemX(it) - GetUnitX(udg_ItemPickupHero)
+        set dy = GetItemY(it) - GetUnitY(udg_ItemPickupHero)
+        set dist = dx * dx + dy * dy
+        if dist < udg_ItemPickupDistance then
+            set udg_ItemPickupDistance = dist
+            set udg_ItemPickupCandidate = it
         endif
     endif
+    set it = null
 endfunction
 
 function WM_AIPickupNearbyItems takes unit hero returns nothing
     local rect r = null
     local real hx = GetUnitX(hero)
     local real hy = GetUnitY(hero)
-    // Use native inventory check — only scan if hero has open slot
-    if UnitInventoryCount(hero) >= 6 then
+    if UnitInventoryCount(hero) >= 6 or GetUnitCurrentOrder(hero) != 0 then
         return
     endif
+    set udg_ItemPickupHero = hero
+    set udg_ItemPickupCandidate = null
+    set udg_ItemPickupDistance = 420.0 * 420.0
     set r = Rect(hx - 420.0, hy - 420.0, hx + 420.0, hy + 420.0)
-    // Lightweight item pickup handled via order if item visible
+    call EnumItemsInRect(r, null, function WM_EnumAIItemPickup)
     call RemoveRect(r)
     set r = null
+    if udg_ItemPickupCandidate != null then
+        call IssueTargetOrder(hero, "smart", udg_ItemPickupCandidate)
+    endif
+    set udg_ItemPickupHero = null
+    set udg_ItemPickupCandidate = null
+endfunction
+
+function WM_AIUseInventory takes unit hero, real homeX, real homeY returns nothing
+    local integer slot = 0
+    local integer itemId = 0
+    local item it = null
+    local real hpPct = GetWidgetLife(hero) / RMaxBJ(1.0, GetUnitState(hero, UNIT_STATE_MAX_LIFE))
+    local real manaMax = GetUnitState(hero, UNIT_STATE_MAX_MANA)
+    local real manaPct = 1.0
+    if manaMax > 0.0 then
+        set manaPct = GetUnitState(hero, UNIT_STATE_MANA) / manaMax
+    endif
+
+    if hpPct < 0.45 then
+        loop
+            exitwhen slot >= 6
+            set it = UnitItemInSlot(hero, slot)
+            if it != null then
+                set itemId = GetItemTypeId(it)
+                if itemId == 'phea' or itemId == 'sreg' then
+                    call UnitUseItem(hero, it)
+                    set slot = 6
+                endif
+            endif
+            set slot = slot + 1
+        endloop
+    endif
+
+    if manaPct < 0.28 and manaMax > 0.0 then
+        set slot = 0
+        loop
+            exitwhen slot >= 6
+            set it = UnitItemInSlot(hero, slot)
+            if it != null then
+                set itemId = GetItemTypeId(it)
+                if itemId == 'pman' or itemId == 'plcl' then
+                    call UnitUseItem(hero, it)
+                    set slot = 6
+                endif
+            endif
+            set slot = slot + 1
+        endloop
+    endif
+
+    if hpPct < 0.20 then
+        set slot = 0
+        loop
+            exitwhen slot >= 6
+            set it = UnitItemInSlot(hero, slot)
+            if it != null and GetItemTypeId(it) == 'stwp' then
+                call UnitUseItemPoint(hero, it, homeX, homeY)
+                set slot = 6
+            endif
+            set slot = slot + 1
+        endloop
+    endif
+    set it = null
 endfunction
 
 function WM_OnAITacticalMicroTick takes nothing returns nothing
@@ -1271,6 +1004,10 @@ function WM_OnAITacticalMicroTick takes nothing returns nothing
                     set ux = GetUnitX(u)
                     set uy = GetUnitY(u)
                     set hpPct = GetWidgetLife(u) / RMaxBJ(1.0, GetUnitState(u, UNIT_STATE_MAX_LIFE))
+                    if IsUnitType(u, UNIT_TYPE_HERO) then
+                        call WM_AIUseInventory(u, homeX, homeY)
+                        call WM_AIPickupNearbyItems(u)
+                    endif
 
                     // Scan nearby enemies within 650 range
                     set nearFoe = null
@@ -1297,8 +1034,7 @@ function WM_OnAITacticalMicroTick takes nothing returns nothing
                     if nearFoe != null then
                         // 1. Critical Hero survival potion + tactical retreat (`HP < 26%`)
                         if IsUnitType(u, UNIT_TYPE_HERO) and hpPct < 0.26 and udg_AIDiff >= 2 then
-                            call SetWidgetLife(u, GetWidgetLife(u) + 165.0)
-                            call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Items\\AIhe\\AIheTarget.mdl", u, "origin"))
+                            call WM_AIUseInventory(u, homeX, homeY)
                             call IssuePointOrder(u, "move", homeX, homeY)
                         // 2. Injured unit kiting step-back (`HP < 33%` on Veteran+)
                         elseif hpPct < 0.33 and udg_AIDiff >= 2 then
@@ -1330,6 +1066,173 @@ function WM_OnAITacticalMicroTick takes nothing returns nothing
     set nearFoe = null
 endfunction
 
+// ---------------------------------------------------------------------------
+// Safety-net CPU commander: the four imported race AIs remain the primary
+// macro brains; this JASS fallback keeps a computer expanding/producing even
+// if the client fails to load an imported `.ai` script or is running an older
+// custom-AI path resolver. It schedules real worker build orders, not free spawns.
+// ---------------------------------------------------------------------------
+function WM_CountOwnedType takes player p, integer rawcode returns integer
+    local unit u = null
+    local integer count = 0
+    call GroupClear(udg_TempGroupB)
+    call GroupEnumUnitsOfPlayer(udg_TempGroupB, p, null)
+    loop
+        set u = FirstOfGroup(udg_TempGroupB)
+        exitwhen u == null
+        call GroupRemoveUnit(udg_TempGroupB, u)
+        if GetUnitTypeId(u) == rawcode and GetWidgetLife(u) > 0.405 then
+            set count = count + 1
+        endif
+    endloop
+    set u = null
+    return count
+endfunction
+
+function WM_CountLivingHeroes takes player p returns integer
+    local unit u = null
+    local integer total = 0
+    call GroupClear(udg_TempGroupB)
+    call GroupEnumUnitsOfPlayer(udg_TempGroupB, p, null)
+    loop
+        set u = FirstOfGroup(udg_TempGroupB)
+        exitwhen u == null
+        call GroupRemoveUnit(udg_TempGroupB, u)
+        if GetWidgetLife(u) > 0.405 and IsUnitType(u, UNIT_TYPE_HERO) then
+            set total = total + 1
+        endif
+    endloop
+    set u = null
+    return total
+endfunction
+
+function WM_AITryBuild takes unit worker, integer rawcode, real sx, real sy, integer slot returns boolean
+    local integer attempt = 0
+    local real baseAngle = Atan2(sy, sx)
+    local real angle = 0.0
+    local real radius = 820.0
+    local real bx = 0.0
+    local real by = 0.0
+    local real dx = 0.0
+    local real dy = 0.0
+    local real mineD = 99999999.0
+    local unit mine = WM_FindNearestGoldMine(sx, sy)
+    if worker == null then
+        set mine = null
+        return false
+    endif
+    // Orbit the base but keep away from the nearby starting gold mine; 12 deterministic
+    // placement attempts cover a ring, alternate radius and skip every obstructed point.
+    loop
+        exitwhen attempt >= 12
+        set angle = baseAngle + 0.392699 + I2R(slot + attempt) * 0.785398
+        set radius = 820.0 + I2R(attempt / 4) * 95.0
+        set bx = WM_ClampMapCoord(sx + Cos(angle) * radius)
+        set by = WM_ClampMapCoord(sy + Sin(angle) * radius)
+        set mineD = 99999999.0
+        if mine != null then
+            set dx = bx - GetUnitX(mine)
+            set dy = by - GetUnitY(mine)
+            set mineD = dx * dx + dy * dy
+        endif
+        if mineD >= 600.0 * 600.0 and not IsTerrainPathable(bx, by, PATHING_TYPE_BUILDABILITY) then
+            if IssueBuildOrderById(worker, rawcode, bx, by) then
+                set worker = null
+                set mine = null
+                return true
+            endif
+        endif
+        set attempt = attempt + 1
+    endloop
+    set worker = null
+    set mine = null
+    return false
+endfunction
+
+function WM_AIFallbackBuild takes player p, integer faction, unit worker, real sx, real sy returns boolean
+    // Never queues a duplicate: a construction foundation counts as a live unit.
+    if faction == 5 then
+        if WM_CountOwnedType(p, 'nnfm') == 0 then
+            return WM_AITryBuild(worker, 'nnfm', sx, sy, 0)
+        elseif WM_CountOwnedType(p, 'nnad') == 0 then
+            return WM_AITryBuild(worker, 'nnad', sx, sy, 1)
+        elseif WM_CountOwnedType(p, 'nnsg') == 0 then
+            return WM_AITryBuild(worker, 'nnsg', sx, sy, 2)
+        elseif WM_CountOwnedType(p, 'n004') == 0 then
+            return WM_AITryBuild(worker, 'n004', sx, sy, 3)
+        elseif WM_CountOwnedType(p, 'n003') == 0 then
+            return WM_AITryBuild(worker, 'n003', sx, sy, 4)
+        elseif WM_CountOwnedType(p, 'nntg') == 0 then
+            return WM_AITryBuild(worker, 'nntg', sx, sy, 5)
+        elseif WM_CountOwnedType(p, 'n001') > 0 and WM_CountOwnedType(p, 'nnsa') == 0 then
+            return WM_AITryBuild(worker, 'nnsa', sx, sy, 6)
+        elseif WM_CountOwnedType(p, 'n001') > 0 and WM_CountOwnedType(p, 'n005') == 0 then
+            return WM_AITryBuild(worker, 'n005', sx, sy, 7)
+        endif
+    elseif faction == 6 then
+        if WM_CountOwnedType(p, 'nefm') == 0 then
+            return WM_AITryBuild(worker, 'nefm', sx, sy, 0)
+        elseif WM_CountOwnedType(p, 'h004') == 0 then
+            return WM_AITryBuild(worker, 'h004', sx, sy, 1)
+        elseif WM_CountOwnedType(p, 'h007') == 0 then
+            return WM_AITryBuild(worker, 'h007', sx, sy, 2)
+        elseif WM_CountOwnedType(p, 'h011') == 0 then
+            return WM_AITryBuild(worker, 'h011', sx, sy, 3)
+        elseif WM_CountOwnedType(p, 'h010') == 0 then
+            return WM_AITryBuild(worker, 'h010', sx, sy, 4)
+        elseif WM_CountOwnedType(p, 'h005') == 0 then
+            return WM_AITryBuild(worker, 'h005', sx, sy, 5)
+        elseif WM_CountOwnedType(p, 'negt') == 0 then
+            return WM_AITryBuild(worker, 'negt', sx, sy, 6)
+        elseif WM_CountOwnedType(p, 'h002') > 0 and WM_CountOwnedType(p, 'nheb') == 0 then
+            return WM_AITryBuild(worker, 'nheb', sx, sy, 7)
+        elseif WM_CountOwnedType(p, 'h002') > 0 and WM_CountOwnedType(p, 'h008') == 0 then
+            return WM_AITryBuild(worker, 'h008', sx, sy, 1)
+        elseif WM_CountOwnedType(p, 'h002') > 0 and WM_CountOwnedType(p, 'h009') == 0 then
+            return WM_AITryBuild(worker, 'h009', sx, sy, 2)
+        endif
+    elseif faction == 7 then
+        if WM_CountOwnedType(p, 'v004') == 0 then
+            return WM_AITryBuild(worker, 'v004', sx, sy, 0)
+        elseif WM_CountOwnedType(p, 'v007') == 0 then
+            return WM_AITryBuild(worker, 'v007', sx, sy, 1)
+        elseif WM_CountOwnedType(p, 'v005') == 0 then
+            return WM_AITryBuild(worker, 'v005', sx, sy, 2)
+        elseif WM_CountOwnedType(p, 'v006') == 0 then
+            return WM_AITryBuild(worker, 'v006', sx, sy, 3)
+        elseif WM_CountOwnedType(p, 'v008') == 0 then
+            return WM_AITryBuild(worker, 'v008', sx, sy, 4)
+        elseif WM_CountOwnedType(p, 'v009') == 0 then
+            return WM_AITryBuild(worker, 'v009', sx, sy, 5)
+        elseif WM_CountOwnedType(p, 'v002') > 0 and WM_CountOwnedType(p, 'v018') == 0 then
+            return WM_AITryBuild(worker, 'v018', sx, sy, 6)
+        elseif WM_CountOwnedType(p, 'v002') > 0 and WM_CountOwnedType(p, 'v019') == 0 then
+            return WM_AITryBuild(worker, 'v019', sx, sy, 7)
+        endif
+    elseif faction == 8 then
+        if WM_CountOwnedType(p, 't004') == 0 then
+            return WM_AITryBuild(worker, 't004', sx, sy, 0)
+        elseif WM_CountOwnedType(p, 't007') == 0 then
+            return WM_AITryBuild(worker, 't007', sx, sy, 1)
+        elseif WM_CountOwnedType(p, 't005') == 0 then
+            return WM_AITryBuild(worker, 't005', sx, sy, 2)
+        elseif WM_CountOwnedType(p, 't006') == 0 then
+            return WM_AITryBuild(worker, 't006', sx, sy, 3)
+        elseif WM_CountOwnedType(p, 't008') == 0 then
+            return WM_AITryBuild(worker, 't008', sx, sy, 4)
+        elseif WM_CountOwnedType(p, 't009') == 0 then
+            return WM_AITryBuild(worker, 't009', sx, sy, 5)
+        elseif WM_CountOwnedType(p, 't002') > 0 and WM_CountOwnedType(p, 't018') == 0 then
+            return WM_AITryBuild(worker, 't018', sx, sy, 6)
+        elseif WM_CountOwnedType(p, 't002') > 0 and WM_CountOwnedType(p, 't019') == 0 then
+            return WM_AITryBuild(worker, 't019', sx, sy, 7)
+        endif
+    endif
+    set p = null
+    set worker = null
+    return false
+endfunction
+
 function WM_OnProAIMacroTick takes nothing returns nothing
     local integer i = 0
     local player p = null
@@ -1348,6 +1251,7 @@ function WM_OnProAIMacroTick takes nothing returns nothing
     local unit heavyBay = null
     local unit armory = null
     local unit idleWorker = null
+    local unit aiBuilder = null
     local unit heroLeader = null
     local unit targetEnemy = null
     local real sx = 0.0
@@ -1395,6 +1299,7 @@ function WM_OnProAIMacroTick takes nothing returns nothing
             set heavyBay = null
             set armory = null
             set idleWorker = null
+            set aiBuilder = null
             set heroLeader = null
             set armyCount = 0
             set workerCount = 0
@@ -1408,6 +1313,9 @@ function WM_OnProAIMacroTick takes nothing returns nothing
                 if GetWidgetLife(u) > 0.405 then
                     if IsUnitType(u, UNIT_TYPE_PEON) then
                         set workerCount = workerCount + 1
+                        if aiBuilder == null then
+                            set aiBuilder = u
+                        endif
                         if GetUnitCurrentOrder(u) == 0 then
                             set idleWorker = u
                         endif
@@ -1428,12 +1336,20 @@ function WM_OnProAIMacroTick takes nothing returns nothing
                             set sanctum = u
                         elseif GetUnitTypeId(u) == 'n005' or GetUnitTypeId(u) == 'h008' or GetUnitTypeId(u) == 'v019' or GetUnitTypeId(u) == 't019' then
                             set heavyBay = u
-                        elseif GetUnitTypeId(u) == 'n004' or GetUnitTypeId(u) == 'hbla' or GetUnitTypeId(u) == 'v006' or GetUnitTypeId(u) == 't006' then
+                        elseif GetUnitTypeId(u) == 'n004' or GetUnitTypeId(u) == 'hbla' or GetUnitTypeId(u) == 'h010' or GetUnitTypeId(u) == 'v006' or GetUnitTypeId(u) == 't006' then
                             set armory = u
                         endif
                     endif
                 endif
             endloop
+
+            // Safety-net for clients that fail to resolve an imported race .ai path.
+            // It orders a genuine worker to build the next missing faction structure.
+            if f >= 5 and aiBuilder != null then
+                if WM_AIFallbackBuild(p, f, aiBuilder, sx, sy) then
+                    set idleWorker = null
+                endif
+            endif
 
             // Re-dispatch any idle worker back to nearest Gold Mine or Tree!
             if idleWorker != null then
@@ -1457,7 +1373,7 @@ function WM_OnProAIMacroTick takes nothing returns nothing
 
             // Autonomous Custom-Faction Macro Safeguard (ensures Custom Races NEVER stall!)
             if f >= 5 and hall != null then
-                if workerCount < 9 and gold >= 90 and foodUsed < foodCap then
+                if workerCount < 14 and gold >= 90 and foodUsed < foodCap then
                     if f == 5 then
                         call IssueImmediateOrderById(hall, 'nmpe')
                     elseif f == 6 then
@@ -1491,10 +1407,15 @@ function WM_OnProAIMacroTick takes nothing returns nothing
                 endif
 
                 // Summon / Revive Primary & Secondary Heroes from Altar
-                if altar != null and foodUsed + 5 <= foodCap then
+                if altar != null and foodUsed + 5 <= foodCap and WM_CountLivingHeroes(p) < 3 then
                     if f == 5 then
-                        call IssueImmediateOrderById(altar, 'Hvsh')
-                        call IssueImmediateOrderById(altar, 'N001')
+                        if WM_CountOwnedType(p, 'N004') == 0 then
+                            call IssueImmediateOrderById(altar, 'N004')
+                        elseif WM_CountOwnedType(p, 'N001') == 0 then
+                            call IssueImmediateOrderById(altar, 'N001')
+                        elseif WM_CountOwnedType(p, 'N002') == 0 then
+                            call IssueImmediateOrderById(altar, 'N002')
+                        endif
                     elseif f == 6 then
                         call IssueImmediateOrderById(altar, 'Hkal')
                         call IssueImmediateOrderById(altar, 'Hvwd')
@@ -1731,7 +1652,8 @@ function WM_LaunchRaceSelectionPhase takes nothing returns nothing
                 set udg_BtnPickVoid[i]   = DialogAddButton(udg_RaceDialog[i], "|cffc084fc[3] Voidborn Legion|r  |cfff43f5e[NEW]|r", '3')
                 set udg_BtnPickRunic[i]  = DialogAddButton(udg_RaceDialog[i], "|cfff97316[4] Runeforged Bastion|r  |cfff43f5e[NEW]|r", '4')
                 set udg_BtnPickRandom[i] = DialogAddButton(udg_RaceDialog[i], "|cff4ade80[R] Random Custom Empire|r  |cffffd700(+50g)|r", 'R')
-                set udg_BtnKeepClassic[i] = DialogAddButton(udg_RaceDialog[i], "|cffe2e8f0[K] Keep Classic Lobby Race|r", 'K')
+                set udg_BtnPickRandomAll[i] = DialogAddButton(udg_RaceDialog[i], "|cffffd166[A] Random Any of 8 Races|r", 'A')
+                set udg_BtnKeepClassic[i] = DialogAddButton(udg_RaceDialog[i], "|cffe2e8f0[K] Keep Lobby Race|r", 'K')
                 call DialogDisplay(p, udg_RaceDialog[i], true)
             endif
         endif
@@ -1836,11 +1758,13 @@ function WM_OnRaceDialogClick takes nothing returns boolean
     elseif b == udg_BtnPickRandom[pid] then
         set chosen = GetRandomInt(5, 8)
         call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) + 50)
+    elseif b == udg_BtnPickRandomAll[pid] then
+        set chosen = GetRandomInt(1, 8)
     else
         set chosen = 0
     endif
 
-    if chosen >= 5 then
+    if chosen > 0 then
         call WM_SpawnPlayerEmpire(p, chosen)
     endif
     call DisplayTimedTextToPlayer(p, 0.0, 0.0, 8.0, "|cffffd700★ Empire Ready:|r " + WM_GetFactionLabel(udg_PlayerFaction[pid]) + " |cff94a3b8(Type |r|cff38bdf8-race|r|cff94a3b8 within 35s to switch)|r")
@@ -1915,9 +1839,9 @@ endfunction
 function WM_CreateImperialCodexQuests takes nothing returns nothing
     local quest q1 = CreateQuest()
     local quest q2 = CreateQuest()
-    call QuestSetTitle(q1, "Crown of WarMahdi — 4 Custom Empires")
+    call QuestSetTitle(q1, "Crown of WarMahdi — 16 Exclusive Heroes / 64 Skills")
     call QuestSetIconPath(q1, "ReplaceableTextures\\CommandButtons\\BTN_WM_CrownCrest.blp")
-    call QuestSetDescription(q1, "4 Original Custom Empires join the 4 Classic Races:\n• Abyssal Tideborn (Maelstrom Vortex, Prism Lance, Carapace, Tsunami)\n• Sunfury Imperium (Solar Sigil, Phoenix Dash, Sunblade, Supernova)\n• Voidborn Legion (Event Horizon, Rift Sever, Entropy Shroud, Cosmic Collapse)\n• Runeforged Bastion (Tectonics, Arc-Reactor, Runic Aegis, Orbital Hammer)\n\nHold the Central Astral Crown Shrine at (0,0) for +3 Gold/2s & Regeneration!")
+    call QuestSetDescription(q1, "4 Original Empires join the 4 Classic Races. Every one of the 16 custom Heroes now has a private Q/W/E/R kit (64 distinct skills, buttons, and spell shapes).\n• Abyssal Tideborn: Vashj, Illidan Stormrage, Naj'entus, Athissa.\n• Sunfury Imperium: Kael'thas, Sylvanas, Garithos, Uther.\n• Voidborn Legion: Xal'athor, Sargen'eth, Akama, Aetheron.\n• Runeforged Bastion: Thorim, Ignis, Mimiron, Loken.\n\nHold the Central Crown Shrine for resources, healing, and a live HUD.")
     call QuestSetRequired(q1, true)
 
     call QuestSetTitle(q2, "Quick Commands & Pro AI")
@@ -2013,7 +1937,7 @@ function InitCustomRacesAndAI takes nothing returns nothing
 
     call WM_CreateImperialCodexQuests()
 
-    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v3 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc16 Custom 3D Skills|r • |cfff97316Pro AI|r")
+    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v4 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc64 Hero-Specific Custom Skills|r • |cfff97316Pro AI|r")
 
     set udg_BootTimer = CreateTimer()
     set udg_DiffTimeoutTimer = CreateTimer()

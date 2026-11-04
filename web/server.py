@@ -40,20 +40,21 @@ def build_archive_manifest() -> dict:
         "archiveBytes": MAP_FILE.stat().st_size,
         "entries": entries,
         "checks": [
-            "Stage 1: HM3W Pre-Header (0x1FC1A) + MPQ v1 Container + StormLib CRC32/MD5 (74 Files)",
-            "Stage 2: TFT Binary Format v25 — Sunken-Astral 'Z' Tileset + 5,920 ZTtw Trees + 41 Shrine Props",
-            "Stage 3a: JASS2 Static Typecheck vs Patch 1.27b Common.j + Blizzard.j (98 fns, 0 Errors)",
-            "Stage 3b: JASS2 Static Typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (98 fns, 0 Errors)",
+            "Stage 1: HM3W Pre-Header (0x1FC1A) + MPQ v1 Container + StormLib CRC32/MD5 (439 Files)",
+            "Stage 2: TFT Binary v25 — Sunken-Astral 'Z' Tileset + 5,920 Harvestable Trees + 41 Shrine Props",
+            "Stage 3a: JASS2 Static Typecheck vs TFT 1.27b Common.j + Blizzard.j (109 functions, 0 Errors)",
+            "Stage 3b: JASS2 Static Typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (109 functions, 0 Errors)",
             "Stage 4 & 5: 1-to-1 Sync (war3mapUnits.doo <-> war3map.j <-> war3map.mmp <-> war3map.wts)",
-            "Stage 6: All 8 Playable Empires Spawn & Base Buildability Prover (wpm == 0x40)",
+            "Stage 6: 8-Player Spawn Layout + buildable/collision-free mirrored starting zones",
             "Stage 7: Zero Collision Footprints Across 181 Units & 5,920 Harvestable Trees",
             "Stage 8: Dynamic Pathing Grid BFS: 401,756 Walkable Cells (100% Connected)",
             "Stage 9: 200u Camp Acquisition & Highway / Central Crown Shrine Safe-Zones",
             "Stage 10: Exact 8-Way Dihedral Group (D4) Terrain, Pathing & Forest Symmetry",
-            "Stage 11: 8-Empire Object & Skill Tables (w3u=101, w3t=5, w3q=10, w3a=16, 0 Hero Rally Flags, 0 Collisions)",
-            "Stage 12: 4 Pro Melee AI Scripts Typechecked vs Common.j + common.ai (0 Errors)",
-            "Stage 13: All-31-Unit & All-16-Hero Pro-Ladder DPS/EHP/Cost/Role Parity Audit",
-            "Stage 14: Custom 256x256 Lobby Artwork TGA, Dark UI Skin, 44 BLP1s & 4 3D MDX Models Verified",
+            "Stage 11: 8-Empire Objects (w3u=42+65, w3t=5, w3q=6+4, w3a=64); 16 heroes, 64 unique skills, 0 Rally Flags/Card Collisions",
+            "Stage 12: All 4 Imported Race AI Scripts Typechecked vs Common.j + common.ai (0 Errors)",
+            "Stage 13: All 31 Combat Units + 16 Heroes; ladder DPS/EHP/Cost & exact 55-point hero stat audit",
+            "Stage 14: Custom Lobby TGA, 408 MPQ BLP1s, all 64 BTN/DISBTN pairs, 4 animated cursor atlases, RPG Damage/Armor infocards & 6 MDX VFX",
+            "Stage 15: TFT 1.26-era API compatibility proxy + AI worker-build fallback, real consumables, imported AI startup and 3-hero cap checks",
         ],
     }
 
@@ -62,7 +63,7 @@ ARCHIVE_MANIFEST_CACHE = build_archive_manifest()
 
 
 class MapPreviewHandler(BaseHTTPRequestHandler):
-    server_version = "CrownOfWarMahdiPreview/2.0"
+    server_version = "CrownOfWarMahdiPreview/4.0"
 
     def log_message(self, fmt: str, *args: object) -> None:
         sys.stdout.write("[HTTP] " + (fmt % args) + "\n")

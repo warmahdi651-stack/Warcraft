@@ -1,20 +1,36 @@
 #!/usr/bin/env python3
 """
-Procedural & Artwork Asset Pipeline for `(8) Crown of WarMahdi` v3.
+Procedural & Artwork Asset Pipeline for `(8) Crown of WarMahdi` v4.
 
 Generates and validates 100% custom, non-vanilla Warcraft III binary assets:
   1. `war3mapPreview.tga` (256x256 uncompressed 24-bit TrueColor TGA derived from
-     `web/public/crown_artwork.png` with ornate astral-gold frame & badge).
-  2. 18 Custom `64x64` Paletted `BLP1` Command Icons (`BTN_WM_*.blp` + matching
-     `DISBTN_WM_*.blp` = 36 `.blp` icons) for all 16 custom Hero skills, the
-     Crown Crest icon, and the Faction Tome/Reroll icon — zero vanilla WC3 art!
-  3. Custom Non-Classic UI Skin `.blp` textures (`UI\\CrownUI\\MenuBG.blp`,
-     `IconGold.blp`, `IconLumber.blp`, `IconSupply.blp`) to replace classic dialog
-     backgrounds and resource bar icons cleanly in 1.26a/1.27b & Reforged.
-  4. 4 Custom `128x128` Additive Arcane/Runic Sigil `.blp` textures
-     (`Textures\\WM_Sigil_*.blp`) + 4 Custom Multi-Geoset 3D `.mdx` (`Version 800`)
-     spell VFX models (`WM_FX_Abyssal.mdx`, `WM_FX_Solar.mdx`, `WM_FX_Void.mdx`,
-     `WM_FX_Runic.mdx`) compiled via `mdx-m3-viewer`.
+     `web/public/crown_artwork.png` with ornate astral-gold frame & v4 badge).
+  2. Custom Animated Multi-State Mouse Cursor (`256x128` 8-bit alpha `BLP1` on the
+     exact 8x4 `32x32` `War3CursorCatalog` UV grid: Sovereign Obsidian-Gold Gauntlet,
+     8-frame Emerald Friendly Hover, 8-frame Crimson Attack Hover, 8-frame Rotating
+     Runic Crosshair Reticle, Invalid Seal, Gauntlet Grip, and 3-frame Winged Scroll
+     Chevron) packed at `UI\\Cursor\\HumanCursor.blp`, `OrcCursor.blp`,
+     `UndeadCursor.blp`, and `NightElfCursor.blp`.
+  3. Badass RPG-Style Custom Infocard Icons (`64x64` 8-bit alpha `BLP1`):
+       - 6 Damage Type Icons x 2 (`Upgraded` w/ metallic +badge & `Neutral`):
+         Normal/Melee, Piercing, Siege, Magic, Chaos, Hero
+       - 7 Armor Type Icons x 2 (`Upgraded` & `Neutral`):
+         Light/Small, Medium/Normal, Heavy/Large, Fortified, Hero, Divine, Unarmored
+       - 3 Hero Primary Attribute Icons (`STR`, `AGI`, `INT`)
+       - Custom Resource & Console Textures (`MenuBG`, `IconGold`, `IconLumber`,
+         `IconSupply`, `IconUpkeep`, `SlotFiller`)
+  4. Custom Command Card Action Icons (`CmdAttack`, `CmdMove`, `CmdStop`, `CmdHold`,
+     `CmdPatrol`, `CmdSkill`, `CmdRally`, `CmdCancel`) + 5 Race-Specific Worker
+     `Build` Icons (`BuildNaga`, `BuildSunfury`, `BuildVoidborn`, `BuildRuneforged`,
+     `BuildNightElf`).
+  5. Custom Race-Specific Structure, Hero & Unit Icons (`BTN` + `DISBTN` pairs) for
+     Abyssal Tideborn (including Hero Illidan!), Sunfury Imperium, Voidborn Legion,
+     and Runeforged Bastion — zero Human leftover icons on non-Human races!
+  6. 64 Unique Custom Hero Skill Icons (`BTN_WM_S00..S63` + `DISBTN_WM_S00..S63` =
+     128 skill BLPs, 16 heroes x 4 unique skills, zero shared icons!) + `CrownCrest`
+     & `FactionTome`.
+  7. 6 Custom Additive Sigil `.blp` textures + 6 Custom Multi-Geoset 3D `.mdx`
+     (`Version 800`) spell VFX models compiled & roundtrip-verified via `mdx-m3-viewer`.
 """
 
 from __future__ import annotations
@@ -31,6 +47,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ARTWORK_PNG = REPO_ROOT / "web" / "public" / "crown_artwork.png"
+PREVIEW_SHEET_PNG = REPO_ROOT / "web" / "public" / "custom_icons_preview.png"
 MDX_MODEL_JS = Path("/tmp/wc3ref/node_modules/mdx-m3-viewer/dist/cjs/parsers/mdlx/model")
 
 
@@ -39,22 +56,17 @@ MDX_MODEL_JS = Path("/tmp/wc3ref/node_modules/mdx-m3-viewer/dist/cjs/parsers/mdl
 # ==============================================================================
 
 def encode_tga_24bit(img: Image.Image) -> bytes:
-    """
-    Encode an RGB PIL Image into a standard bottom-up 24-bit uncompressed TGA
-    (`war3mapPreview.tga` format required by Warcraft III 1.26a/1.27b & Reforged).
-    """
+    """Encode an RGB PIL Image into a standard bottom-up 24-bit uncompressed TGA."""
     rgb = img.convert("RGB")
     w, h = rgb.size
     header = struct.pack(
         "<BBBHHBHHHHBB",
-        0,      # id_length
-        0,      # color_map_type
-        2,      # image_type = 2 (Uncompressed True-Color)
+        0, 0, 2,
         0, 0, 0,
-        0, 0,   # x_origin, y_origin
+        0, 0,
         w, h,
-        24,     # 24 bits per pixel (BGR)
-        0x00,   # bottom-up origin (standard WC3 TGA)
+        24,
+        0x00,
     )
     px = rgb.load()
     rows = bytearray()
@@ -68,32 +80,25 @@ def encode_tga_24bit(img: Image.Image) -> bytes:
 def encode_blp1_paletted(img: Image.Image, alpha_bits: int = 8) -> bytes:
     """
     Encode an RGBA PIL Image into a Warcraft III `BLP1` Paletted (`content=1`)
-    texture with full mipmap chain (`max(w,h)` down to `1x1`) and 8-bit alpha.
+    texture with full mipmap chain down to `1x1` and 8-bit or 0-bit alpha.
     """
     rgba = img.convert("RGBA")
     w, h = rgba.size
     assert (w & (w - 1)) == 0 and (h & (h - 1)) == 0, f"BLP size must be power-of-2: {w}x{h}"
 
-    # Quantize RGB across level-0 using Adaptive 256-color palette
     rgb0 = rgba.convert("RGB")
     pal_img = rgb0.quantize(colors=256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
     raw_pal = pal_img.getpalette() or []
-    # Pad palette to 256 * 3
     while len(raw_pal) < 768:
         raw_pal.extend((0, 0, 0))
 
-    # Build 1024-byte BGRA palette
     palette_bytes = bytearray(1024)
     for i in range(256):
-        r = raw_pal[i * 3]
-        g = raw_pal[i * 3 + 1]
-        b = raw_pal[i * 3 + 2]
-        palette_bytes[i * 4 + 0] = b
-        palette_bytes[i * 4 + 1] = g
-        palette_bytes[i * 4 + 2] = r
+        palette_bytes[i * 4 + 0] = raw_pal[i * 3 + 2]
+        palette_bytes[i * 4 + 1] = raw_pal[i * 3 + 1]
+        palette_bytes[i * 4 + 2] = raw_pal[i * 3 + 0]
         palette_bytes[i * 4 + 3] = 0
 
-    # Generate full mipmap chain down to 1x1
     num_mips = int(math.log2(max(w, h))) + 1
     mip_blobs: List[bytes] = []
     for lvl in range(num_mips):
@@ -101,7 +106,6 @@ def encode_blp1_paletted(img: Image.Image, alpha_bits: int = 8) -> bytes:
         mh = max(1, h >> lvl)
         m_rgba = rgba if lvl == 0 else rgba.resize((mw, mh), Image.Resampling.LANCZOS)
         m_rgb = m_rgba.convert("RGB")
-        # Quantize against exact level-0 palette so indices match `palette_bytes`
         m_idx_img = m_rgb.quantize(palette=pal_img, dither=Image.Dither.NONE)
         idx_bytes = m_idx_img.tobytes()
         assert len(idx_bytes) == mw * mh
@@ -123,53 +127,48 @@ def encode_blp1_paletted(img: Image.Image, alpha_bits: int = 8) -> bytes:
     header = struct.pack(
         "<4s6I16I16I",
         b"BLP1",
-        1,                      # content = 1 (Paletted)
+        1,
         8 if alpha_bits == 8 else 0,
         w,
         h,
-        5,                      # type = 5
-        1,                      # hasMipmaps = 1
+        5,
+        1,
         *offsets,
         *sizes,
     )
-    assert len(header) == 156
     return header + bytes(palette_bytes) + b"".join(mip_blobs)
 
 
 # ==============================================================================
-# 2. WC3 COMMAND BUTTON BEVEL & DISABLED (`DISBTN`) STYLING
+# 2. COMMAND BUTTON BEVEL & DISABLED (`DISBTN`) STYLING
 # ==============================================================================
 
 def apply_btn_frame(core: Image.Image, accent_rgb: Tuple[int, int, int]) -> Tuple[Image.Image, Image.Image]:
     """
-    Wrap a `64x64` custom skill illustration in a sleek non-classic obsidian-metallic
-    command button bevel (`BTN`) AND produce the darkened/desaturated Warcraft III
-    disabled state (`DISBTN`) required for dialogs, pause screens & unlearned skills.
+    Wrap a supersampled icon in an ornate dark-obsidian & gold/faction-accent
+    command button bevel (`BTN`) and generate its matching `DISBTN`.
     """
     btn = core.convert("RGBA").resize((64, 64), Image.Resampling.LANCZOS)
     draw = ImageDraw.Draw(btn)
     ar, ag, ab = accent_rgb
 
-    # Outer dark border + crisp metallic inner bevel tinted with faction accent
-    draw.rectangle([0, 0, 63, 63], outline=(10, 12, 18, 255), width=1)
+    draw.rectangle([0, 0, 63, 63], outline=(8, 10, 16, 255), width=1)
     draw.rectangle(
         [1, 1, 62, 62],
-        outline=(min(255, int(ar * 0.55 + 55)), min(255, int(ag * 0.55 + 55)), min(255, int(ab * 0.55 + 55)), 255),
+        outline=(min(255, int(ar * 0.50 + 50)), min(255, int(ag * 0.50 + 50)), min(255, int(ab * 0.50 + 50)), 255),
         width=1,
     )
     draw.rectangle(
         [2, 2, 61, 61],
-        outline=(min(255, int(ar * 0.85 + 75)), min(255, int(ag * 0.85 + 75)), min(255, int(ab * 0.85 + 75)), 255),
+        outline=(min(255, int(ar * 0.85 + 80)), min(255, int(ag * 0.85 + 80)), min(255, int(ab * 0.85 + 80)), 255),
         width=1,
     )
-    draw.rectangle([3, 3, 60, 60], outline=(18, 22, 32, 230), width=1)
-    # Subtle corner gem rivets
+    draw.rectangle([3, 3, 60, 60], outline=(16, 20, 30, 235), width=1)
     for cx, cy in ((3, 3), (60, 3), (3, 60), (60, 60)):
-        draw.point((cx, cy), fill=(245, 235, 195, 255))
+        draw.point((cx, cy), fill=(255, 240, 195, 255))
 
-    # Build DISBTN (borderless, desaturated 45%, darkened 48% with smooth 4px edge vignette)
-    dis_rgb = ImageEnhance.Color(core.convert("RGB").resize((64, 64), Image.Resampling.LANCZOS)).enhance(0.38)
-    dis_rgb = ImageEnhance.Brightness(dis_rgb).enhance(0.46)
+    dis_rgb = ImageEnhance.Color(core.convert("RGB").resize((64, 64), Image.Resampling.LANCZOS)).enhance(0.36)
+    dis_rgb = ImageEnhance.Brightness(dis_rgb).enhance(0.45)
     dis = dis_rgb.convert("RGBA")
     px = dis.load()
     for y in range(64):
@@ -177,16 +176,12 @@ def apply_btn_frame(core: Image.Image, accent_rgb: Tuple[int, int, int]) -> Tupl
             edge = min(x, y, 63 - x, 63 - y)
             if edge < 4:
                 fade = (edge + 0.5) / 4.5
-                r, g, b, a = px[x, y]
+                r, g, b, _ = px[x, y]
                 px[x, y] = (int(r * fade), int(g * fade), int(b * fade), 255)
     return btn, dis
 
 
-# ==============================================================================
-# 3. PROCEDURAL HIGH-CONTRAST DIGITAL ART PAINTER FOR ALL 18 CUSTOM ICONS
-# ==============================================================================
-
-def _make_radial_bg(
+def _radial_canvas(
     size: int,
     inner_rgb: Tuple[int, int, int],
     mid_rgb: Tuple[int, int, int],
@@ -200,407 +195,902 @@ def _make_radial_bg(
         for x in range(size):
             t = min(1.0, math.hypot(x - cx, y - cy) / max_r)
             if t < 0.5:
-                u = t * 2.0
-                r = int(inner_rgb[0] * (1 - u) + mid_rgb[0] * u)
-                g = int(inner_rgb[1] * (1 - u) + mid_rgb[1] * u)
-                b = int(inner_rgb[2] * (1 - u) + mid_rgb[2] * u)
+                u = t / 0.5
+                c = tuple(int(inner_rgb[k] * (1 - u) + mid_rgb[k] * u) for k in range(3))
             else:
-                u = (t - 0.5) * 2.0
-                r = int(mid_rgb[0] * (1 - u) + outer_rgb[0] * u)
-                g = int(mid_rgb[1] * (1 - u) + outer_rgb[1] * u)
-                b = int(mid_rgb[2] * (1 - u) + outer_rgb[2] * u)
-            px[x, y] = (r, g, b, 255)
+                u = (t - 0.5) / 0.5
+                c = tuple(int(mid_rgb[k] * (1 - u) + outer_rgb[k] * u) for k in range(3))
+            px[x, y] = (*c, 255)
     return img
 
 
-def paint_skill_icon(kind: str) -> Tuple[Image.Image, Tuple[int, int, int]]:
+# ==============================================================================
+# 3. CUSTOM ANIMATED MULTI-STATE MOUSE CURSOR ATLAS (`256x128` 8x4 x 32x32)
+# ==============================================================================
+
+def _draw_sovereign_gauntlet_cell(
+    tint_main: Tuple[int, int, int],
+    tint_glow: Tuple[int, int, int],
+    pulse: float = 0.5,
+    grip: bool = False,
+) -> Image.Image:
     """
-    Paint a supersampled `128x128` original fantasy/arcane emblem for `kind`,
-    then downsample cleanly to `64x64`. Zero Blizzard/WC3 icon assets used.
+    Render one `32x32` cursor cell at `128x128` supersampled resolution and
+    downsample cleanly to `32x32` RGBA so the hotspot at `(3, 3)` is razor-sharp!
     """
     S = 128
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    glow_layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow_layer)
+    d = ImageDraw.Draw(img)
+
+    # Tip at (12, 12) -> maps to (3, 3) in 32x32!
+    r_glow = int(18 + 8 * pulse)
+    gd.ellipse([12 - r_glow, 12 - r_glow, 12 + r_glow, 12 + r_glow], fill=(*tint_glow, int(115 + 75 * pulse)))
+
+    if not grip:
+        # Sculpted Sovereign Dragon-Talon Gauntlet Blade
+        blade_outer = [(10, 10), (96, 38), (68, 56), (108, 96), (92, 112), (52, 72), (36, 98)]
+        blade_gold = [(14, 14), (88, 40), (62, 54), (100, 92), (90, 102), (52, 64), (38, 88)]
+        blade_core = [(18, 18), (74, 41), (54, 52), (40, 74)]
+        gd.polygon(blade_outer, fill=(*tint_glow, int(90 + 60 * pulse)))
+        glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(4))
+        img = Image.alpha_composite(img, glow_layer)
+        d = ImageDraw.Draw(img)
+
+        # Crisp dark silhouette + armored gold bevel + glowing runic energy spine
+        d.polygon(blade_outer, fill=(14, 16, 24, 255), outline=(6, 8, 12, 255))
+        d.polygon(blade_gold, fill=(*tint_main, 255), outline=(255, 244, 200, 255))
+        d.polygon(blade_core, fill=(*tint_glow, 245))
+        # Faceted pommel gem & runic wing notches
+        d.polygon([(50, 44), (64, 50), (58, 64), (44, 58)], fill=(255, 255, 255, 255), outline=(24, 28, 40, 255))
+        d.line([(14, 14), (60, 60)], fill=(255, 255, 255, 240), width=4)
+        d.ellipse([84, 84, 104, 104], fill=(*tint_glow, 255), outline=(14, 16, 24, 255), width=3)
+    else:
+        # Clawed Golden Gauntlet Grip (HoldItem state)
+        glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(4))
+        img = Image.alpha_composite(img, glow_layer)
+        d = ImageDraw.Draw(img)
+        d.rounded_rectangle([18, 22, 98, 102], radius=18, fill=(18, 20, 30, 255), outline=(255, 215, 95, 255), width=5)
+        for fx in (28, 48, 68):
+            d.rounded_rectangle([fx, 14, fx + 16, 56], radius=6, fill=(*tint_main, 255), outline=(14, 16, 24, 255), width=3)
+        d.ellipse([44, 54, 78, 88], fill=(*tint_glow, 255), outline=(255, 250, 220, 255), width=3)
+
+    return img.resize((32, 32), Image.Resampling.LANCZOS)
+
+
+def _draw_reticle_cell(
+    ring_rgb: Tuple[int, int, int],
+    core_rgb: Tuple[int, int, int],
+    angle_deg: float = 0.0,
+    invalid: bool = False,
+) -> Image.Image:
+    """Render a `32x32` spell/attack reticle centered at hotspot `(16, 16)`."""
+    S = 128
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
     cx = cy = 64.0
 
-    # Palettes per faction
-    palettes = {
-        "abyss": ((185, 255, 255), (14, 155, 195), (6, 20, 42), (56, 225, 248)),
-        "solar": ((255, 252, 210), (235, 125, 18), (38, 12, 8), (251, 191, 36)),
-        "void":  ((242, 210, 255), (138, 43, 226), (16, 6, 32), (192, 108, 255)),
-        "runic": ((215, 248, 255), (195, 130, 42), (18, 22, 30), (96, 215, 255)),
-    }
+    # Outer dark halo + glowing runic ring
+    d.ellipse([14, 14, 114, 114], outline=(10, 12, 18, 235), width=9)
+    d.ellipse([16, 16, 112, 112], outline=(*ring_rgb, 255), width=5)
+    d.ellipse([32, 32, 96, 96], outline=(*core_rgb, 210), width=3)
 
-    if kind.startswith("Abyss"):
-        inner, mid, outer, accent = palettes["abyss"]
-    elif kind.startswith("Solar"):
-        inner, mid, outer, accent = palettes["solar"]
-    elif kind.startswith("Void"):
-        inner, mid, outer, accent = palettes["void"]
-    elif kind.startswith("Runic"):
-        inner, mid, outer, accent = palettes["runic"]
+    if invalid:
+        d.line([(26, 26), (102, 102)], fill=(12, 12, 16, 255), width=14)
+        d.line([(102, 26), (26, 102)], fill=(12, 12, 16, 255), width=14)
+        d.line([(28, 28), (100, 100)], fill=(255, 58, 58, 255), width=8)
+        d.line([(100, 28), (28, 100)], fill=(255, 58, 58, 255), width=8)
     else:
-        inner, mid, outer, accent = ((255, 245, 200), (168, 85, 247), (14, 16, 32), (245, 195, 66))
+        for k in range(4):
+            ang = math.radians(angle_deg + k * 90.0)
+            x0 = cx + math.cos(ang) * 20
+            y0 = cy + math.sin(ang) * 20
+            x1 = cx + math.cos(ang) * 58
+            y1 = cy + math.sin(ang) * 58
+            px_ang = ang + math.pi / 2.0
+            pts = [
+                (x0, y0),
+                (cx + math.cos(ang) * 42 + math.cos(px_ang) * 8, cy + math.sin(ang) * 42 + math.sin(px_ang) * 8),
+                (x1, y1),
+                (cx + math.cos(ang) * 42 - math.cos(px_ang) * 8, cy + math.sin(ang) * 42 - math.sin(px_ang) * 8),
+            ]
+            d.polygon(pts, fill=(*core_rgb, 255), outline=(12, 14, 22, 255))
+        d.ellipse([56, 56, 72, 72], fill=(255, 255, 255, 255), outline=(*ring_rgb, 255), width=3)
 
-    base = _make_radial_bg(S, mid, outer, (5, 7, 14))
+    return img.resize((32, 32), Image.Resampling.LANCZOS)
+
+
+def _draw_scroll_chevron_cell(step: int) -> Image.Image:
+    """
+    Render a `32x32` winged golden scroll arrow pointing RIGHT `(1, 0)` at center `(16, 16)`
+    (Warcraft III rotates this mesh in 45-degree increments for all 8 edge-scroll directions).
+    """
+    S = 128
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    shift = (step - 1) * 6
+    pts = [
+        (108 + shift, 64),
+        (52 + shift, 20),
+        (66 + shift, 48),
+        (20 + shift, 48),
+        (20 + shift, 80),
+        (66 + shift, 80),
+        (52 + shift, 108),
+    ]
+    d.polygon(pts, fill=(245, 192, 58, 255), outline=(12, 14, 22, 255))
+    d.line([(30 + shift, 64), (96 + shift, 64)], fill=(120, 245, 255, 255), width=6)
+    return img.resize((32, 32), Image.Resampling.LANCZOS)
+
+
+def build_custom_cursor_atlas_img() -> Image.Image:
+    """
+    Build the complete `256x128` (`8x4` cells of `32x32`) Sovereign Astral Gauntlet
+    cursor texture matching Blizzard's `HumanCursor.mdx` / `OrcCursor.mdx` UV layout.
+    """
+    atlas = Image.new("RGBA", (256, 128), (0, 0, 0, 0))
+
+    # Row 0 (cols 0..7): Friendly / Button Select animated shimmer (Gold + Emerald-Cyan)
+    for col in range(8):
+        pulse = 0.5 + 0.5 * math.sin(col * math.pi / 4.0)
+        cell = _draw_sovereign_gauntlet_cell((235, 190, 68), (64, 245, 200), pulse=pulse)
+        atlas.paste(cell, (col * 32, 0))
+
+    # Row 1 (cols 0..7): Enemy Hover animated blaze (Crimson-Gold + Flame)
+    for col in range(8):
+        pulse = 0.5 + 0.5 * math.sin(col * math.pi / 4.0)
+        cell = _draw_sovereign_gauntlet_cell((235, 110, 52), (255, 68, 82), pulse=pulse)
+        atlas.paste(cell, (col * 32, 32))
+
+    # Row 2 (cols 0..7): TargetSelect rotating runic crosshair reticle
+    for col in range(8):
+        cell = _draw_reticle_cell((255, 185, 48), (95, 245, 255), angle_deg=col * 22.5)
+        atlas.paste(cell, (col * 32, 64))
+
+    # Row 3:
+    #   Col 0: Normal default Sovereign Gauntlet-Blade (Obsidian-Gold + Astral Cyan)
+    atlas.paste(_draw_sovereign_gauntlet_cell((238, 188, 62), (72, 220, 255), pulse=0.45), (0, 96))
+    #   Col 1: Target static crosshair reticle
+    atlas.paste(_draw_reticle_cell((255, 85, 65), (255, 220, 95), angle_deg=0.0), (32, 96))
+    #   Col 2: InvalidTarget red seal reticle
+    atlas.paste(_draw_reticle_cell((190, 35, 35), (255, 80, 80), invalid=True), (64, 96))
+    #   Col 3 & 4: HoldItem clawed golden grip
+    atlas.paste(_draw_sovereign_gauntlet_cell((238, 188, 62), (175, 110, 255), pulse=0.35, grip=True), (96, 96))
+    atlas.paste(_draw_sovereign_gauntlet_cell((248, 208, 88), (205, 145, 255), pulse=0.85, grip=True), (128, 96))
+    #   Col 5, 6, 7: 8-way edge-scroll animated chevron
+    for s in range(3):
+        atlas.paste(_draw_scroll_chevron_cell(s), ((5 + s) * 32, 96))
+
+    return atlas
+
+
+# ==============================================================================
+# 4. BADASS RPG INFOCARD ICONS (DAMAGE TYPES, ARMOR TYPES & HERO ATTRIBUTES)
+# ==============================================================================
+
+def _draw_infocard_badge_frame(
+    emblem_fn,
+    glow_rgb: Tuple[int, int, int],
+    rim_rgb: Tuple[int, int, int],
+    with_upgrade_slot: bool = False,
+) -> Image.Image:
+    """
+    Render a `64x64` dark-fantasy RPG Infocard emblem (supersampled at `128x128`)
+    with sculpted octagonal obsidian-gold framing, radial aura, crisp weapon/shield
+    art, and optional bottom-right upgrade counter plaque (matching WC3's `+1/+2/+3`
+    upgrade text overlay on upgraded units).
+    """
+    S = 128
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+
+    # Ornate octagonal dark-obsidian RPG plaque (transparent outside corners!)
+    oct_outer = [(24, 4), (104, 4), (124, 24), (124, 104), (104, 124), (24, 124), (4, 104), (4, 24)]
+    oct_mid   = [(27, 8), (101, 8), (120, 27), (120, 101), (101, 120), (27, 120), (8, 101), (8, 27)]
+    oct_inner = [(31, 13), (97, 13), (115, 31), (115, 97), (97, 115), (31, 115), (13, 97), (13, 31)]
+
+    d.polygon(oct_outer, fill=(10, 12, 20, 255), outline=(4, 6, 10, 255))
+    d.polygon(oct_mid, fill=(*rim_rgb, 255))
+    d.polygon(oct_inner, fill=(14, 18, 30, 255))
+
+    # Soft elemental glow behind the emblem
     glow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
-    fg = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    fd = ImageDraw.Draw(fg)
+    gd.ellipse([22, 22, 106, 106], fill=(*glow_rgb, 145))
+    glow = glow.filter(ImageFilter.GaussianBlur(10))
+    img = Image.alpha_composite(img, glow)
+    d = ImageDraw.Draw(img)
 
-    if kind == "AbyssVortex":
-        # Spiraling bioluminescent cyan maelstrom vortex
-        for arm in range(5):
-            base_a = arm * (2 * math.pi / 5)
-            pts = []
-            for step in range(28):
-                t = step / 27.0
-                r = 8 + t * 48
-                ang = base_a + t * 2.6
-                pts.append((cx + math.cos(ang) * r, cy + math.sin(ang) * r))
-            gd.line(pts, fill=(34, 211, 238, 220), width=8)
-            fd.line(pts, fill=(220, 255, 255, 255), width=3)
-        gd.ellipse([44, 44, 84, 84], fill=(56, 235, 255, 235))
-        fd.ellipse([52, 52, 76, 76], fill=(245, 255, 255, 255))
+    # Corner rivets
+    for rx, ry in ((28, 14), (100, 14), (14, 28), (114, 28), (28, 114), (100, 114)):
+        d.ellipse([rx - 3, ry - 3, rx + 3, ry + 3], fill=(255, 240, 195, 255))
 
-    elif kind == "AbyssLance":
-        # Crystalline trident prism lance splitting into 3 cyan beams
-        gd.line([(18, 110), (106, 22)], fill=(34, 211, 238, 240), width=14)
-        fd.line([(18, 110), (106, 22)], fill=(235, 255, 255, 255), width=5)
-        for dx, dy in ((-22, 4), (4, 22)):
-            gd.line([(68, 60), (106 + dx, 22 + dy)], fill=(56, 189, 248, 210), width=9)
-            fd.line([(68, 60), (106 + dx, 22 + dy)], fill=(225, 252, 255, 255), width=3)
-        fd.polygon([(112, 16), (92, 24), (104, 36)], fill=(255, 255, 255, 255))
+    # Draw the specific weapon / shield / stat emblem
+    emblem_fn(d, S)
 
-    elif kind == "AbyssCarapace":
-        # Glowing hexagonal leviathan energy shield + pulse rings
-        gd.ellipse([20, 20, 108, 108], outline=(34, 211, 238, 200), width=8)
-        hex_pts = [(cx + math.cos(i * math.pi / 3 - math.pi / 2) * 38,
-                    cy + math.sin(i * math.pi / 3 - math.pi / 2) * 38) for i in range(6)]
-        gd.polygon(hex_pts, fill=(14, 165, 215, 190), outline=(125, 245, 255, 255))
-        fd.line(hex_pts + [hex_pts[0]], fill=(235, 255, 255, 255), width=4)
-        fd.polygon([(64, 38), (82, 64), (64, 90), (46, 64)], fill=(220, 255, 255, 245))
+    # Optional bottom-right metallic plaque for +1/+2/+3 upgrade counter
+    if with_upgrade_slot:
+        d.rounded_rectangle([78, 82, 122, 122], radius=8, fill=(12, 14, 22, 248), outline=(238, 190, 68, 255), width=3)
 
-    elif kind == "AbyssTsunami":
-        # Triple concentric tidal crown wave crest + lightning core
-        for r, w_a in ((48, 7), (34, 6), (20, 5)):
-            gd.arc([cx - r, cy - r, cx + r, cy + r], 195, 345, fill=(56, 235, 255, 235), width=w_a + 5)
-            fd.arc([cx - r, cy - r, cx + r, cy + r], 195, 345, fill=(240, 255, 255, 255), width=w_a)
-        crown = [(26, 86), (38, 48), (52, 70), (64, 30), (76, 70), (90, 48), (102, 86)]
-        gd.line(crown, fill=(34, 211, 238, 240), width=9)
-        fd.line(crown, fill=(255, 255, 255, 255), width=4)
+    return img.resize((64, 64), Image.Resampling.LANCZOS)
 
-    elif kind == "SolarSigil":
-        # 8-pointed blazing golden sun mandala
-        for i in range(8):
-            ang = i * math.pi / 4
-            p1 = (cx + math.cos(ang) * 52, cy + math.sin(ang) * 52)
-            p2 = (cx + math.cos(ang + 0.24) * 26, cy + math.sin(ang + 0.24) * 26)
-            p3 = (cx + math.cos(ang - 0.24) * 26, cy + math.sin(ang - 0.24) * 26)
-            gd.polygon([p1, p2, p3], fill=(251, 146, 60, 235))
-            fd.polygon([p1, p2, p3], fill=(255, 238, 170, 255))
-        gd.ellipse([36, 36, 92, 92], fill=(245, 158, 11, 245))
-        fd.ellipse([45, 45, 83, 83], fill=(255, 252, 225, 255))
 
-    elif kind == "SolarDash":
-        # Blazing golden phoenix wings surging upward
-        left_wing = [(64, 78), (20, 34), (26, 68), (18, 92), (54, 88)]
-        right_wing = [(64, 78), (108, 34), (102, 68), (110, 92), (74, 88)]
-        gd.polygon(left_wing, fill=(249, 115, 22, 235))
-        gd.polygon(right_wing, fill=(249, 115, 22, 235))
-        fd.polygon(left_wing, fill=(253, 224, 71, 245))
-        fd.polygon(right_wing, fill=(253, 224, 71, 245))
-        fd.polygon([(64, 18), (76, 62), (64, 104), (52, 62)], fill=(255, 255, 235, 255))
+def build_infocard_icons() -> Tuple[Dict[str, bytes], List[Image.Image]]:
+    """Generate all custom Damage Type, Armor Type, and Hero Attribute `.blp` icons."""
+    out: Dict[str, bytes] = {}
+    samples: List[Image.Image] = []
 
-    elif kind == "SolarJudgment":
-        # Converging radiant golden sunblade cross
-        gd.polygon([(64, 12), (75, 84), (64, 114), (53, 84)], fill=(251, 146, 60, 240))
-        gd.line([(28, 52), (100, 52)], fill=(251, 146, 60, 240), width=14)
-        fd.polygon([(64, 14), (71, 84), (64, 110), (57, 84)], fill=(255, 252, 220, 255))
-        fd.line([(30, 52), (98, 52)], fill=(255, 245, 190, 255), width=6)
-        fd.ellipse([54, 42, 74, 62], fill=(255, 255, 255, 255))
+    # ---- 6 Damage Type Emblem Painters ----
+    def dmg_normal(d: ImageDraw.ImageDraw, S: int) -> None:
+        # Crossed Silver-Gold Runeblades + Steel Impact Star
+        for sgn in (-1, 1):
+            x0, y0 = (64 - 36 * sgn, 98)
+            x1, y1 = (64 + 36 * sgn, 24)
+            d.line([(x0, y0), (x1, y1)], fill=(14, 18, 26, 255), width=18)
+            d.line([(x0, y0), (x1, y1)], fill=(225, 238, 255, 255), width=10)
+            d.line([(x0, y0), (x1, y1)], fill=(255, 255, 255, 255), width=4)
+            # Crossguard
+            gx, gy = (64 - 16 * sgn, 78)
+            d.line([(gx - 14, gy - 10 * sgn), (gx + 14, gy + 10 * sgn)], fill=(245, 195, 65, 255), width=7)
+        d.polygon([(64, 42), (70, 56), (84, 62), (70, 68), (64, 82), (58, 68), (44, 62), (58, 56)], fill=(255, 235, 130, 255))
 
-    elif kind == "SolarSupernova":
-        # Multi-ring golden supernova crown explosion
-        gd.ellipse([16, 16, 112, 112], outline=(249, 115, 22, 220), width=10)
-        for i in range(12):
-            ang = i * math.pi / 6
-            r_out = 56 if i % 2 == 0 else 40
-            gd.line([(cx, cy), (cx + math.cos(ang) * r_out, cy + math.sin(ang) * r_out)],
-                    fill=(251, 191, 36, 240), width=8)
-            fd.line([(cx, cy), (cx + math.cos(ang) * (r_out - 4), cy + math.sin(ang) * (r_out - 4))],
-                    fill=(255, 253, 230, 255), width=3)
-        fd.ellipse([42, 42, 86, 86], fill=(255, 250, 215, 255))
+    def dmg_pierce(d: ImageDraw.ImageDraw, S: int) -> None:
+        # Twin Emerald-Cyan Astral Wind-Arrows piercing a target ring
+        d.ellipse([30, 30, 98, 98], outline=(95, 255, 190, 210), width=4)
+        for off in (-12, 12):
+            d.line([(22, 96 + off // 2), (96, 26 + off // 2)], fill=(12, 20, 18, 255), width=12)
+            d.line([(22, 96 + off // 2), (96, 26 + off // 2)], fill=(110, 255, 205, 255), width=6)
+            tx, ty = 102, 22 + off // 2
+            d.polygon([(tx, ty), (tx - 24, ty + 6), (tx - 6, ty + 24)], fill=(235, 255, 245, 255), outline=(20, 40, 32, 255))
 
-    elif kind == "VoidHorizon":
-        # Accretion disc + black-violet event horizon singularity
-        gd.ellipse([16, 36, 112, 92], outline=(192, 108, 255, 245), width=14)
-        fd.ellipse([20, 40, 108, 88], outline=(245, 215, 255, 255), width=5)
-        gd.ellipse([34, 34, 94, 94], outline=(168, 85, 247, 240), width=10)
-        fd.ellipse([42, 42, 86, 86], fill=(8, 3, 18, 255), outline=(235, 195, 255, 255), width=4)
+    def dmg_siege(d: ImageDraw.ImageDraw, S: int) -> None:
+        # Blazing Magma Meteor-Bombard shattering fortifications
+        for ang in range(0, 360, 45):
+            rad = math.radians(ang)
+            d.line([(64, 64), (64 + math.cos(rad) * 46, 64 + math.sin(rad) * 46)], fill=(255, 135, 32, 235), width=6)
+        d.polygon([(20, 24), (72, 42), (42, 72)], fill=(255, 185, 55, 255))
+        d.ellipse([34, 34, 98, 98], fill=(42, 24, 20, 255), outline=(255, 125, 28, 255), width=6)
+        #Glowing magma cracks across meteor core
+        d.line([(44, 56), (66, 68), (88, 52)], fill=(255, 235, 110, 255), width=5)
+        d.line([(56, 86), (66, 68), (76, 90)], fill=(255, 165, 42, 255), width=5)
 
-    elif kind == "VoidSever":
-        # Dimensional X-slash tearing open a violet astral rift
-        gd.polygon([(16, 22), (68, 56), (112, 106), (60, 72)], fill=(192, 108, 255, 245))
-        gd.polygon([(108, 24), (68, 68), (20, 106), (58, 58)], fill=(147, 51, 234, 235))
-        fd.line([(20, 24), (108, 104)], fill=(250, 235, 255, 255), width=6)
-        fd.line([(104, 26), (24, 102)], fill=(240, 210, 255, 255), width=4)
+    def dmg_magic(d: ImageDraw.ImageDraw, S: int) -> None:
+        # Radiant Sapphire-Cyan Arcane Starburst Scepter & Rune Circle
+        d.ellipse([24, 24, 104, 104], outline=(85, 210, 255, 235), width=4)
+        pts = []
+        for i in range(16):
+            r = 44 if i % 2 == 0 else 18
+            a = math.radians(i * 22.5 - 90)
+            pts.append((64 + math.cos(a) * r, 64 + math.sin(a) * r))
+        d.polygon(pts, fill=(75, 195, 255, 255), outline=(225, 250, 255, 255))
+        d.ellipse([48, 48, 80, 80], fill=(245, 252, 255, 255), outline=(38, 120, 255, 255), width=4)
 
-    elif kind == "VoidShroud":
-        # Rotating octagonal astral star-ring & void eye
-        for rot in (0.0, math.pi / 4):
-            sq = [(cx + math.cos(rot + i * math.pi / 2) * 44,
-                   cy + math.sin(rot + i * math.pi / 2) * 44) for i in range(4)]
-            gd.polygon(sq, outline=(192, 108, 255, 235), width=7)
-            fd.line(sq + [sq[0]], fill=(242, 220, 255, 255), width=3)
-        fd.ellipse([46, 52, 82, 76], fill=(235, 195, 255, 255))
-        fd.ellipse([58, 56, 70, 72], fill=(22, 6, 42, 255))
-
-    elif kind == "VoidCollapse":
-        # Cosmic implosion — 8 inward converging void lances + bright star core
-        for i in range(8):
-            ang = i * math.pi / 4 + 0.2
-            x0, y0 = cx + math.cos(ang) * 56, cy + math.sin(ang) * 56
-            x1, y1 = cx + math.cos(ang) * 18, cy + math.sin(ang) * 18
-            gd.line([(x0, y0), (x1, y1)], fill=(192, 108, 255, 245), width=9)
-            fd.line([(x0, y0), (x1, y1)], fill=(250, 235, 255, 255), width=3)
-        gd.ellipse([38, 38, 90, 90], fill=(168, 85, 247, 245))
-        fd.ellipse([50, 50, 78, 78], fill=(255, 245, 255, 255))
-
-    elif kind == "RunicTectonics":
-        # Titan war-rune hammer + radial cyan-gold shockwave fractures
-        for ang in (-2.4, -1.8, -0.9, -0.3, 0.4, 1.1):
-            gd.line([(64, 80), (64 + math.cos(ang) * 50, 80 + math.sin(ang) * 44)],
-                    fill=(56, 215, 255, 230), width=7)
-            fd.line([(64, 80), (64 + math.cos(ang) * 48, 80 + math.sin(ang) * 42)],
-                    fill=(225, 252, 255, 255), width=3)
-        gd.rectangle([34, 26, 94, 58], fill=(217, 145, 42, 255), outline=(255, 235, 175, 255), width=3)
-        fd.rectangle([58, 58, 70, 104], fill=(205, 155, 85, 255))
-        fd.line([(44, 42), (84, 42)], fill=(180, 250, 255, 255), width=5)
-
-    elif kind == "RunicOverload":
-        # Glowing cyan-gold arc reactor core with 3 orbital lightning arcs
-        gd.ellipse([24, 24, 104, 104], outline=(245, 178, 56, 240), width=10)
-        gd.ellipse([38, 38, 90, 90], fill=(34, 211, 238, 245))
-        fd.ellipse([46, 46, 82, 82], fill=(235, 255, 255, 255))
+    def dmg_chaos(d: ImageDraw.ImageDraw, S: int) -> None:
+        # Abyssal Fel-Amethyst Vortex Scythe + Burning Eye of Oblivion
         for i in range(6):
-            ang = i * math.pi / 3
-            fd.line([(cx + math.cos(ang) * 26, cy + math.sin(ang) * 26),
-                     (cx + math.cos(ang) * 48, cy + math.sin(ang) * 48)],
-                    fill=(255, 225, 130, 255), width=5)
+            a0 = i * 60
+            d.arc([20, 20, 108, 108], start=a0, end=a0 + 42, fill=(215, 85, 255, 255), width=7)
+        d.polygon([(24, 64), (64, 34), (104, 64), (64, 94)], fill=(65, 14, 95, 255), outline=(240, 145, 255, 255))
+        d.ellipse([48, 48, 80, 80], fill=(255, 72, 165, 255), outline=(255, 235, 255, 255), width=3)
+        d.polygon([(62, 50), (68, 64), (62, 78), (58, 64)], fill=(255, 255, 255, 255))
 
-    elif kind == "RunicAegis":
-        # Interlocking bronze-cyan runic gear & hexagonal forcefield
-        for i in range(12):
-            ang = i * math.pi / 6
-            x1, y1 = cx + math.cos(ang) * 48, cy + math.sin(ang) * 48
-            gd.ellipse([x1 - 7, y1 - 7, x1 + 7, y1 + 7], fill=(217, 145, 42, 245))
-        gd.ellipse([24, 24, 104, 104], outline=(245, 195, 85, 255), width=9)
-        hex_pts = [(cx + math.cos(i * math.pi / 3) * 30, cy + math.sin(i * math.pi / 3) * 30) for i in range(6)]
-        gd.polygon(hex_pts, fill=(14, 165, 215, 220))
-        fd.line(hex_pts + [hex_pts[0]], fill=(230, 255, 255, 255), width=4)
+    def dmg_hero(d: ImageDraw.ImageDraw, S: int) -> None:
+        # Sovereign Golden Crown-Blade w/ Twin Wings & Sunburst Halo
+        d.ellipse([24, 24, 104, 104], outline=(255, 215, 85, 225), width=4)
+        # Wings
+        d.polygon([(18, 56), (48, 46), (44, 76), (22, 82)], fill=(255, 198, 62, 255), outline=(255, 248, 205, 255))
+        d.polygon([(110, 56), (80, 46), (84, 76), (106, 82)], fill=(255, 198, 62, 255), outline=(255, 248, 205, 255))
+        # Sovereign Crown + Vertical Greatsword
+        d.polygon([(36, 44), (48, 24), (64, 38), (80, 24), (92, 44), (86, 58), (42, 58)], fill=(255, 215, 72, 255), outline=(255, 252, 220, 255))
+        d.polygon([(58, 20), (70, 20), (68, 106), (64, 114), (60, 106)], fill=(245, 250, 255, 255), outline=(185, 130, 28, 255))
 
-    elif kind == "RunicOrbital":
-        # Orbital sky-beam pillar + concentric targeting reticle
-        gd.ellipse([20, 62, 108, 110], outline=(56, 225, 255, 240), width=8)
-        fd.ellipse([32, 70, 96, 102], outline=(255, 225, 140, 255), width=4)
-        gd.rectangle([48, 8, 80, 92], fill=(56, 225, 255, 235))
-        fd.rectangle([55, 8, 73, 90], fill=(245, 255, 255, 255))
+    dmg_specs = [
+        ("DmgNormal", dmg_normal, (145, 185, 235), (175, 192, 215)),
+        ("DmgPierce", dmg_pierce, (52, 225, 155),  (88, 215, 165)),
+        ("DmgSiege",  dmg_siege,  (245, 110, 28),  (225, 135, 58)),
+        ("DmgMagic",  dmg_magic,  (55, 175, 255),  (95, 195, 255)),
+        ("DmgChaos",  dmg_chaos,  (188, 58, 250),  (198, 105, 255)),
+        ("DmgHero",   dmg_hero,   (250, 195, 48),  (245, 205, 82)),
+    ]
+    for name, fn, glow_c, rim_c in dmg_specs:
+        upg_im = _draw_infocard_badge_frame(fn, glow_c, rim_c, with_upgrade_slot=True)
+        neu_im = _draw_infocard_badge_frame(fn, glow_c, rim_c, with_upgrade_slot=False)
+        samples.append(neu_im)
+        out[f"UI\\CrownUI\\Infocard\\{name}.blp"] = encode_blp1_paletted(upg_im, alpha_bits=8)
+        out[f"UI\\CrownUI\\Infocard\\{name}Neutral.blp"] = encode_blp1_paletted(neu_im, alpha_bits=8)
 
-    elif kind == "CrownCrest":
-        # Crop & enhance center shrine/crown directly from our generated artwork if present
-        if ARTWORK_PNG.exists():
-            art = Image.open(ARTWORK_PNG).convert("RGBA")
-            aw, ah = art.size
-            crop = art.crop((int(aw * 0.22), int(ah * 0.04), int(aw * 0.78), int(ah * 0.60))).resize(
-                (64, 64), Image.Resampling.LANCZOS
-            )
-            crop = ImageEnhance.Contrast(crop).enhance(1.18)
-            return crop, (245, 195, 66)
-        crown = [(20, 90), (28, 42), (48, 66), (64, 24), (80, 66), (100, 42), (108, 90)]
-        gd.polygon(crown, fill=(245, 185, 42, 245))
-        fd.line(crown + [crown[0]], fill=(255, 248, 210, 255), width=4)
+    # ---- 7 Armor Type Emblem Painters ----
+    def _shield_poly(d: ImageDraw.ImageDraw, fill_c, rim_c) -> None:
+        pts = [(30, 24), (98, 24), (102, 66), (64, 108), (26, 66)]
+        d.polygon(pts, fill=(*fill_c, 255), outline=(12, 16, 24, 255))
+        pts_in = [(35, 30), (93, 30), (96, 64), (64, 100), (32, 64)]
+        d.polygon(pts_in, outline=(*rim_c, 255), width=5)
 
-    elif kind == "FactionTome":
-        # Glowing 4-quadrant astral-solar-abyssal-runic crystal star
-        quads = [
-            ([(64, 14), (78, 52), (64, 64), (50, 52)], (251, 191, 36, 255)),
-            ([(114, 64), (76, 78), (64, 64), (76, 50)], (192, 108, 255, 255)),
-            ([(64, 114), (50, 76), (64, 64), (78, 76)], (34, 211, 238, 255)),
-            ([(14, 64), (52, 50), (64, 64), (52, 78)], (245, 158, 11, 255)),
+    def arm_small(d: ImageDraw.ImageDraw, S: int) -> None:
+        _shield_poly(d, (28, 95, 68), (110, 245, 175))
+        d.polygon([(64, 36), (82, 62), (64, 88), (46, 62)], fill=(155, 255, 205, 255))
+
+    def arm_medium(d: ImageDraw.ImageDraw, S: int) -> None:
+        _shield_poly(d, (38, 78, 128), (145, 205, 255))
+        for ry in (44, 60, 76):
+            d.line([(40, ry), (88, ry)], fill=(215, 238, 255, 255), width=5)
+
+    def arm_large(d: ImageDraw.ImageDraw, S: int) -> None:
+        _shield_poly(d, (118, 36, 42), (245, 185, 78))
+        d.line([(64, 30), (64, 98)], fill=(255, 225, 125, 255), width=7)
+        d.line([(34, 58), (94, 58)], fill=(255, 225, 125, 255), width=7)
+
+    def arm_fort(d: ImageDraw.ImageDraw, S: int) -> None:
+        # Battlement Citadel Bastion Wall + Turret
+        d.polygon([(24, 38), (40, 38), (40, 26), (56, 26), (56, 38), (72, 38), (72, 26), (88, 26), (88, 38), (104, 38), (98, 102), (30, 102)],
+                  fill=(88, 96, 114, 255), outline=(238, 192, 72, 255))
+        d.rounded_rectangle([50, 64, 78, 102], radius=10, fill=(24, 28, 38, 255), outline=(255, 215, 95, 255), width=4)
+
+    def arm_hero(d: ImageDraw.ImageDraw, S: int) -> None:
+        _shield_poly(d, (145, 95, 18), (255, 232, 115))
+        d.polygon([(42, 58), (50, 38), (64, 50), (78, 38), (86, 58), (82, 72), (46, 72)], fill=(255, 245, 175, 255), outline=(90, 52, 10, 255))
+
+    def arm_divine(d: ImageDraw.ImageDraw, S: int) -> None:
+        _shield_poly(d, (115, 125, 165), (255, 250, 210))
+        d.ellipse([42, 40, 86, 84], fill=(255, 250, 205, 255), outline=(255, 205, 75, 255), width=5)
+
+    def arm_none(d: ImageDraw.ImageDraw, S: int) -> None:
+        # Mystic Astral Cloak Hood
+        d.polygon([(64, 22), (98, 52), (88, 102), (40, 102), (30, 52)], fill=(78, 48, 125, 255), outline=(205, 165, 255, 255))
+        d.polygon([(64, 38), (80, 58), (74, 92), (54, 92), (48, 58)], fill=(22, 16, 38, 255))
+
+    arm_specs = [
+        ("ArmSmall",  arm_small,  (48, 215, 145),  (82, 210, 155)),
+        ("ArmMedium", arm_medium, (65, 155, 235),  (115, 178, 235)),
+        ("ArmLarge",  arm_large,  (225, 78, 68),   (235, 168, 72)),
+        ("ArmFort",   arm_fort,   (215, 168, 58),  (195, 182, 145)),
+        ("ArmHero",   arm_hero,   (255, 200, 52),  (250, 212, 88)),
+        ("ArmDivine", arm_divine, (255, 242, 165), (255, 235, 155)),
+        ("ArmNone",   arm_none,   (165, 98, 245),  (182, 132, 245)),
+    ]
+    for name, fn, glow_c, rim_c in arm_specs:
+        upg_im = _draw_infocard_badge_frame(fn, glow_c, rim_c, with_upgrade_slot=True)
+        neu_im = _draw_infocard_badge_frame(fn, glow_c, rim_c, with_upgrade_slot=False)
+        samples.append(neu_im)
+        out[f"UI\\CrownUI\\Infocard\\{name}.blp"] = encode_blp1_paletted(upg_im, alpha_bits=8)
+        out[f"UI\\CrownUI\\Infocard\\{name}Neutral.blp"] = encode_blp1_paletted(neu_im, alpha_bits=8)
+
+    # ---- 3 Hero Primary Attribute Icons (`STR`, `AGI`, `INT`) ----
+    def attr_str(d: ImageDraw.ImageDraw, S: int) -> None:
+        d.rounded_rectangle([32, 34, 96, 96], radius=14, fill=(185, 32, 38, 255), outline=(255, 205, 95, 255), width=5)
+        for fx in (38, 54, 70):
+            d.rounded_rectangle([fx, 24, fx + 14, 54], radius=5, fill=(245, 78, 68, 255), outline=(255, 235, 165, 255), width=3)
+        d.polygon([(64, 56), (76, 72), (64, 88), (52, 72)], fill=(255, 242, 175, 255))
+
+    def attr_agi(d: ImageDraw.ImageDraw, S: int) -> None:
+        for sgn in (-1, 1):
+            d.polygon([(64 + 8 * sgn, 22), (64 + 40 * sgn, 54), (64 + 12 * sgn, 104), (64 - 4 * sgn, 68)],
+                      fill=(45, 225, 125, 255), outline=(225, 255, 235, 255))
+
+    def attr_int(d: ImageDraw.ImageDraw, S: int) -> None:
+        d.ellipse([26, 26, 102, 102], outline=(115, 225, 255, 255), width=4)
+        d.polygon([(64, 20), (96, 64), (64, 108), (32, 64)], fill=(48, 155, 255, 255), outline=(235, 250, 255, 255))
+        d.ellipse([50, 50, 78, 78], fill=(245, 252, 255, 255))
+
+    for code, fn, glow_c, rim_c in [
+        ("AttrSTR", attr_str, (245, 62, 58),  (245, 155, 72)),
+        ("AttrAGI", attr_agi, (48, 235, 132), (98, 238, 162)),
+        ("AttrINT", attr_int, (55, 175, 255), (118, 208, 255)),
+    ]:
+        at_im = _draw_infocard_badge_frame(fn, glow_c, rim_c, with_upgrade_slot=False)
+        samples.append(at_im)
+        out[f"UI\\CrownUI\\Infocard\\{code}.blp"] = encode_blp1_paletted(at_im, alpha_bits=8)
+
+    return out, samples
+
+
+# ==============================================================================
+# 5. COMMAND CARD ACTIONS, RACIAL BUILD BUTTONS, RACIAL BUILDINGS & 64 SKILLS
+# ==============================================================================
+
+def _paint_emblem_icon(
+    bg_inner: Tuple[int, int, int],
+    bg_mid: Tuple[int, int, int],
+    bg_outer: Tuple[int, int, int],
+    accent: Tuple[int, int, int],
+    highlight: Tuple[int, int, int],
+    motif: str,
+    seed: int = 0,
+) -> Tuple[Image.Image, Tuple[int, int, int]]:
+    """
+    High-detail `128x128` supersampled procedural painter producing distinct,
+    crisp fantasy icons across 16 geometric motifs + rune rings + faction palettes.
+    """
+    S = 128
+    img = _radial_canvas(S, bg_inner, bg_mid, bg_outer)
+    glow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    d = ImageDraw.Draw(img)
+    cx = cy = 64.0
+
+    # Subtle arcane background ring
+    ring_r = 44 + (seed % 3) * 3
+    gd.ellipse([cx - ring_r, cy - ring_r, cx + ring_r, cy + ring_r], outline=(*accent, 150), width=4)
+
+    if motif == "vortex":
+        for arm in range(3 + (seed % 3)):
+            base_a = arm * (360.0 / (3 + (seed % 3))) + seed * 17
+            pts = []
+            for st in range(16):
+                t = st / 15.0
+                r = 8 + t * 44
+                a = math.radians(base_a + t * 145)
+                pts.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+            gd.line(pts, fill=(*accent, 235), width=9)
+            d.line(pts, fill=(*highlight, 255), width=4)
+        d.ellipse([50, 50, 78, 78], fill=(*highlight, 255), outline=(*accent, 255), width=4)
+
+    elif motif == "glaives":
+        # Twin curved Azzinoth / Crescent blades
+        for sgn in (-1, 1):
+            gd.arc([18, 18, 110, 110], start=200 if sgn < 0 else 20, end=340 if sgn < 0 else 160, fill=(*accent, 255), width=14)
+            d.arc([22, 22, 106, 106], start=205 if sgn < 0 else 25, end=335 if sgn < 0 else 155, fill=(*highlight, 255), width=6)
+        d.polygon([(64, 28), (78, 64), (64, 100), (50, 64)], fill=(*highlight, 255), outline=(*accent, 255))
+
+    elif motif == "lightning":
+        pts = [(74, 12), (40, 62), (66, 62), (46, 116), (92, 56), (66, 56)]
+        gd.polygon(pts, fill=(*accent, 240))
+        d.polygon(pts, fill=(*highlight, 255), outline=(*accent, 255))
+        for b in range(3):
+            ay = 34 + b * 28
+            d.line([(64, ay), (24 if b % 2 == 0 else 104, ay + 16)], fill=(*highlight, 230), width=4)
+
+    elif motif == "spear":
+        ang = math.radians(-45 + (seed % 3 - 1) * 12)
+        dx, dy = math.cos(ang), math.sin(ang)
+        px_a, py_a = -dy, dx
+        tip = (cx + dx * 48, cy + dy * 48)
+        tail = (cx - dx * 46, cy - dy * 46)
+        d.line([tail, tip], fill=(*accent, 255), width=10)
+        d.line([tail, tip], fill=(*highlight, 255), width=4)
+        head = [
+            tip,
+            (cx + dx * 14 + px_a * 18, cy + dy * 14 + py_a * 18),
+            (cx + dx * 24, cy + dy * 24),
+            (cx + dx * 14 - px_a * 18, cy + dy * 14 - py_a * 18),
         ]
-        for poly, col in quads:
-            gd.polygon(poly, fill=col)
-            fd.line(poly + [poly[0]], fill=(255, 255, 255, 240), width=3)
-        fd.ellipse([54, 54, 74, 74], fill=(255, 255, 255, 255))
+        gd.polygon(head, fill=(*accent, 255))
+        d.polygon(head, fill=(*highlight, 255), outline=(*accent, 255))
 
-    glow = glow.filter(ImageFilter.GaussianBlur(radius=4.2))
-    comp = Image.alpha_composite(base, glow)
-    comp = Image.alpha_composite(comp, fg)
-    return comp.resize((64, 64), Image.Resampling.LANCZOS), accent
+    elif motif == "shield":
+        pts = [(28, 22), (100, 22), (104, 68), (64, 110), (24, 68)]
+        gd.polygon(pts, fill=(*accent, 220))
+        d.polygon(pts, fill=(*bg_mid, 255), outline=(*highlight, 255))
+        d.polygon([(38, 32), (90, 32), (92, 66), (64, 98), (36, 66)], fill=(*accent, 235), outline=(*highlight, 255))
+        d.ellipse([50, 48, 78, 76], fill=(*highlight, 255))
+
+    elif motif == "nova":
+        spikes = 8 + (seed % 4) * 2
+        pts = []
+        for i in range(spikes * 2):
+            r = 50 if i % 2 == 0 else 20
+            a = math.radians(i * (180.0 / spikes) + seed * 11)
+            pts.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+        gd.polygon(pts, fill=(*accent, 240))
+        d.polygon(pts, fill=(*highlight, 255), outline=(*accent, 255))
+        d.ellipse([48, 48, 80, 80], fill=(255, 255, 255, 255), outline=(*accent, 255), width=4)
+
+    elif motif == "hammer":
+        d.line([(28, 102), (82, 48)], fill=(195, 160, 95, 255), width=11)
+        head = [(56, 22), (108, 48), (92, 78), (40, 52)]
+        gd.polygon(head, fill=(*accent, 240))
+        d.polygon(head, fill=(*highlight, 255), outline=(*accent, 255))
+
+    elif motif == "bow":
+        d.arc([20, 16, 98, 112], start=295, end=65, fill=(*highlight, 255), width=8)
+        d.line([(56, 20), (56, 108)], fill=(*accent, 220), width=3)
+        for oy in (-14, 0, 14):
+            d.line([(24, 64 + oy), (108, 64 + oy // 2)], fill=(*highlight, 255), width=5)
+
+    elif motif == "skull_eye":
+        d.polygon([(20, 64), (64, 28), (108, 64), (64, 100)], fill=(18, 12, 28, 255), outline=(*highlight, 255))
+        gd.ellipse([42, 42, 86, 86], fill=(*accent, 255))
+        d.ellipse([46, 46, 82, 82], fill=(*accent, 255), outline=(*highlight, 255), width=4)
+        d.polygon([(62, 48), (68, 64), (62, 80), (58, 64)], fill=(255, 255, 255, 255))
+
+    elif motif == "crown":
+        pts = [(20, 86), (26, 38), (46, 58), (64, 24), (82, 58), (102, 38), (108, 86)]
+        gd.polygon(pts, fill=(*accent, 240))
+        d.polygon(pts, fill=(*highlight, 255), outline=(*accent, 255))
+        d.rectangle([24, 86, 104, 98], fill=(*accent, 255), outline=(*highlight, 255), width=3)
+
+    elif motif == "turret_gear":
+        # Interlocking Runeforged Gear + Core
+        for i in range(8):
+            a = math.radians(i * 45 + seed * 7)
+            gx, gy = cx + math.cos(a) * 40, cy + math.sin(a) * 40
+            d.ellipse([gx - 10, gy - 10, gx + 10, gy + 10], fill=(*highlight, 255), outline=(*accent, 255), width=3)
+        d.ellipse([30, 30, 98, 98], fill=(*bg_mid, 255), outline=(*highlight, 255), width=7)
+        d.ellipse([46, 46, 82, 82], fill=(*accent, 255), outline=(255, 255, 255, 255), width=4)
+
+    elif motif == "spire":
+        # Architectural Citadel / Temple / Obelisk
+        tier = (seed % 3) + 1
+        d.polygon([(64, 14), (96, 54), (88, 108), (40, 108), (32, 54)], fill=(*accent, 240), outline=(*highlight, 255))
+        if tier >= 2:
+            d.polygon([(22, 44), (38, 62), (34, 108), (16, 108)], fill=(*highlight, 225), outline=(*accent, 255))
+            d.polygon([(106, 44), (90, 62), (94, 108), (112, 108)], fill=(*highlight, 225), outline=(*accent, 255))
+        if tier >= 3:
+            d.ellipse([48, 16, 80, 48], fill=(255, 255, 255, 245), outline=(*highlight, 255), width=4)
+        d.rounded_rectangle([52, 74, 76, 108], radius=8, fill=(255, 252, 220, 255))
+
+    elif motif == "portal":
+        gd.ellipse([20, 16, 108, 112], outline=(*accent, 255), width=16)
+        d.ellipse([24, 20, 104, 108], outline=(*highlight, 255), width=6)
+        d.ellipse([38, 34, 90, 94], fill=(10, 8, 22, 255), outline=(*accent, 255), width=5)
+        d.polygon([(64, 42), (76, 64), (64, 86), (52, 64)], fill=(*highlight, 255))
+
+    elif motif == "wings":
+        d.polygon([(14, 32), (56, 52), (48, 96), (18, 76)], fill=(*highlight, 255), outline=(*accent, 255))
+        d.polygon([(114, 32), (72, 52), (80, 96), (110, 76)], fill=(*highlight, 255), outline=(*accent, 255))
+        d.polygon([(64, 20), (76, 64), (64, 108), (52, 64)], fill=(255, 255, 255, 255), outline=(*accent, 255))
+
+    elif motif == "claws":
+        for k in (-24, 0, 24):
+            pts = [(24 + k // 2, 22), (68 + k, 62), (98 + k // 2, 106), (56 + k, 68)]
+            gd.polygon(pts, fill=(*accent, 240))
+            d.polygon(pts, fill=(*highlight, 255), outline=(*accent, 255))
+
+    else:  # "chalice_tome"
+        d.rounded_rectangle([28, 24, 100, 104], radius=10, fill=(*bg_mid, 255), outline=(*highlight, 255), width=5)
+        d.line([(64, 24), (64, 104)], fill=(*accent, 255), width=5)
+        d.ellipse([44, 44, 84, 84], fill=(*highlight, 255), outline=(*accent, 255), width=4)
+
+    glow = glow.filter(ImageFilter.GaussianBlur(6))
+    merged = Image.alpha_composite(img, glow)
+
+    # Seed-driven secondary ornate details + metallic diagonal sheen so every
+    # single skill icon out of all 64 has a unique silhouette & inner filigree!
+    md = ImageDraw.Draw(merged)
+    orb_cnt = 2 + (seed % 4)
+    for k in range(orb_cnt):
+        oa = math.radians(seed * 37 + k * (360.0 / orb_cnt))
+        ox = cx + math.cos(oa) * 48
+        oy = cy + math.sin(oa) * 48
+        md.polygon(
+            [(ox, oy - 5), (ox + 5, oy), (ox, oy + 5), (ox - 5, oy)],
+            fill=(*highlight, 235),
+            outline=(*accent, 255),
+        )
+    if seed % 3 == 1:
+        md.arc([12, 12, 116, 116], start=seed * 23, end=seed * 23 + 110, fill=(*highlight, 185), width=3)
+    elif seed % 3 == 2:
+        md.arc([14, 14, 114, 114], start=180 + seed * 19, end=310 + seed * 19, fill=(*accent, 210), width=4)
+
+    return merged.resize((64, 64), Image.Resampling.LANCZOS), accent
+
+
+# 16 Hero-Specific Sub-Palettes so EVERY Hero has its own unmistakable visual signature!
+PAL_VASHJ    = ((18, 95, 138),  (10, 46, 82),  (6, 18, 38),  (32, 218, 250),  (210, 255, 255))
+PAL_ILLIDAN  = ((28, 115, 62),  (24, 42, 56),  (10, 14, 26), (78, 255, 128),  (230, 255, 190))
+PAL_NAJENTUS = ((110, 38, 52),  (18, 52, 74),  (8, 20, 34),  (255, 108, 92),  (190, 250, 255))
+PAL_ATHISSA  = ((68, 42, 132),  (16, 58, 92),  (8, 20, 42),  (145, 225, 255), (245, 215, 255))
+
+PAL_KAEL     = ((158, 58, 18),  (84, 22, 16),  (34, 10, 12), (255, 165, 36),  (255, 248, 190))
+PAL_SYLVANAS = ((34, 72, 124),  (22, 36, 74),  (10, 16, 34), (125, 232, 255), (235, 255, 245))
+PAL_GARITHOS = ((118, 52, 36),  (54, 34, 32),  (22, 14, 16), (235, 178, 88),  (245, 242, 235))
+PAL_UTHER    = ((148, 112, 26), (76, 54, 18),  (28, 20, 12), (255, 222, 78),  (255, 255, 230))
+
+PAL_XALATHOR = ((108, 24, 98),  (48, 14, 62),  (18, 6, 28),  (235, 68, 168),  (255, 210, 245))
+PAL_SARGEN   = ((78, 28, 148),  (36, 14, 84),  (14, 8, 36),  (178, 92, 255),  (235, 220, 255))
+PAL_AKAMA    = ((36, 86, 74),   (28, 22, 56),  (10, 10, 24), (118, 245, 185), (238, 210, 255))
+PAL_AETHERON = ((42, 64, 148),  (26, 24, 82),  (10, 10, 36), (110, 195, 255), (245, 225, 255))
+
+PAL_THORIM   = ((28, 92, 148),  (20, 46, 84),  (10, 20, 38), (82, 220, 255),  (245, 250, 255))
+PAL_IGNIS    = ((148, 64, 18),  (68, 30, 16),  (26, 14, 12), (255, 138, 36),  (255, 238, 175))
+PAL_MIMIRON  = ((118, 92, 24),  (48, 46, 26),  (18, 20, 16), (155, 248, 95),  (255, 242, 170))
+PAL_LOKEN    = ((22, 108, 118), (16, 52, 68),  (8, 22, 32),  (64, 248, 222),  (255, 232, 150))
+
+PAL_ABYSSAL = PAL_VASHJ
+PAL_FELNAGA = PAL_ILLIDAN
+PAL_SUNFURY = PAL_KAEL
+PAL_HOLYSUN = PAL_UTHER
+PAL_VOID    = PAL_SARGEN
+PAL_SHADOW  = PAL_XALATHOR
+PAL_RUNIC   = PAL_THORIM
+PAL_FORGE   = PAL_IGNIS
+
+
+# 64 Unique Hero Skill Icon Specs (`BTN_WM_S00` .. `BTN_WM_S63`) — 16 Heroes x 4 Distinct Motifs & Palettes!
+SKILL_64_MOTIFS: List[Tuple[Tuple, str]] = [
+    # 0..3: Hvsh (Empress Lady Vashj)
+    (PAL_VASHJ,    "vortex"), (PAL_VASHJ,    "lightning"), (PAL_VASHJ,    "shield"),       (PAL_VASHJ,    "nova"),
+    # 4..7: N004 (Illidan Stormrage — Fel-Tidal Twin Glaives & Metamorphosis!)
+    (PAL_ILLIDAN,  "glaives"),(PAL_ILLIDAN,  "claws"),     (PAL_ILLIDAN,  "skull_eye"),    (PAL_ILLIDAN,  "wings"),
+    # 8..11: N001 (Leviathan Warlord Naj'entus)
+    (PAL_NAJENTUS, "spear"),  (PAL_NAJENTUS, "hammer"),    (PAL_NAJENTUS, "shield"),       (PAL_NAJENTUS, "crown"),
+    # 12..15: N002 (Nazjatar Tideweaver Athissa)
+    (PAL_ATHISSA,  "nova"),   (PAL_ATHISSA,  "portal"),    (PAL_ATHISSA,  "chalice_tome"), (PAL_ATHISSA,  "vortex"),
+
+    # 16..19: Hkal (Sovereign Kael'thas)
+    (PAL_KAEL,     "nova"),   (PAL_KAEL,     "vortex"),    (PAL_KAEL,     "shield"),       (PAL_KAEL,     "wings"),
+    # 20..23: Hvwd (Ranger-General Sylvanas)
+    (PAL_SYLVANAS, "bow"),    (PAL_SYLVANAS, "spear"),     (PAL_SYLVANAS, "wings"),        (PAL_SYLVANAS, "nova"),
+    # 24..27: Hlgr (Grand Marshal Garithos)
+    (PAL_GARITHOS, "hammer"), (PAL_GARITHOS, "glaives"),   (PAL_GARITHOS, "shield"),       (PAL_GARITHOS, "crown"),
+    # 28..31: Huth (Highlord Uther)
+    (PAL_UTHER,    "spire"),  (PAL_UTHER,    "hammer"),    (PAL_UTHER,    "chalice_tome"), (PAL_UTHER,    "crown"),
+
+    # 32..35: V001 (Rift Sovereign Xal'athor)
+    (PAL_XALATHOR, "vortex"), (PAL_XALATHOR, "spear"),     (PAL_XALATHOR, "skull_eye"),    (PAL_XALATHOR, "portal"),
+    # 36..39: V002 (Nether Inquisitor Sargen'eth)
+    (PAL_SARGEN,   "lightning"),(PAL_SARGEN, "skull_eye"), (PAL_SARGEN,   "chalice_tome"), (PAL_SARGEN,   "nova"),
+    # 40..43: V003 (Shadowblade Akama)
+    (PAL_AKAMA,    "glaives"),(PAL_AKAMA,    "claws"),     (PAL_AKAMA,    "portal"),       (PAL_AKAMA,    "wings"),
+    # 44..47: V004 (Entropy Archon Aetheron)
+    (PAL_AETHERON, "nova"),   (PAL_AETHERON, "portal"),    (PAL_AETHERON, "shield"),       (PAL_AETHERON, "crown"),
+
+    # 48..51: T001 (Stormforged Prime Thorim)
+    (PAL_THORIM,   "hammer"), (PAL_THORIM,   "lightning"), (PAL_THORIM,   "shield"),       (PAL_THORIM,   "crown"),
+    # 52..55: T002 (Runesmith Highlord Ignis)
+    (PAL_IGNIS,    "nova"),   (PAL_IGNIS,    "hammer"),    (PAL_IGNIS,    "spire"),        (PAL_IGNIS,    "turret_gear"),
+    # 56..59: T003 (Clockwork Vanguard Mimiron)
+    (PAL_MIMIRON,  "bow"),    (PAL_MIMIRON,  "spear"),     (PAL_MIMIRON,  "turret_gear"),  (PAL_MIMIRON,  "nova"),
+    # 60..63: T004 (Tempest Savant Loken)
+    (PAL_LOKEN,    "vortex"), (PAL_LOKEN,    "lightning"), (PAL_LOKEN,    "chalice_tome"), (PAL_LOKEN,    "turret_gear"),
+]
+
+
+# Custom Command Card, Racial Build & Racial Building/Unit/Hero Icons
+EXTRA_CUSTOM_ICONS: List[Tuple[str, Tuple, str, int]] = [
+    # Map Crest & Empire Tome
+    ("BTN_WM_CrownCrest",      PAL_HOLYSUN, "crown",        1),
+    ("BTN_WM_FactionTome",     PAL_VOID,    "chalice_tome", 2),
+
+    # 8 Custom Command Card Action Buttons
+    ("BTN_WM_CmdAttack",       PAL_SUNFURY, "glaives",      3),
+    ("BTN_WM_CmdMove",         PAL_ABYSSAL, "wings",        4),
+    ("BTN_WM_CmdStop",         PAL_SUNFURY, "shield",       5),
+    ("BTN_WM_CmdHold",         PAL_HOLYSUN, "shield",       6),
+    ("BTN_WM_CmdPatrol",       PAL_RUNIC,   "spear",        7),
+    ("BTN_WM_CmdSkill",        PAL_HOLYSUN, "crown",        8),
+    ("BTN_WM_CmdRally",        PAL_HOLYSUN, "spire",        9),
+    ("BTN_WM_CmdCancel",       PAL_SHADOW,  "nova",         10),
+
+    # 5 Race-Specific Worker `Build` Icons!
+    ("BTN_WM_BuildNaga",       PAL_ABYSSAL, "vortex",       11),
+    ("BTN_WM_BuildSunfury",    PAL_HOLYSUN, "spire",        12),
+    ("BTN_WM_BuildVoidborn",   PAL_VOID,    "portal",       13),
+    ("BTN_WM_BuildRuneforged", PAL_RUNIC,   "turret_gear",  14),
+    ("BTN_WM_BuildNightElf",   PAL_FELNAGA, "wings",        15),
+
+    # Naga Custom Hero Illidan + Naga Custom Structures
+    ("BTN_WM_HeroIllidan",     PAL_FELNAGA, "glaives",      20),
+    ("BTN_WM_NagaHall2",       PAL_ABYSSAL, "spire",        2),
+    ("BTN_WM_NagaHall3",       PAL_ABYSSAL, "spire",        3),
+    ("BTN_WM_NagaForge",       PAL_ABYSSAL, "hammer",       21),
+    ("BTN_WM_NagaVault",       PAL_ABYSSAL, "chalice_tome", 22),
+    ("BTN_WM_NagaPool",        PAL_ABYSSAL, "portal",       23),
+
+    # Sunfury Imperium Custom Structures & Siege
+    ("BTN_WM_SunHall1",        PAL_HOLYSUN, "spire",        1),
+    ("BTN_WM_SunHall2",        PAL_HOLYSUN, "spire",        2),
+    ("BTN_WM_SunHall3",        PAL_HOLYSUN, "spire",        3),
+    ("BTN_WM_SunBarracks",     PAL_SUNFURY, "shield",       24),
+    ("BTN_WM_SunAltar",        PAL_HOLYSUN, "crown",        25),
+    ("BTN_WM_SunVault",        PAL_SUNFURY, "chalice_tome", 26),
+    ("BTN_WM_SunWorkshop",     PAL_SUNFURY, "turret_gear",  27),
+    ("BTN_WM_SunAviary",       PAL_HOLYSUN, "wings",        28),
+    ("BTN_WM_SunBallista",     PAL_SUNFURY, "bow",          29),
+
+    # Voidborn Legion Custom Structures & Akama Hero
+    ("BTN_WM_VoidHall1",       PAL_VOID,    "spire",        1),
+    ("BTN_WM_VoidHall2",       PAL_VOID,    "spire",        2),
+    ("BTN_WM_VoidHall3",       PAL_VOID,    "spire",        3),
+    ("BTN_WM_VoidPylon",       PAL_VOID,    "nova",         30),
+    ("BTN_WM_VoidGate",        PAL_VOID,    "portal",       31),
+    ("BTN_WM_VoidCrucible",    PAL_SHADOW,  "vortex",       32),
+    ("BTN_WM_VoidAltar",       PAL_VOID,    "crown",        33),
+    ("BTN_WM_VoidVault",       PAL_VOID,    "chalice_tome", 34),
+    ("BTN_WM_VoidTower",       PAL_SHADOW,  "skull_eye",    35),
+    ("BTN_WM_VoidSanctum",     PAL_VOID,    "wings",        36),
+    ("BTN_WM_VoidPit",         PAL_SHADOW,  "claws",        37),
+    ("BTN_WM_HeroAkama",       PAL_SHADOW,  "glaives",      38),
+
+    # Runeforged Bastion Custom Structures, Units & Heroes (ZERO Human icons!)
+    ("BTN_WM_RuneWorker",      PAL_RUNIC,   "turret_gear",  40),
+    ("BTN_WM_RuneHall1",       PAL_RUNIC,   "spire",        1),
+    ("BTN_WM_RuneHall2",       PAL_RUNIC,   "spire",        2),
+    ("BTN_WM_RuneHall3",       PAL_RUNIC,   "spire",        3),
+    ("BTN_WM_RuneCore",        PAL_RUNIC,   "nova",         41),
+    ("BTN_WM_RuneGarrison",    PAL_FORGE,   "turret_gear",  42),
+    ("BTN_WM_RuneAnvil",       PAL_FORGE,   "hammer",       43),
+    ("BTN_WM_RuneAltar",       PAL_RUNIC,   "crown",        44),
+    ("BTN_WM_RuneVault",       PAL_RUNIC,   "chalice_tome", 45),
+    ("BTN_WM_RuneTurret",      PAL_RUNIC,   "lightning",    46),
+    ("BTN_WM_RuneConduit",     PAL_RUNIC,   "portal",       47),
+    ("BTN_WM_RuneBay",         PAL_FORGE,   "shield",       48),
+    ("BTN_WM_RuneRifle",       PAL_RUNIC,   "bow",          49),
+    ("BTN_WM_RuneHero1",       PAL_RUNIC,   "hammer",       50),
+    ("BTN_WM_RuneHero2",       PAL_FORGE,   "crown",        51),
+    ("BTN_WM_RuneHero3",       PAL_FORGE,   "turret_gear",  52),
+    ("BTN_WM_RuneHero4",       PAL_LOKEN,   "lightning",    53),
+
+    # ---- Abyssal Tideborn: custom-worker, hall, building, unit & hero portraits ----
+    ("BTN_WM_NagaWorker",       PAL_ABYSSAL, "claws",        60),
+    ("BTN_WM_NagaHall1",        PAL_ABYSSAL, "spire",        61),
+    ("BTN_WM_NagaFarm",         PAL_ABYSSAL, "chalice_tome", 113),
+    ("BTN_WM_NagaBarracks",     PAL_NAJENTUS,"shield",      62),
+    ("BTN_WM_NagaAltar",        PAL_ATHISSA, "crown",       63),
+    ("BTN_WM_NagaTower",        PAL_NAJENTUS,"lightning",   64),
+    ("BTN_WM_NagaSanctum",      PAL_ATHISSA, "portal",      65),
+    ("BTN_WM_NagaSiege",        PAL_NAJENTUS,"hammer",      66),
+    ("BTN_WM_NagaHeroVashj",    PAL_VASHJ,   "nova",        67),
+    ("BTN_WM_NagaHeroNaj",      PAL_NAJENTUS,"spear",       68),
+    ("BTN_WM_NagaHeroAthissa",  PAL_ATHISSA, "chalice_tome",69),
+    ("BTN_WM_NagaReaver",       PAL_ABYSSAL, "claws",       70),
+    ("BTN_WM_NagaSnap",         PAL_NAJENTUS,"spear",       71),
+    ("BTN_WM_NagaMyrmidon",     PAL_NAJENTUS,"shield",      72),
+    ("BTN_WM_NagaSiren",        PAL_ATHISSA, "vortex",      73),
+    ("BTN_WM_NagaCouatl",       PAL_ATHISSA, "wings",       74),
+    ("BTN_WM_NagaTurtle",       PAL_NAJENTUS,"turret_gear", 75),
+    ("BTN_WM_NagaRoyalGuard",   PAL_NAJENTUS,"crown",       76),
+
+    # ---- Sunfury Imperium: goldglass worker, buildings, army & four heroes ----
+    ("BTN_WM_SunWorker",        PAL_KAEL,    "chalice_tome",77),
+    ("BTN_WM_SunFarm",          PAL_UTHER,   "spire",       78),
+    ("BTN_WM_SunForge",         PAL_KAEL,    "hammer",      79),
+    ("BTN_WM_SunLumberMill",    PAL_SYLVANAS,"chalice_tome",114),
+    ("BTN_WM_SunTower",         PAL_KAEL,    "turret_gear",115),
+    ("BTN_WM_SunGuardTower",    PAL_GARITHOS,"shield",     116),
+    ("BTN_WM_SunArcaneTower",   PAL_KAEL,    "lightning",  117),
+    ("BTN_WM_SunMageTower",     PAL_SYLVANAS,"nova",        80),
+    ("BTN_WM_SunHeroKael",      PAL_KAEL,    "nova",        81),
+    ("BTN_WM_SunHeroSylvanas",  PAL_SYLVANAS,"bow",         82),
+    ("BTN_WM_SunHeroGarithos",  PAL_GARITHOS,"hammer",      83),
+    ("BTN_WM_SunHeroUther",     PAL_UTHER,   "crown",       84),
+    ("BTN_WM_SunSwordsman",     PAL_GARITHOS,"glaives",     85),
+    ("BTN_WM_SunArcher",        PAL_SYLVANAS,"bow",         86),
+    ("BTN_WM_SunCaptain",       PAL_GARITHOS,"shield",      87),
+    ("BTN_WM_SunChaplain",      PAL_UTHER,   "chalice_tome",88),
+    ("BTN_WM_SunHydromancer",   PAL_SYLVANAS,"vortex",      89),
+    ("BTN_WM_SunSpellbreaker",  PAL_KAEL,    "shield",      90),
+    ("BTN_WM_SunGyro",          PAL_KAEL,    "turret_gear", 91),
+    ("BTN_WM_SunLieutenant",    PAL_GARITHOS,"spear",       92),
+    ("BTN_WM_SunDragonhawk",    PAL_SYLVANAS,"wings",       93),
+    ("BTN_WM_SunGryphon",       PAL_UTHER,   "wings",       94),
+
+    # ---- Voidborn Legion: custom rift-worker, portraits, troops & siege ----
+    ("BTN_WM_VoidWorker",       PAL_XALATHOR,"skull_eye",   95),
+    ("BTN_WM_VoidHeroXalathor", PAL_XALATHOR,"crown",       96),
+    ("BTN_WM_VoidHeroSargen",   PAL_SARGEN,  "skull_eye",   97),
+    ("BTN_WM_VoidHeroAetheron", PAL_AETHERON,"nova",       112),
+    ("BTN_WM_VoidZealot",       PAL_XALATHOR,"glaives",     98),
+    ("BTN_WM_VoidArbalist",     PAL_SARGEN,  "bow",         99),
+    ("BTN_WM_VoidEnforcer",     PAL_XALATHOR,"hammer",      100),
+    ("BTN_WM_VoidWeaver",       PAL_SARGEN,  "chalice_tome",101),
+    ("BTN_WM_VoidDrake",        PAL_AETHERON,"wings",       102),
+    ("BTN_WM_VoidDevastator",   PAL_XALATHOR,"turret_gear",103),
+    ("BTN_WM_VoidColossus",     PAL_AETHERON,"claws",       104),
+
+    # ---- Runeforged Bastion: custom component icon for every war machine & hero ----
+    ("BTN_WM_RuneSentinel",     PAL_THORIM,  "shield",      105),
+    ("BTN_WM_RuneArquebusier",  PAL_MIMIRON, "bow",         106),
+    ("BTN_WM_RuneJuggernaut",   PAL_IGNIS,   "turret_gear", 107),
+    ("BTN_WM_RuneDiviner",      PAL_LOKEN,   "chalice_tome",108),
+    ("BTN_WM_RuneInterceptor",  PAL_THORIM,  "wings",       109),
+    ("BTN_WM_RuneSiege",        PAL_IGNIS,   "hammer",      110),
+    ("BTN_WM_RuneTitan",        PAL_MIMIRON, "claws",       111),
+]
 
 
 # ==============================================================================
-# 4. CUSTOM UI SKIN TEXTURES + ADDITIVE 3D SPELL SIGIL TEXTURES + `.mdx` COMPILER
+# 6. CUSTOM RESOURCE / CONSOLE UI TEXTURES & 3D `.MDX` SPELL MODELS
 # ==============================================================================
 
-def build_ui_textures() -> Dict[str, bytes]:
-    """
-    Generate non-classic Dark Astral-Obsidian UI background & resource bar icons
-    referenced by `war3mapSkin.txt`.
-    """
+def build_ui_resource_textures() -> Dict[str, bytes]:
     out: Dict[str, bytes] = {}
 
-    # 1. `UI\CrownUI\MenuBG.blp` (128x128 seamless dark obsidian-astral runic panel)
-    bg = Image.new("RGBA", (128, 128), (11, 15, 28, 248))
+    # Dark Obsidian-Gold Astral Dialog / Tooltip Background (`128x128`)
+    bg = _radial_canvas(128, (22, 28, 52), (12, 16, 30), (6, 8, 16))
     d = ImageDraw.Draw(bg)
-    for y in range(0, 128, 16):
-        col = (18, 25, 44, 248) if (y // 16) % 2 == 0 else (13, 18, 33, 248)
-        d.rectangle([0, y, 127, y + 15], fill=col)
-    # Subtle geometric diamond filigree so tiled dialogs look sleek & regal
-    for gy in (32, 96):
-        for gx in (32, 96):
-            pts = [(gx, gy - 22), (gx + 22, gy), (gx, gy + 22), (gx - 22, gy)]
-            d.polygon(pts, outline=(46, 68, 112, 150), width=1)
-            pts2 = [(gx, gy - 10), (gx + 10, gy), (gx, gy + 10), (gx - 10, gy)]
-            d.polygon(pts2, outline=(168, 132, 56, 115), width=1)
+    d.rectangle([2, 2, 125, 125], outline=(218, 172, 62, 220), width=2)
+    d.rectangle([6, 6, 121, 121], outline=(56, 189, 248, 140), width=1)
     out["UI\\CrownUI\\MenuBG.blp"] = encode_blp1_paletted(bg, alpha_bits=8)
 
-    # 2. Custom Resource Header Icons (`32x32` crisp transparent icons)
-    # Gold Coin -> Astral Sun-Crown Coin
-    gold = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(gold)
-    gd.ellipse([3, 3, 28, 28], fill=(217, 119, 6, 255), outline=(254, 240, 138, 255), width=2)
-    gd.polygon([(9, 20), (11, 11), (16, 15), (21, 11), (23, 20)], fill=(255, 251, 215, 255))
-    out["UI\\CrownUI\\IconGold.blp"] = encode_blp1_paletted(gold, alpha_bits=8)
+    # Inventory Empty Slot Filler (`64x64` dark runic socket)
+    slot = _radial_canvas(64, (20, 24, 42), (12, 14, 26), (6, 8, 14))
+    sd = ImageDraw.Draw(slot)
+    sd.rectangle([2, 2, 61, 61], outline=(120, 95, 42, 200), width=1)
+    sd.polygon([(32, 14), (48, 32), (32, 50), (16, 32)], outline=(56, 145, 195, 130))
+    out["UI\\CrownUI\\SlotFiller.blp"] = encode_blp1_paletted(slot, alpha_bits=8)
 
-    # Lumber -> Bioluminescent Cyan-Emerald Rune Crystal
-    lum = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
-    ld = ImageDraw.Draw(lum)
-    ld.polygon([(16, 2), (27, 12), (23, 29), (9, 29), (5, 12)],
-               fill=(16, 185, 129, 255), outline=(167, 243, 208, 255), width=2)
-    ld.polygon([(16, 6), (22, 14), (16, 25), (10, 14)], fill=(165, 243, 252, 245))
-    out["UI\\CrownUI\\IconLumber.blp"] = encode_blp1_paletted(lum, alpha_bits=8)
+    # 32x32 Top-Bar Resource Icons (Gold Sun-Coin, Emerald Crystal-Timber, Sovereign Crown Supply, Upkeep)
+    g_img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(g_img)
+    gd.ellipse([2, 2, 29, 29], fill=(245, 185, 32, 255), outline=(255, 245, 175, 255), width=2)
+    gd.polygon([(16, 7), (22, 16), (16, 25), (10, 16)], fill=(255, 252, 210, 255))
+    out["UI\\CrownUI\\IconGold.blp"] = encode_blp1_paletted(g_img, alpha_bits=8)
 
-    # Supply / Upkeep -> Violet-Gold Imperial Star Crest
-    sup = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(sup)
-    sd.polygon([(16, 2), (28, 9), (25, 24), (16, 30), (7, 24), (4, 9)],
-               fill=(124, 58, 237, 255), outline=(253, 224, 71, 255), width=2)
-    sd.polygon([(16, 7), (20, 15), (16, 24), (12, 15)], fill=(254, 249, 195, 255))
-    out["UI\\CrownUI\\IconSupply.blp"] = encode_blp1_paletted(sup, alpha_bits=8)
+    l_img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    ld = ImageDraw.Draw(l_img)
+    ld.polygon([(16, 2), (28, 12), (23, 29), (9, 29), (4, 12)], fill=(36, 205, 125, 255), outline=(195, 255, 225, 255))
+    out["UI\\CrownUI\\IconLumber.blp"] = encode_blp1_paletted(l_img, alpha_bits=8)
+
+    s_img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    s_d = ImageDraw.Draw(s_img)
+    s_d.polygon([(4, 24), (6, 9), (12, 16), (16, 5), (20, 16), (26, 9), (28, 24)], fill=(248, 198, 56, 255), outline=(255, 248, 210, 255))
+    out["UI\\CrownUI\\IconSupply.blp"] = encode_blp1_paletted(s_img, alpha_bits=8)
+
+    u_img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    ud = ImageDraw.Draw(u_img)
+    ud.polygon([(16, 3), (29, 16), (16, 29), (3, 16)], fill=(72, 195, 255, 255), outline=(235, 250, 255, 255))
+    out["UI\\CrownUI\\IconUpkeep.blp"] = encode_blp1_paletted(u_img, alpha_bits=8)
 
     return out
 
 
-def build_sigil_texture(primary: Tuple[int, int, int], core_col: Tuple[int, int, int], spikes: int) -> bytes:
-    """
-    Create a `128x128` radial sacred-geometry sigil texture (`FilterMode Additive`,
-    black edge = 100% transparent in WC3 Additive blending!) for custom `.mdx` VFX.
-    """
+def build_sigil_texture(main_rgb: Tuple[int, int, int], core_rgb: Tuple[int, int, int], spikes: int = 8) -> bytes:
     S = 128
-    cx = cy = 63.5
     img = Image.new("RGBA", (S, S), (0, 0, 0, 255))
     d = ImageDraw.Draw(img)
-
-    # Outer & inner concentric runic rings
-    d.ellipse([6, 6, 121, 121], outline=(*primary, 255), width=5)
-    d.ellipse([18, 18, 109, 109], outline=(*core_col, 255), width=3)
-    d.ellipse([36, 36, 91, 91], outline=(*primary, 255), width=4)
-
-    # Sacred star polygon + radial glyphs
-    for i in range(spikes):
-        a0 = i * (2 * math.pi / spikes)
-        a1 = ((i + 2) % spikes) * (2 * math.pi / spikes)
-        p0 = (cx + math.cos(a0) * 54, cy + math.sin(a0) * 54)
-        p1 = (cx + math.cos(a1) * 54, cy + math.sin(a1) * 54)
-        d.line([p0, p1], fill=(*primary, 255), width=3)
-        pm = (cx + math.cos(a0) * 59, cy + math.sin(a0) * 59)
-        pi = (cx + math.cos(a0) * 20, cy + math.sin(a0) * 20)
-        d.line([pi, pm], fill=(*core_col, 255), width=3)
-
-    d.ellipse([50, 50, 77, 77], fill=(*core_col, 255))
-    # Smooth radial falloff to pure black at border so additive quad never clips
-    img = img.filter(ImageFilter.GaussianBlur(radius=1.1))
+    cx = cy = 63.5
+    d.ellipse([8, 8, 119, 119], outline=(*main_rgb, 255), width=4)
+    d.ellipse([18, 18, 109, 109], outline=(*core_rgb, 255), width=2)
+    pts = []
+    for i in range(spikes * 2):
+        r = 54 if i % 2 == 0 else 24
+        a = math.radians(i * (180.0 / spikes))
+        pts.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+    d.polygon(pts, outline=(*main_rgb, 255), width=3)
+    d.ellipse([44, 44, 83, 83], fill=(*core_rgb, 255), outline=(*main_rgb, 255), width=4)
+    img = img.filter(ImageFilter.GaussianBlur(0.8))
+    # Zero out outer border so additive quad never clips visibly
     px = img.load()
     for y in range(S):
         for x in range(S):
-            dist = math.hypot(x - cx, y - cy) / 62.0
-            fade = max(0.0, min(1.0, (1.0 - dist) * 4.5)) if dist > 0.78 else 1.0
-            r, g, b, _ = px[x, y]
-            px[x, y] = (int(r * fade), int(g * fade), int(b * fade), 255)
-    return encode_blp1_paletted(img, alpha_bits=0)
+            dist = math.hypot(x - cx, y - cy)
+            if dist > 60:
+                fade = max(0.0, (63.0 - dist) / 3.0)
+                r, g, b, _ = px[x, y]
+                px[x, y] = (int(r * fade), int(g * fade), int(b * fade), 255)
+    return encode_blp1_paletted(img, alpha_bits=8)
 
 
-def _generate_vfx_mdl(model_name: str, tex_mpq_path: str) -> str:
-    """
-    Generate a 2-Geoset counter-rotating 3D Warcraft III `FormatVersion 800` MDL:
-      - Geoset 0 (`Bone_Disc`): Rotating `320x320` Sacred Star-Sigil Disc (`Z = 18`)
-      - Geoset 1 (`Bone_Crown`): Counter-rotating 8-sided 3D Flared Energy Crown
-        rising from `Z = 12` (`R = 88`) to `Z = 148` (`R = 142`)!
-      - Sequences: `Birth` (0..300ms), `Stand` (400..1400ms), `Death` (1500..2350ms
-        expanding shockwave + smooth Alpha 1->0 fadeout so `DestroyEffect` plays cleanly!).
-    """
-    # Build 8-sided flared crown cylinder vertices (16 vertices: 8 bottom, 8 top)
-    crown_verts = []
-    crown_norms = []
-    crown_uvs = []
-    crown_tris = []
-    N = 8
-    for i in range(N):
-        ang = i * (2 * math.pi / N)
-        ca, sa = math.cos(ang), math.sin(ang)
-        crown_verts.append(f"{{ {ca * 86:.2f}, {sa * 86:.2f}, 12.00 }}")
-        crown_verts.append(f"{{ {ca * 142:.2f}, {sa * 142:.2f}, 146.00 }}")
-        crown_norms.append(f"{{ {ca:.3f}, {sa:.3f}, 0.150 }}")
-        crown_norms.append(f"{{ {ca:.3f}, {sa:.3f}, 0.150 }}")
-        u = (i % 2) * 0.8 + 0.1
-        crown_uvs.append(f"{{ {u:.2f}, 0.88 }}")
-        crown_uvs.append(f"{{ {u:.2f}, 0.12 }}")
-        b0 = i * 2
-        t0 = i * 2 + 1
-        b1 = ((i + 1) % N) * 2
-        t1 = ((i + 1) % N) * 2 + 1
-        crown_tris.extend([str(b0), str(b1), str(t1), str(b0), str(t1), str(t0)])
-
-    v_str = ",\n        ".join(crown_verts)
-    n_str = ",\n        ".join(crown_norms)
-    uv_str = ",\n        ".join(crown_uvs)
-    vg_str = ", ".join(["0"] * (2 * N))
-    tri_str = ", ".join(crown_tris)
-
+def _generate_vfx_mdl(model_name: str, tex_path: str) -> str:
     return f"""Version {{
     FormatVersion 800,
 }}
 Model "{model_name}" {{
-    BlendTime 120,
-    MinimumExtent {{ -220, -220, 0 }},
-    MaximumExtent {{ 220, 220, 200 }},
-    BoundsRadius 260,
+    NumGeosets 2,
+    NumGeosetAnims 2,
+    NumBones 2,
+    BlendTime 150,
+    MinimumExtent {{ -160, -160, 0 }},
+    MaximumExtent {{ 160, 160, 220 }},
+    BoundsRadius 220,
 }}
 Sequences 3 {{
     Anim "Birth" {{
-        Interval {{ 0, 300 }},
+        Interval {{ 0, 450 }},
         NonLooping,
-        MinimumExtent {{ -220, -220, 0 }},
-        MaximumExtent {{ 220, 220, 200 }},
-        BoundsRadius 260,
+        MinimumExtent {{ -160, -160, 0 }},
+        MaximumExtent {{ 160, 160, 220 }},
+        BoundsRadius 220,
     }}
     Anim "Stand" {{
-        Interval {{ 400, 1400 }},
-        MinimumExtent {{ -220, -220, 0 }},
-        MaximumExtent {{ 220, 220, 200 }},
-        BoundsRadius 260,
+        Interval {{ 500, 1500 }},
+        MinimumExtent {{ -160, -160, 0 }},
+        MaximumExtent {{ 160, 160, 220 }},
+        BoundsRadius 220,
     }}
     Anim "Death" {{
-        Interval {{ 1500, 2350 }},
+        Interval {{ 1600, 2200 }},
         NonLooping,
-        MinimumExtent {{ -220, -220, 0 }},
-        MaximumExtent {{ 220, 220, 200 }},
-        BoundsRadius 260,
+        MinimumExtent {{ -160, -160, 0 }},
+        MaximumExtent {{ 160, 160, 220 }},
+        BoundsRadius 220,
     }}
 }}
 Textures 1 {{
     Bitmap {{
-        Image "{tex_mpq_path}",
+        Image "{tex_path}",
     }}
 }}
 Materials 1 {{
@@ -609,17 +1099,16 @@ Materials 1 {{
             FilterMode Additive,
             Unshaded,
             TwoSided,
-            NoDepthSet,
             static TextureID 0,
         }}
     }}
 }}
 Geoset {{
     Vertices 4 {{
-        {{ -165, -165, 18 }},
-        {{ 165, -165, 18 }},
-        {{ 165, 165, 18 }},
-        {{ -165, 165, 18 }},
+        {{ -128, -128, 8 }},
+        {{ 128, -128, 8 }},
+        {{ 128, 128, 8 }},
+        {{ -128, 128, 8 }},
     }}
     Normals 4 {{
         {{ 0, 0, 1 }},
@@ -628,10 +1117,10 @@ Geoset {{
         {{ 0, 0, 1 }},
     }}
     TVertices 4 {{
-        {{ 0, 1 }},
-        {{ 1, 1 }},
-        {{ 1, 0 }},
         {{ 0, 0 }},
+        {{ 1, 0 }},
+        {{ 1, 1 }},
+        {{ 0, 1 }},
     }}
     VertexGroup {{
         0, 0, 0, 0,
@@ -644,36 +1133,45 @@ Geoset {{
     Groups 1 1 {{
         Matrices {{ 0 }},
     }}
-    MinimumExtent {{ -165, -165, 18 }},
-    MaximumExtent {{ 165, 165, 18 }},
-    BoundsRadius 235,
+    MinimumExtent {{ -128, -128, 8 }},
+    MaximumExtent {{ 128, 128, 8 }},
+    BoundsRadius 182,
     MaterialID 0,
     SelectionGroup 0,
 }}
 Geoset {{
-    Vertices {2 * N} {{
-        {v_str},
+    Vertices 8 {{
+        {{ -85, 0, 14 }},
+        {{ 85, 0, 14 }},
+        {{ 85, 0, 190 }},
+        {{ -85, 0, 190 }},
+        {{ 0, -85, 14 }},
+        {{ 0, 85, 14 }},
+        {{ 0, 85, 190 }},
+        {{ 0, -85, 190 }},
     }}
-    Normals {2 * N} {{
-        {n_str},
+    Normals 8 {{
+        {{ 0, 1, 0 }}, {{ 0, 1, 0 }}, {{ 0, 1, 0 }}, {{ 0, 1, 0 }},
+        {{ 1, 0, 0 }}, {{ 1, 0, 0 }}, {{ 1, 0, 0 }}, {{ 1, 0, 0 }},
     }}
-    TVertices {2 * N} {{
-        {uv_str},
+    TVertices 8 {{
+        {{ 0, 0 }}, {{ 1, 0 }}, {{ 1, 1 }}, {{ 0, 1 }},
+        {{ 0, 0 }}, {{ 1, 0 }}, {{ 1, 1 }}, {{ 0, 1 }},
     }}
     VertexGroup {{
-        {vg_str},
+        0, 0, 0, 0, 0, 0, 0, 0,
     }}
-    Faces 1 {len(crown_tris)} {{
+    Faces 1 12 {{
         Triangles {{
-            {{ {tri_str} }},
+            {{ 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7 }},
         }}
     }}
     Groups 1 1 {{
         Matrices {{ 1 }},
     }}
-    MinimumExtent {{ -145, -145, 12 }},
-    MaximumExtent {{ 145, 145, 146 }},
-    BoundsRadius 210,
+    MinimumExtent {{ -85, -85, 14 }},
+    MaximumExtent {{ 85, 85, 190 }},
+    BoundsRadius 205,
     MaterialID 0,
     SelectionGroup 0,
 }}
@@ -681,10 +1179,10 @@ GeosetAnim {{
     Alpha 5 {{
         Linear,
         0: 0,
-        280: 1,
-        1400: 1,
-        1500: 1,
-        2350: 0,
+        450: 1,
+        500: 1,
+        1600: 1,
+        2200: 0,
     }}
     GeosetId 0,
 }}
@@ -692,76 +1190,60 @@ GeosetAnim {{
     Alpha 5 {{
         Linear,
         0: 0,
-        280: 0.9,
-        1400: 0.9,
-        1500: 0.95,
-        2350: 0,
+        450: 0.9,
+        500: 0.9,
+        1600: 0.9,
+        2200: 0,
     }}
     GeosetId 1,
 }}
-Bone "Bone_Disc" {{
+Bone "Bone_Ring" {{
     ObjectId 0,
     GeosetId 0,
     GeosetAnimId 0,
-    Rotation 7 {{
+    Rotation 5 {{
         Linear,
         0: {{ 0, 0, 0, 1 }},
-        300: {{ 0, 0, 0.7071, 0.7071 }},
-        400: {{ 0, 0, 0, 1 }},
-        900: {{ 0, 0, 1, 0 }},
-        1400: {{ 0, 0, 0, -1 }},
-        1500: {{ 0, 0, 0, 1 }},
-        2350: {{ 0, 0, 0.9659, 0.2588 }},
+        450: {{ 0, 0, 0.382683, 0.92388 }},
+        500: {{ 0, 0, 0, 1 }},
+        1500: {{ 0, 0, 0.707107, 0.707107 }},
+        2200: {{ 0, 0, 0.92388, 0.382683 }},
     }}
     Scaling 5 {{
         Linear,
-        0: {{ 0.25, 0.25, 0.25 }},
-        300: {{ 1, 1, 1 }},
-        1400: {{ 1.05, 1.05, 1 }},
-        1500: {{ 0.42, 0.42, 0.42 }},
-        2350: {{ 1.55, 1.55, 1.25 }},
+        0: {{ 0.2, 0.2, 0.2 }},
+        450: {{ 1.15, 1.15, 1.0 }},
+        500: {{ 1.0, 1.0, 1.0 }},
+        1600: {{ 1.05, 1.05, 1.0 }},
+        2200: {{ 1.45, 1.45, 0.1 }},
     }}
 }}
 Bone "Bone_Crown" {{
     ObjectId 1,
     GeosetId 1,
     GeosetAnimId 1,
-    Rotation 7 {{
-        Linear,
-        0: {{ 0, 0, 0, 1 }},
-        300: {{ 0, 0, -0.7071, 0.7071 }},
-        400: {{ 0, 0, 0, 1 }},
-        900: {{ 0, 0, -1, 0 }},
-        1400: {{ 0, 0, 0, -1 }},
-        1500: {{ 0, 0, 0, 1 }},
-        2350: {{ 0, 0, -0.9659, 0.2588 }},
-    }}
     Scaling 5 {{
         Linear,
-        0: {{ 0.3, 0.3, 0.2 }},
-        300: {{ 1, 1, 1 }},
-        1400: {{ 0.95, 0.95, 1.15 }},
-        1500: {{ 0.45, 0.45, 0.4 }},
-        2350: {{ 1.4, 1.4, 1.65 }},
+        0: {{ 0.25, 0.25, 0.1 }},
+        450: {{ 1.0, 1.0, 1.15 }},
+        500: {{ 1.0, 1.0, 1.0 }},
+        1600: {{ 1.0, 1.0, 1.0 }},
+        2200: {{ 0.15, 0.15, 1.6 }},
     }}
 }}
 PivotPoints 2 {{
-    {{ 0, 0, 0 }},
-    {{ 0, 0, 0 }},
+    {{ 0, 0, 8 }},
+    {{ 0, 0, 14 }},
 }}
 """
 
 
 def compile_vfx_mdx_models(mdl_map: Dict[str, str]) -> Dict[str, bytes]:
-    """
-    Compile MDL strings into verified binary Warcraft III `MDLX v800` `.mdx` files
-    using `/tmp/wc3ref/node_modules/mdx-m3-viewer`.
-    """
     out: Dict[str, bytes] = {}
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
         js_lines = [
-            f'const fs = require("fs");',
+            'const fs = require("fs");',
             f'const Model = require("{MDX_MODEL_JS}").default;',
         ]
         for idx, (mpq_name, mdl_text) in enumerate(mdl_map.items()):
@@ -790,89 +1272,94 @@ def compile_vfx_mdx_models(mdl_map: Dict[str, str]) -> Dict[str, bytes]:
 
 
 # ==============================================================================
-# 5. MASTER ASSET BUNDLE GENERATOR FOR `.w3x` MPQ PACKING
+# 7. MASTER ASSET BUNDLE & WEB PREVIEW SHOWCASE SHEET
 # ==============================================================================
 
-CUSTOM_ICON_SPECS: List[Tuple[str, str]] = [
-    # Abyssal Tideborn (Naga) 4 Custom Skills
-    ("BTN_WM_AbyssVortex",   "AbyssVortex"),
-    ("BTN_WM_AbyssLance",    "AbyssLance"),
-    ("BTN_WM_AbyssCarapace", "AbyssCarapace"),
-    ("BTN_WM_AbyssTsunami",  "AbyssTsunami"),
-    # Sunfury Imperium 4 Custom Skills
-    ("BTN_WM_SolarSigil",     "SolarSigil"),
-    ("BTN_WM_SolarDash",      "SolarDash"),
-    ("BTN_WM_SolarJudgment",  "SolarJudgment"),
-    ("BTN_WM_SolarSupernova", "SolarSupernova"),
-    # Voidborn Astral Legion 4 Custom Skills
-    ("BTN_WM_VoidHorizon",  "VoidHorizon"),
-    ("BTN_WM_VoidSever",    "VoidSever"),
-    ("BTN_WM_VoidShroud",   "VoidShroud"),
-    ("BTN_WM_VoidCollapse", "VoidCollapse"),
-    # Runeforged Titan Bastion 4 Custom Skills
-    ("BTN_WM_RunicTectonics", "RunicTectonics"),
-    ("BTN_WM_RunicOverload",  "RunicOverload"),
-    ("BTN_WM_RunicAegis",     "RunicAegis"),
-    ("BTN_WM_RunicOrbital",   "RunicOrbital"),
-    # Map Crest & Faction Selector Icons
-    ("BTN_WM_CrownCrest",  "CrownCrest"),
-    ("BTN_WM_FactionTome", "FactionTome"),
-]
-
-
 def build_war3map_preview_tga() -> bytes:
-    """
-    Build `war3mapPreview.tga` (256x256 uncompressed 24-bit TGA) from our custom
-    `web/public/crown_artwork.png` with an astral-gold inner border so the Warcraft III
-    Lobby Map Preview displays our custom key-art cleanly.
-    """
     assert ARTWORK_PNG.exists(), f"Missing custom artwork at {ARTWORK_PNG}"
     img = Image.open(ARTWORK_PNG).convert("RGB").resize((256, 256), Image.Resampling.LANCZOS)
-    img = ImageEnhance.Contrast(img).enhance(1.08)
+    img = ImageEnhance.Contrast(img).enhance(1.10)
     draw = ImageDraw.Draw(img)
-    draw.rectangle([0, 0, 255, 255], outline=(12, 14, 24), width=2)
-    draw.rectangle([2, 2, 253, 253], outline=(218, 172, 62), width=2)
-    draw.rectangle([4, 4, 251, 251], outline=(56, 189, 248), width=1)
+    draw.rectangle([0, 0, 255, 255], outline=(10, 12, 22), width=2)
+    draw.rectangle([2, 2, 253, 253], outline=(232, 185, 64), width=2)
+    draw.rectangle([4, 4, 251, 251], outline=(64, 205, 255), width=1)
     return encode_tga_24bit(img)
 
 
-def generate_all_custom_assets() -> Dict[str, bytes]:
+def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
     """
-    Return `{mpq_archive_path: binary_bytes}` for all custom `.tga`, `.blp`, and `.mdx`
-    assets to pack into `(8)CrownOfWarMahdi.w3x` and register in `war3map.imp`.
-    Note: `war3mapPreview.tga` is a standard root map file (not listed in `war3map.imp`),
-    whereas all `ReplaceableTextures\\*`, `UI\\*`, `Textures\\*`, and `WM_FX_*.mdx`
-    files ARE listed in `war3map.imp`.
+    Build and return `{mpq_archive_path: binary_bytes}` for all v4 custom assets.
     """
     files: Dict[str, bytes] = {}
+    preview_samples: List[Image.Image] = []
 
     # 1. Lobby Map Preview Artwork (`war3mapPreview.tga`)
     files["war3mapPreview.tga"] = build_war3map_preview_tga()
 
-    # 2. 18 Custom `BTN` + 18 `DISBTN` Command Button Icons (`64x64` BLP1)
-    for btn_stem, kind in CUSTOM_ICON_SPECS:
-        core_img, accent = paint_skill_icon(kind)
+    # 2. Custom Animated Multi-State Mouse Cursor (`256x128` 8-bit alpha BLP1)
+    #    Installed across ALL 4 racial cursor texture paths so every Lobby race gets it!
+    cursor_img = build_custom_cursor_atlas_img()
+    cursor_blp = encode_blp1_paletted(cursor_img, alpha_bits=8)
+    for race_cur in ("HumanCursor", "OrcCursor", "UndeadCursor", "NightElfCursor"):
+        files[f"UI\\Cursor\\{race_cur}.blp"] = cursor_blp
+
+    # 3. Custom RPG Infocard Icons (Damage Types, Armor Types, Hero Attributes)
+    infocard_blps, infocard_samples = build_infocard_icons()
+    files.update(infocard_blps)
+    preview_samples.extend(infocard_samples)
+
+    # 4. Custom Console / Resource Icons
+    files.update(build_ui_resource_textures())
+
+    # 5. 64 Unique Hero Skill Icons (`BTN_WM_S00..S63` + `DISBTN_WM_S00..S63`, 0-bit alpha compact BLP1!)
+    for idx, (pal, motif) in enumerate(SKILL_64_MOTIFS):
+        btn_stem = f"BTN_WM_S{idx:02d}"
+        core_img, accent = _paint_emblem_icon(*pal, motif=motif, seed=idx + 1)
         btn_img, dis_img = apply_btn_frame(core_img, accent)
-        dis_stem = "DIS" + btn_stem
-        files[f"ReplaceableTextures\\CommandButtons\\{btn_stem}.blp"] = encode_blp1_paletted(btn_img, alpha_bits=8)
-        files[f"ReplaceableTextures\\CommandButtonsDisabled\\{dis_stem}.blp"] = encode_blp1_paletted(dis_img, alpha_bits=8)
+        # Include all 64 unique hero-specific ability icons in the web preview sheet.
+        preview_samples.append(btn_img)
+        files[f"ReplaceableTextures\\CommandButtons\\{btn_stem}.blp"] = encode_blp1_paletted(btn_img, alpha_bits=0)
+        files[f"ReplaceableTextures\\CommandButtonsDisabled\\DIS{btn_stem}.blp"] = encode_blp1_paletted(dis_img, alpha_bits=0)
 
-    # 3. Custom UI Skin Textures (`UI\CrownUI\*.blp`)
-    files.update(build_ui_textures())
+    # 6. Command Card, 5 Racial Build Icons, Hero Illidan/Akama & Racial Building/Unit Icons
+    for btn_stem, pal, motif, seed in EXTRA_CUSTOM_ICONS:
+        core_img, accent = _paint_emblem_icon(*pal, motif=motif, seed=seed)
+        btn_img, dis_img = apply_btn_frame(core_img, accent)
+        if "Build" in btn_stem or "Illidan" in btn_stem or "CmdAttack" in btn_stem or "CrownCrest" in btn_stem:
+            preview_samples.append(btn_img)
+        files[f"ReplaceableTextures\\CommandButtons\\{btn_stem}.blp"] = encode_blp1_paletted(btn_img, alpha_bits=0)
+        files[f"ReplaceableTextures\\CommandButtonsDisabled\\DIS{btn_stem}.blp"] = encode_blp1_paletted(dis_img, alpha_bits=0)
 
-    # 4. 4 Custom Additive Sigil BLP1 Textures + 4 Custom 3D `.mdx` Spell Models
-    files["Textures\\WM_Sigil_Abyssal.blp"] = build_sigil_texture((18, 195, 240), (215, 255, 255), spikes=8)
-    files["Textures\\WM_Sigil_Solar.blp"]   = build_sigil_texture((245, 145, 22), (255, 250, 205), spikes=8)
-    files["Textures\\WM_Sigil_Void.blp"]    = build_sigil_texture((168, 72, 250), (245, 215, 255), spikes=8)
-    files["Textures\\WM_Sigil_Runic.blp"]   = build_sigil_texture((225, 165, 48), (165, 248, 255), spikes=6)
-
-    mdl_specs = {
-        "WM_FX_Abyssal.mdx": _generate_vfx_mdl("WM_FX_Abyssal", "Textures\\WM_Sigil_Abyssal.blp"),
-        "WM_FX_Solar.mdx":   _generate_vfx_mdl("WM_FX_Solar",   "Textures\\WM_Sigil_Solar.blp"),
-        "WM_FX_Void.mdx":    _generate_vfx_mdl("WM_FX_Void",    "Textures\\WM_Sigil_Void.blp"),
-        "WM_FX_Runic.mdx":   _generate_vfx_mdl("WM_FX_Runic",   "Textures\\WM_Sigil_Runic.blp"),
-    }
+    # 7. 6 Custom Additive Sigil BLP1 Textures + 6 Custom 3D `.mdx` Spell Models
+    sigil_defs = [
+        ("WM_Sigil_Abyssal", (18, 205, 245),  (210, 255, 255), 8, "WM_FX_Abyssal.mdx"),
+        ("WM_Sigil_Fel",     (58, 250, 128),  (220, 255, 195), 6, "WM_FX_FelGlaive.mdx"),
+        ("WM_Sigil_Solar",   (250, 150, 25),  (255, 250, 205), 8, "WM_FX_Solar.mdx"),
+        ("WM_Sigil_Void",    (175, 72, 255),  (245, 215, 255), 8, "WM_FX_Void.mdx"),
+        ("WM_Sigil_Runic",   (78, 210, 255),  (255, 232, 150), 6, "WM_FX_Runic.mdx"),
+        ("WM_Sigil_Emerald", (48, 230, 165),  (220, 255, 235), 8, "WM_FX_Emerald.mdx"),
+    ]
+    mdl_specs: Dict[str, str] = {}
+    for sig_name, c_main, c_core, spk, mdx_name in sigil_defs:
+        tex_path = f"Textures\\{sig_name}.blp"
+        files[tex_path] = build_sigil_texture(c_main, c_core, spikes=spk)
+        mdl_specs[mdx_name] = _generate_vfx_mdl(mdx_name[:-4], tex_path)
     files.update(compile_vfx_mdx_models(mdl_specs))
+
+    # 8. Save Web Showcase Preview Sheet (`web/public/custom_icons_preview.png`)
+    if save_web_sheet and preview_samples:
+        cols = 8
+        rows_cnt = math.ceil(len(preview_samples) / cols) + 1
+        sheet = Image.new("RGBA", (cols * 72 + 16, rows_cnt * 72 + 16), (9, 13, 24, 255))
+        # Paste 24 sample icons + cursor strip on bottom row
+        for idx, ic in enumerate(preview_samples[: cols * (rows_cnt - 1)]):
+            gx = 12 + (idx % cols) * 72
+            gy = 12 + (idx // cols) * 72
+            sheet.paste(ic, (gx, gy), ic)
+        cur_strip = cursor_img.resize((256, 64), Image.Resampling.NEAREST)
+        sheet.paste(cur_strip, (12, 12 + (rows_cnt - 1) * 72), cur_strip)
+        PREVIEW_SHEET_PNG.parent.mkdir(parents=True, exist_ok=True)
+        sheet.save(PREVIEW_SHEET_PNG)
 
     return files
 
@@ -880,6 +1367,4 @@ def generate_all_custom_assets() -> Dict[str, bytes]:
 if __name__ == "__main__":
     bundle = generate_all_custom_assets()
     total = sum(len(v) for v in bundle.values())
-    print(f"Generated {len(bundle)} custom assets ({total:,} bytes total)")
-    for k in sorted(bundle):
-        print(f"  {k:68s} {len(bundle[k]):7,d} B")
+    print(f"Generated {len(bundle)} custom v4 assets ({total:,} bytes raw)")

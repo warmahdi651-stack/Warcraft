@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Exhaustive 10-Stage Automated Verification Suite for `(8) Crown of Lordaeron` (.w3x).
-Validates MPQ container, TFT v25 binary specs, full JASS2 syntax & static types against
-Warcraft III 1.27b AND Reforged Common.j + Blizzard.j, 4-race Melee spawn geometry,
-zero object collisions, wide-corridor BFS pathing reachability, highway creep-aggro safety,
-and exact 8-way D4 symmetry.
+15-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v4.
+Checks the MPQ, TFT v25, JASS2 APIs (TFT-era proxy, 1.27b and Reforged), all 64 hero abilities,
+16 unique hero kits, 8 empire spawn/build definitions, four AI scripts and the JASS AI fallback,
+object/card/rally flags, ladder stat budgets, all BLP1s/MDXs, pathing, creep safety and D4 symmetry.
+It cannot replace launching the map in an actual Warcraft III client.
 """
 
 from __future__ import annotations
 import collections
+import json
 import math
 import re
 import struct
@@ -786,7 +787,7 @@ def run_verification(w3x_path: Path) -> None:
     print(f"[PASS] Stage 4 & 5: 1-to-1 Sync ({len(parsed_units)} units, {len(defined_strs)} strings, 45 MMP icons, 256x256 BLP1)")
 
     # ------------------------------------------------------------------
-    # STAGE 6: All-4-Races Melee Spawn & Base Buildability Simulator
+    # STAGE 6: Eight-Player Base Layout & All Classic Melee Spawn Base Buildability Simulator
     # ------------------------------------------------------------------
     wpm_grid = wpm[16:]
 
@@ -848,7 +849,7 @@ def run_verification(w3x_path: Path) -> None:
                     x_cur += step
                 y_cur += step
 
-    print("[PASS] Stage 6: All 4 Races (Human/Orc/Undead/NightElf) Spawn & Base Buildability Verified")
+    print("[PASS] Stage 6: All 8 Mirrored Player Starts, Gold Mines, Town-Hall Zones and Classic Race Spawn Terrain are buildable")
 
     # ------------------------------------------------------------------
     # STAGE 7: Pairwise Zero-Collision Prover (6,101 Objects)
@@ -1037,21 +1038,23 @@ def run_verification(w3x_path: Path) -> None:
     _, w3t_orig, w3t_cust = parse_obj_table(files["war3map.w3t"], False)
     _, w3q_orig, w3q_cust = parse_obj_table(files["war3map.w3q"], True)
     _, w3a_orig, w3a_cust = parse_obj_table(files["war3map.w3a"], True)
-    assert len(w3u_orig) >= 24 and len(w3u_cust) == 63, f"Unexpected w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
+    assert len(w3u_orig) >= 24 and len(w3u_cust) == 65, f"Unexpected v4 w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
     assert len(w3t_cust) == 5 and len(w3q_orig) == 6 and len(w3q_cust) == 4, (
         f"Unexpected w3t/w3q counts: w3t={len(w3t_cust)}, w3q={len(w3q_orig)}+{len(w3q_cust)}"
     )
-    assert len(w3a_cust) == 16, f"Expected 16 custom hero skills in war3map.w3a, got {len(w3a_cust)}"
+    assert len(w3a_cust) == 64, f"Expected 64 unique hero skills in war3map.w3a, got {len(w3a_cust)}"
 
     # Verify custom Hero vs non-Hero rawcode case rule for Classic 1.26a/1.27b
-    hero_parents = {"Otch", "Hmkg", "Hamg", "Ucrl", "Hpal", "Hblm", "Nplh", "Ulic", "Edem", "Udre", "Ntin", "Nfir"}
+    hero_parents = {"Otch", "Eevi", "Hmkg", "Hamg", "Ucrl", "Hpal", "Hblm", "Nplh", "Ulic", "Edem", "Udre", "Ntin", "Nfir"}
     for oid, nid, _ in w3u_cust:
         if oid in hero_parents:
             assert nid[0].isupper(), f"Custom Hero {nid} (parent {oid}) MUST start with uppercase!"
         else:
             assert nid[0].islower(), f"Custom non-Hero {nid} (parent {oid}) MUST start with lowercase!"
 
-    # Independent JS binary parser cross-check via mdx-m3-viewer (including all 4 custom .mdx models & 44 .blp textures!)
+    # Independent JS binary parser cross-check via mdx-m3-viewer (all 6 custom .mdx models + 407 BLP1s).
+    imp_expected = struct.unpack_from("<II", files["war3map.imp"], 0)[1]
+    blp_paths_json = json.dumps([name for name in files if name.lower().endswith(".blp")])
     mdx_dir = Path("/tmp/wc3ref/node_modules/mdx-m3-viewer")
     if mdx_dir.exists():
         js_check = subprocess.run(
@@ -1066,6 +1069,7 @@ def run_verification(w3x_path: Path) -> None:
                 const Imp = require("{mdx_dir}/dist/cjs/parsers/w3x/imp/file.js").default;
                 const MdxModel = require("{mdx_dir}/dist/cjs/parsers/mdlx/model.js").default;
                 const {{ BlpImage }} = require("{mdx_dir}/dist/cjs/parsers/blp/image.js");
+                global.ImageData = class ImageData {{ constructor(w, h) {{ this.width = w; this.height = h; this.data = new Uint8ClampedArray(w * h * 4); }} }};
                 const m = new War3Map();
                 m.load(new Uint8Array(fs.readFileSync({str(w3x_path)!r})));
                 const u = new W3u(); u.load(m.get("war3map.w3u").bytes());
@@ -1073,15 +1077,26 @@ def run_verification(w3x_path: Path) -> None:
                 const q = new W3d(); q.load(m.get("war3map.w3q").bytes());
                 const a = new W3d(); a.load(m.get("war3map.w3a").bytes());
                 const imp = new Imp(); imp.load(m.get("war3map.imp").bytes());
-                if (u.version !== 2 || t.version !== 2 || q.version !== 2 || a.version !== 2 || imp.entries.size !== 52) process.exit(1);
-                for (const fx of ["WM_FX_Abyssal.mdx", "WM_FX_Solar.mdx", "WM_FX_Void.mdx", "WM_FX_Runic.mdx"]) {{
+                if (u.version !== 2 || t.version !== 2 || q.version !== 2 || a.version !== 2 || imp.entries.size !== {imp_expected}) process.exit(1);
+                for (const fx of ["WM_FX_Abyssal.mdx", "WM_FX_FelGlaive.mdx", "WM_FX_Solar.mdx", "WM_FX_Void.mdx", "WM_FX_Runic.mdx", "WM_FX_Emerald.mdx"]) {{
                     const mdl = new MdxModel();
                     mdl.load(m.get(fx).bytes());
                     if (mdl.version !== 800 || mdl.sequences.length < 2 || mdl.geosets.length < 2) process.exit(2);
                 }}
                 const icon = new BlpImage();
-                icon.load(m.get("ReplaceableTextures\\\\CommandButtons\\\\BTN_WM_AbyssVortex.blp").bytes());
+                icon.load(m.get("ReplaceableTextures\\\\CommandButtons\\\\BTN_WM_S00.blp").bytes());
                 if (icon.width !== 64 || icon.height !== 64) process.exit(3);
+                const cursor = new BlpImage();
+                cursor.load(m.get("UI\\\\Cursor\\\\HumanCursor.blp").bytes());
+                if (cursor.width !== 256 || cursor.height !== 128) process.exit(4);
+                const blpPaths = {blp_paths_json};
+                for (const path of blpPaths) {{
+                    const b = new BlpImage();
+                    b.load(m.get(path).bytes());
+                    if (b.width <= 0 || b.height <= 0) process.exit(5);
+                    const mip = b.getMipmap(0);
+                    if (!mip || mip.data.length !== mip.width * mip.height * 4) process.exit(6);
+                }}
                 """,
             ],
             capture_output=True,
@@ -1159,7 +1174,7 @@ def run_verification(w3x_path: Path) -> None:
             | {
                 "sloc", "BTLF", "LTlt", "ATtr", "VTlt",
                 "ZTtw", "ZZys", "ZZgr", "YOfb", "ZWbg", "ZPlp",
-                "Zdrt", "Ztil", "Zsan", "Zbkl", "Zgrs", "Zvin", "CZdi", "CZlb",
+                "Zdrt", "Ztil", "Zsan", "Zbkl", "Zgrs", "Zvin", "CZdi", "CZlb", "BTLF",
             }
         )
 
@@ -1233,8 +1248,13 @@ def run_verification(w3x_path: Path) -> None:
                         if code.strip():
                             assert code.strip() in all_known_4cc, f"Unknown req {val!r} in w3q {eff_q}"
 
+        seen_skill_ids: Set[str] = set()
+        seen_skill_icons: Set[str] = set()
+        seen_skill_fx: Set[str] = set()
         for oid, nid, mods in w3a_cust:
             assert oid == "ANcl", f"Custom hero skill {nid} should inherit from ANcl, got {oid}"
+            assert nid not in seen_skill_ids, f"Duplicate custom skill rawcode {nid}!"
+            seen_skill_ids.add(nid)
             orders_by_lvl: Dict[int, str] = {}
             alev = 3
             for fid, vt, lvl, _dptr, val in mods:
@@ -1249,10 +1269,15 @@ def run_verification(w3x_path: Path) -> None:
                     assert str(val) in files, f"Missing custom skill icon {val} in MPQ!"
                     dis_p = str(val).replace("\\CommandButtons\\BTN_", "\\CommandButtonsDisabled\\DISBTN_")
                     assert dis_p in files, f"Missing DISBTN twin {dis_p} in MPQ!"
+                    seen_skill_icons.add(str(val))
                 elif fid == "acat":
-                    assert str(val) in files, f"Missing custom 3D MDX model {val} in MPQ!"
+                    assert str(val) in files and str(val).endswith(".mdx"), f"Missing custom 3D MDX model {val} in MPQ!"
+                    seen_skill_fx.add(str(val))
             for req_lv in range(1, alev + 1):
                 assert orders_by_lvl.get(req_lv, "-") not in ("", "-"), f"Skill {nid} missing Ncl6 order on level {req_lv}!"
+        assert len(seen_skill_ids) == 64, f"Expected 64 unique hero abilities, found {len(seen_skill_ids)}"
+        assert len(seen_skill_icons) == 64, f"Expected 64 unique BTN skill icons, found {len(seen_skill_icons)}"
+        assert len(seen_skill_fx) == 6, f"Expected 6 faction/hero 3D VFX models, found {len(seen_skill_fx)}"
 
         # Check all 4-char rawcodes in war3map.j and all 4 .ai files
         for sname in ("war3map.j", "naga_melee.ai", "camphuman_melee.ai", "voidborn_melee.ai", "runeforged_melee.ai"):
@@ -1260,10 +1285,10 @@ def run_verification(w3x_path: Path) -> None:
             for rc in re.findall(r"'([A-Za-z0-9]{4})'", stxt):
                 assert rc in all_known_4cc, f"Unknown rawcode '{rc}' in {sname}!"
 
-    # Verify war3mapMisc.txt contains all 4 Custom Empires' Halls, Altars & 16 Heroes
+    # Verify war3mapMisc.txt contains all 4 Custom Empires' Halls, Altars & 16 playable Heroes.
     misc_txt = files["war3mapMisc.txt"].decode("utf-8")
     for req_token in (
-        "Hvsh", "N001", "N002", "N003", "Hkal", "Hvwd", "Hlgr", "Huth",
+        "Hvsh", "N004", "N001", "N002", "Hkal", "Hvwd", "Hlgr", "Huth",
         "V001", "V002", "V003", "V004", "T001", "T002", "T003", "T004",
         "nnad", "h004", "v007", "t007",
         "nntt", "n001", "n002", "h001", "h002", "h003", "v001", "v002", "v003", "t001", "t002", "t003",
@@ -1379,8 +1404,10 @@ def run_verification(w3x_path: Path) -> None:
 
     assert mod_lookup["h007"][1]["utra"] == "hhes,nhea,hcth", "Silvermoon Barracks must train Swordsman, Archer, Captain only!"
     assert mod_lookup["nheb"][1]["utra"] == "nchp,nhym,hspt" and mod_lookup["nheb"][1]["ureq"] == "h002", "Mage Tower must be T2 caster sanctum!"
-    assert mod_lookup["h008"][1]["utra"] == "hgyr,h006,nbel" and "h002" in str(mod_lookup["h008"][1]["ureq"]), "Siege Workshop must house Gyro, Ballista, Lieutenant!"
-    assert mod_lookup["h009"][1]["utra"] == "hdhw,hgry" and "h002" in str(mod_lookup["h009"][1]["ureq"]), "Aviary must house Dragonhawk & Gryphon only!"
+    assert mod_lookup["h008"][1]["utra"] == "hgyr,h006,nbel" and "h010" in str(mod_lookup["h008"][1]["ureq"]), "Sunfury Artificer Hall must house Gyro, Ballista and Lieutenant behind its own Forge!"
+    assert mod_lookup["h009"][1]["utra"] == "hdhw,hgry" and "h011" in str(mod_lookup["h009"][1]["ureq"]), "Dragonhawk Sky-Roost must house only flyers and require the Sunfury Lumber Conservatory!"
+    assert mod_lookup["h010"][1]["ures"] == "Rhme,Rhra,Rhar,Rhla" and "h010" in mod_lookup["nhew"][1]["ubui"], "Sunfury Forge must be a dedicated, buildable Sunfury armory!"
+    assert mod_lookup["h011"][1]["uabi"] == "Arlm" and "h011" in mod_lookup["nhew"][1]["ubui"], "Sunfury Lumber Conservatory must be its dedicated lumber drop-off!"
     assert mod_lookup["negt"][1]["uaen"] == 0 and mod_lookup["negt"][1]["ugol"] == 30, "Sunspire Scout Tower must be 30g and unarmed!"
 
     assert mod_lookup["v005"][1]["utra"] == "v011,v012,v013" and mod_lookup["v006"][1]["ures"] == "R000,R001"
@@ -1458,34 +1485,110 @@ def run_verification(w3x_path: Path) -> None:
             assert 105.0 <= hp_per_food <= 230.0, f"Out-of-band HP/food ({hp_per_food:.1f}) on {cuid}!"
 
         # Verify ALL 16 Custom Empire Heroes cost 425g/100L/5f/55s, have urqc=3, and level-1 stat sum in [50..56]
-        for hid in (
-            "Hvsh", "N001", "N002", "N003",
+        # All 16 actual playable heroes get exact 55-point ladder attribute budgets,
+        # proper altar-gating, no building rally field, and four exclusive spells apiece.
+        hero_roster = (
+            "Hvsh", "N004", "N001", "N002",
             "Hkal", "Hvwd", "Hlgr", "Huth",
             "V001", "V002", "V003", "V004",
             "T001", "T002", "T003", "T004",
-        ):
+        )
+        hero_skill_ids: List[str] = []
+        for hid in hero_roster:
             p_id, hm = mod_lookup[hid]
             hb = slk_ubal[p_id]
             s_str = int(hm.get("ustr", hb["STR"]))  # type: ignore[arg-type]
             s_agi = int(hm.get("uagi", hb["AGI"]))  # type: ignore[arg-type]
             s_int = int(hm.get("uint", hb["INT"]))  # type: ignore[arg-type]
-            assert 50 <= (s_str + s_agi + s_int) <= 56, f"Hero {hid} base stat total {s_str+s_agi+s_int} out of melee band!"
+            assert (s_str + s_agi + s_int) == 55, f"Hero {hid} base stat total {s_str+s_agi+s_int} != exact 55-point melee budget!"
             assert hm.get("ugol") == 425 and hm.get("ulum") == 100 and hm.get("ufoo") == 5, f"Hero {hid} cost mismatch!"
             assert hm.get("urqc") == 3, f"Hero {hid} missing urqc=3 Altar tier-gating!"
+            assert "urev" not in hm, f"Rally-flag bug: playable hero {hid} contains building-only `urev`!"
+            hero_skills = str(hm.get("uhab", "")).split(",")
+            assert len(hero_skills) == 4 and all(hero_skills), f"Hero {hid} must own four custom skills!"
+            hero_skill_ids.extend(hero_skills)
+        assert len(set(hero_skill_ids)) == 64, "Each playable hero must own four globally unique skills (64 total)!"
 
-    print("[PASS] Stage 13: All-31-Unit & All-16-Hero Pro-Ladder DPS/EHP/Cost/Role Audit Passed")
+    # Prove all four custom spawn branches create the intended hall/worker and the worker
+    # has a real build menu; Stage 6 already verified each of the eight mirrored base zones.
+    spawn_templates = ((5, "nntt", "nmpe"), (6, "h001", "nhew"), (7, "v001", "v010"), (8, "t001", "t010"))
+    for faction_id, hall_id, worker_id in spawn_templates:
+        assert hall_id in mod_lookup and worker_id in mod_lookup, f"Missing Empire {faction_id} spawn objects!"
+        hall_mods = mod_lookup[hall_id][1]
+        worker_mods = mod_lookup[worker_id][1]
+        assert hall_mods.get("utra") == worker_id, f"Empire {faction_id} hall {hall_id} must train its exact worker!"
+        assert worker_mods.get("ubui"), f"Empire {faction_id} worker {worker_id} has no construction list!"
+        worker_parent = mod_lookup[worker_id][0]
+        worker_abilities = str(worker_mods.get("uabi", slk_uabil.get(worker_parent, {}).get("abilList", "")))
+        assert ("Ahar" in worker_abilities or "ANha" in worker_abilities), f"Empire {faction_id} worker {worker_id} cannot harvest!"
+        assert f"set hallId = '{hall_id}'" in jass_src and f"set workerId = '{worker_id}'" in jass_src, f"JASS spawn map missing Empire {faction_id}!"
+
+    print("[PASS] Stage 13: All-31-Unit, 16-Hero/64-Skill, 8-Spawn-Branch, Ladder DPS/EHP/Cost/Role Audit Passed")
 
     # ------------------------------------------------------------------
-    # STAGE 14: Custom Lobby TGA, Dark UI Skin & 49 Custom Assets Audit
+    # STAGE 14: Custom Lobby Art, Full Dark RPG UI, Animated Cursor & 414 Assets
     # ------------------------------------------------------------------
     tga = files["war3mapPreview.tga"]
     assert tga[2] == 2 and struct.unpack_from("<HHB", tga, 12) == (256, 256, 24), "Invalid 256x256 24-bit war3mapPreview.tga!"
     skin_txt = files["war3mapSkin.txt"].decode("utf-8")
     assert "[CustomSkin]" in skin_txt and "[FrameDef]" in skin_txt and "Border=" not in skin_txt
-    print("[PASS] Stage 14: Custom 256x256 Lobby Artwork TGA, Dark Astral UI Skin, 44 BLP1s & 4 3D MDX Models Verified")
+    for skin_key in (
+        "Cursor=UI\\Cursor\\HumanCursor.mdl",
+        "InfoPanelIconDamageChaos=UI\\CrownUI\\Infocard\\DmgChaos.blp",
+        "InfoPanelIconArmorFort=UI\\CrownUI\\Infocard\\ArmFort.blp",
+        "CommandBasicStructUndead=ReplaceableTextures\\CommandButtons\\BTN_WM_BuildVoidborn.blp",
+        "CommandBasicStructOrc=ReplaceableTextures\\CommandButtons\\BTN_WM_BuildRuneforged.blp",
+    ):
+        assert skin_key in skin_txt, f"Missing v4 custom UI skin mapping: {skin_key}"
+
+    blp_files = {name: data for name, data in files.items() if name.lower().endswith(".blp")}
+    mdx_files = {name: data for name, data in files.items() if name.lower().endswith(".mdx") and name.startswith("WM_FX_")}
+    assert len(blp_files) >= 400, f"Expected 400+ custom BLP1s, got {len(blp_files)}"
+    assert len(mdx_files) == 6, f"Expected 6 custom 3D VFX models, got {len(mdx_files)}"
+    for name, data in blp_files.items():
+        assert data[:4] == b"BLP1", f"Invalid BLP1 magic on {name}"
+        _content, _alpha, bw, bh, _typ, _mips = struct.unpack_from("<6I", data, 4)
+        assert bw > 0 and bh > 0 and (bw & (bw - 1)) == 0 and (bh & (bh - 1)) == 0, f"Invalid BLP1 dimensions on {name}: {bw}x{bh}"
+        if "BTN_WM_S" in name or "DISBTN_WM_S" in name:
+            assert (bw, bh) == (64, 64), f"Hero skill icon must be 64x64: {name}"
+    for race_cursor in ("Human", "Orc", "Undead", "NightElf"):
+        name = f"UI\\Cursor\\{race_cursor}Cursor.blp"
+        assert name in files and struct.unpack_from("<II", files[name], 12)[0:2] == (256, 128), f"Missing or invalid custom cursor atlas: {name}"
+    for i in range(64):
+        icon = f"ReplaceableTextures\\CommandButtons\\BTN_WM_S{i:02d}.blp"
+        disabled = f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_S{i:02d}.blp"
+        assert icon in files and disabled in files, f"Missing exclusive skill BTN/DISBTN pair S{i:02d}"
+    print(f"[PASS] Stage 14: Lobby TGA + Custom Cursor + RPG Damage/Armor UI + 64 Unique Skills + {len(blp_files)} BLP1s + 6 MDX Models")
+
+    # ------------------------------------------------------------------
+    # STAGE 15: TFT 1.26-era API Compatibility & AI Startup/Fallback Coverage
+    # ------------------------------------------------------------------
+    ref_124 = Path("/tmp/wc3ref/w3x2lni/data/zhCN-1.24.4/mpq/Scripts")
+    if ref_124.exists():
+        chk_124 = JassChecker()
+        chk_124.check_file((ref_124 / "Common.j").read_text(encoding="utf-8", errors="ignore"), "1.24.4/Common.j (1.26-era API proxy)")
+        chk_124.check_file((ref_124 / "Blizzard.j").read_text(encoding="utf-8", errors="ignore"), "1.24.4/Blizzard.j")
+        legacy_fn_count = chk_124.check_file(jass_src, "war3map.j (1.26-era API proxy)")
+    else:
+        legacy_fn_count = 0
+
+    ai_entry_names = ("naga_melee.ai", "camphuman_melee.ai", "voidborn_melee.ai", "runeforged_melee.ai")
+    for ai_name in ai_entry_names:
+        assert ai_name in files, f"Missing imported race AI file {ai_name}!"
+    for ai_path in (
+        'StartMeleeAI(p, "naga_melee.ai")',
+        'StartMeleeAI(p, "camphuman_melee.ai")',
+        'StartMeleeAI(p, "voidborn_melee.ai")',
+        'StartMeleeAI(p, "runeforged_melee.ai")',
+    ):
+        assert ai_path in jass_src, f"Missing custom AI startup call {ai_path}!"
+    assert "function WM_AIFallbackBuild" in jass_src and "IssueBuildOrderById" in jass_src, "AI worker-build fallback missing!"
+    assert "function WM_AIUseInventory" in jass_src and "UnitUseItemPoint" in jass_src, "AI consumable/retreat micro fallback missing!"
+    assert "WM_CountLivingHeroes(p) < 3" in jass_src, "AI hero cap guard missing!"
+    print(f"[PASS] Stage 15: Legacy JASS API Proxy ({legacy_fn_count} functions) + 4 Imported Race AIs + Worker-Build/Item/3-Hero Safeguards")
 
     print("======================================================================")
-    print("  ALL 14 VERIFICATION STAGES PASSED WITH ZERO ERRORS / ZERO BUGS!")
+    print("  ALL 15 VERIFICATION STAGES PASSED; no static errors or known object/UI/AI-startup defects.")
     print("======================================================================")
 
 
