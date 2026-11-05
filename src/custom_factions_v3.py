@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-v5 Master Expansion Module for `(8) Crown of WarMahdi`:
+v6 Master Expansion Module for `(8) Crown of WarMahdi`:
   - Two complete, tournament-balanced Custom Playable Empires with race-specific
     Build mechanics, faction-appropriate models, and model-matched native icons:
       7. Voidborn Legion (`v001..v019`, Heroes `V001..V004`, Upgrades `R000..R001`)
@@ -913,7 +913,7 @@ HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
 
     # Hero 2: N004 — Illidan Stormrage, Betrayer of Tides (`A004..A007`)
     ("A004", 0, 2, "flamestrike",    "Azzinoth Glaive Barrage",    "Three crossing glaive lanes strike toward the target point; the side lanes hit harder than the center and a 150-AoE burst hits the endpoint. Damage scales with AGI."),
-    ("A005", 1, 1, "chainlightning", "Shadowstep of the Betrayer", "Shadowsteps to a walkable point just beyond the target, deals 1.22x stat-scaled damage, and steals up to 20 Mana from the enemy."),
+    ("A005", 1, 1, "manaburn",       "Mana Burn",                  "Burns up to 35 Mana, increasing by 25 per ability level, and deals equal spell damage. Does not drain Mana from targets that have none."),
     ("A006", 2, 0, "thunderclap",    "Demon-Scale Immolation",     "Deals 0.82x stat-scaled damage in 270 AoE, pushes foes away, and heals Illidan for 55 + 35 per ability level. At levels 2-3, summons one Mur'gul Reaver for 12 seconds."),
     ("A007", 3, 0, "roar",           "Metamorphosis: Abyssal Overlord", "Three 380-AoE pulses scale with Illidan's AGI and hero level. Each heals nearby allies for 12 HP, heals Illidan for 28 HP, and pushes enemies outward."),
 
@@ -934,7 +934,7 @@ HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
     ("A016", 0, 2, "flamestrike",    "Verdant Sunfire Pillar",     "Point-targeted 275 AoE: deals 1.12x INT-scaled damage and burns 16 Mana per ability level from affected enemies."),
     ("A017", 1, 1, "chainlightning", "Arcane Gravity Lapse",       "Hits one target for 0.94x INT-scaled damage, drains 36 Mana and transfers 28 Mana to Kael, then pulls the target toward him."),
     ("A018", 2, 0, "thunderclap",    "Pyromancer's Molten Barrier","In 310 AoE, deals 0.44x INT-scaled damage, restores 68 + 16 per level HP and 24 Mana to allies, and burns 10 enemy Mana."),
-    ("A019", 3, 2, "monsoon",        "Rebirth of Al'ar",           "Three 400-AoE pulses scale with Kael's INT and hero level. Each restores 12 HP and Mana to allies and pushes foes away; the second summons a Dragonhawk Rider for 18 seconds."),
+    ("A019", 3, 2, "monsoon",        "Summon Phoenix: Al'ar",     "Three solar pulses damage foes, heal allies and push enemies; the second summons a Phoenix at the target area for 18 seconds."),
 
     # Hero 6: Hvwd — Ranger-General Sylvanas (`A020..A023`)
     ("A020", 0, 2, "flamestrike",    "Rain of Starlight Arrows",   "Fires three arrow lanes toward the target point: the main lane deals 1.08x AGI-scaled damage and two angled lanes deal 0.55x each."),
@@ -952,7 +952,7 @@ HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
     ("A028", 0, 2, "flamestrike",    "Consecrated Sunwell Ground", "Sanctifies a 285-AoE target area, dealing 0.72x STR-scaled damage to foes and healing allies for 70 + 10 per level."),
     ("A029", 1, 1, "chainlightning", "Hammer of Radiant Verdict",  "A radiant hammer hits the target for 1.2x STR-scaled damage, splashes 0.35x damage in 180 AoE, and pushes nearby enemies away."),
     ("A030", 2, 0, "thunderclap",    "Aegis of the Silver Hand",   "Restores 90 + 28 per ability level HP to nearby allies in 360 AoE."),
-    ("A031", 3, 2, "monsoon",        "Dawnbringer Judgment",       "Three 410-AoE pulses scale with Uther's STR and hero level; each damages enemies, heals allies for 46 HP, and restores 8 Mana."),
+    ("A031", 3, 0, "resurrection",  "Resurrection",               "At Uther's location, revives one nearby fallen allied Hero and releases three radiant pulses that damage foes and heal living allies."),
 
     # ---- EMPIRE 7: VOIDBORN LEGION ----
     # Hero 9: V001 — Rift Sovereign Xal'athor (`A032..A035`)
@@ -1010,7 +1010,7 @@ HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
 # own BTN/DISBTN assets on 1.26a, 1.27b and Reforged.
 _SKILL_BUTTON_STEMS = (
     "BTNMonsoon", "BTNChainLightning", "BTNHealingWave", "BTNCrushingWave",
-    "BTNFanOfKnives", "BTNBlink", "BTNImmolationOn", "BTNMetamorphosis",
+    "BTNFanOfKnives", "BTNManaBurn", "BTNImmolationOn", "BTNMetamorphosis",
     "BTNImpale", "BTNEnsnare", "BTNFrostArmor", "BTNLocustSwarm",
     "BTNVolcano", "BTNCharm", "BTNRejuvenation", "BTNTornado",
     "BTNWallOfFire", "BTNManaDrain", "BTNHealingWard", "BTNMarkOfFire",
@@ -1080,7 +1080,10 @@ def _make_ancl_hero_skill(
         ("arhk", VT_STR, 0, 0, hotkey),
         ("aher", VT_INT, 0, 0, 1),
         ("alev", VT_INT, 0, 0, levels),
-        ("alsk", VT_INT, 0, 0, 6 if is_ult else 1),
+        # arlv is the first hero level at which a skill can be learned; alsk is
+        # the interval between later ranks. Core skills rank at 1/3/5; R opens at 6.
+        ("arlv", VT_INT, 0, 0, 6 if is_ult else 1),
+        ("alsk", VT_INT, 0, 0, 0 if is_ult else 2),
         ("acat", VT_STR, 0, 0, fx),
         ("aeat", VT_STR, 0, 0, ""),
         ("atat", VT_STR, 0, 0, ""),
@@ -1090,7 +1093,11 @@ def _make_ancl_hero_skill(
 
     for lv in range(1, levels + 1):
         cd = 85.0 if is_ult else (13.0 - (lv - 1) * 1.5 if slot_idx == 0 else (11.0 - (lv - 1) * 1.0 if slot_idx == 1 else 14.0 - (lv - 1) * 1.5))
-        mp = 145 if is_ult else (75 + (lv - 1) * 10 if slot_idx == 0 else (65 + (lv - 1) * 10 if slot_idx == 1 else 70 + (lv - 1) * 10))
+        mp = 145 if is_ult else (
+            50 + (lv - 1) * 10 if new_id == "A005" else
+            (75 + (lv - 1) * 10 if slot_idx == 0 else
+             (65 + (lv - 1) * 10 if slot_idx == 1 else 70 + (lv - 1) * 10))
+        )
         rng = 750.0 if (is_ult and tgt_mode == 2) else (700.0 if tgt_mode == 2 else (625.0 if tgt_mode == 1 else 0.0))
         aoe = 390.0 if (is_ult and tgt_mode == 2) else (275.0 if tgt_mode == 2 else 0.0)
         tars = "air,enemies,ground,neutral,organic" if tgt_mode == 1 else ""
@@ -1251,7 +1258,7 @@ def serialize_war3map_skin() -> bytes:
         "ARMOR_SMALL=Aegis: |cff6ee7b7Agile Guard|r",
         "ARMOR_NONE=Aegis: |cffc084fcAstral Shroud|r",
         "UPPER_BUTTON_QUEST_TIP=|cffffcc00WarMahdi Codex & Guide|r (|cffffcc00F9|r)",
-        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v5 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681-100 Supply:|r 40% Gold Income",
+        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v6 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681-100 Supply:|r 40% Gold Income",
         "",
     ]
     return "\r\n".join(lines).encode("utf-8")
@@ -1277,7 +1284,7 @@ def _build_custom_faction_ai(
 ) -> str:
     return f"""//============================================================================
 //  {title_comment}
-//  Tournament Melee AI for `(8) Crown of WarMahdi` v5
+//  Tournament Melee AI for `(8) Crown of WarMahdi` v6
 //============================================================================
 globals
     integer CF_WORKER    = '{worker}'

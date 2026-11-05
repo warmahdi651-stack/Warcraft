@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Artwork and UI asset pipeline for `(8) Crown of WarMahdi` v5.
+Artwork and UI asset pipeline for `(8) Crown of WarMahdi` v6.
 
 Generates Warcraft III binary assets while keeping gameplay art recognizable and
 patch-safe:
@@ -928,7 +928,7 @@ def build_war3map_preview_tga() -> bytes:
 
 
 def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
-    """Build `{mpq_archive_path: binary_bytes}` for the v5 custom asset bundle."""
+    """Build `{mpq_archive_path: binary_bytes}` for the v6 custom asset bundle."""
     files: Dict[str, bytes] = {}
 
     # 1. Lobby map preview and patch-safe custom cursor atlases.
@@ -972,4 +972,4 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
 if __name__ == "__main__":
     bundle = generate_all_custom_assets()
     total = sum(len(v) for v in bundle.values())
-    print(f"Generated {len(bundle)} custom v5 assets ({total:,} bytes raw)")
+    print(f"Generated {len(bundle)} custom v6 assets ({total:,} bytes raw)")

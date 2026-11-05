@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-15-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v5.
+15-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v6.
 Checks the MPQ, TFT v25, JASS2 APIs (TFT-era proxy, 1.27b and Reforged), all 64 hero abilities,
 16 unique hero kits, 8 empire spawn/build definitions, four AI scripts and the JASS AI fallback,
 object/card/rally flags, native icon/model references, portrait/UI BLP1s/MDXs, pathing, creep safety and D4 symmetry.
@@ -1038,7 +1038,7 @@ def run_verification(w3x_path: Path) -> None:
     _, w3t_orig, w3t_cust = parse_obj_table(files["war3map.w3t"], False)
     _, w3q_orig, w3q_cust = parse_obj_table(files["war3map.w3q"], True)
     _, w3a_orig, w3a_cust = parse_obj_table(files["war3map.w3a"], True)
-    assert len(w3u_orig) >= 24 and len(w3u_cust) == 65, f"Unexpected v5 w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
+    assert len(w3u_orig) >= 24 and len(w3u_cust) == 65, f"Unexpected v6 w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
     assert len(w3t_cust) == 5 and len(w3q_orig) == 6 and len(w3q_cust) == 4, (
         f"Unexpected w3t/w3q counts: w3t={len(w3t_cust)}, w3q={len(w3q_orig)}+{len(w3q_cust)}"
     )
@@ -1279,7 +1279,7 @@ def run_verification(w3x_path: Path) -> None:
             assert actual_model.lower() == expected_model.lower(), f"{custom_id} is not using native Naga model {expected_model}.mdl"
             assert actual_button.lower() == expected_button.lower(), f"{custom_id} is not using matched native Naga button {expected_button}"
 
-        for custom_id, native_id in (("h001", "htow"), ("h002", "hkee"), ("h003", "hcas"), ("h010", "hbla")):
+        for custom_id, native_id in (("h001", "htow"), ("h002", "hkee"), ("h003", "hcas"), ("h004", "halt"), ("h010", "hbla")):
             expected_model = str(native_unit_ui[native_id].get("file", ""))
             actual_model = custom_u_by_id.get(custom_id, {}).get("umdl", "").removesuffix(".mdl")
             assert actual_model.lower() == expected_model.lower(), (
@@ -1358,16 +1358,24 @@ def run_verification(w3x_path: Path) -> None:
         seen_skill_ids: Set[str] = set()
         seen_skill_icons: Set[str] = set()
         seen_skill_fx: Set[str] = set()
-        for oid, nid, mods in w3a_cust:
+        skill_profiles: Dict[str, Dict[str, str]] = {}
+        skill_level_fields: Dict[str, Dict[Tuple[str, int], str]] = {}
+        for skill_index, (oid, nid, mods) in enumerate(w3a_cust):
             assert oid == "ANcl", f"Custom hero skill {nid} should inherit from ANcl, got {oid}"
             assert nid not in seen_skill_ids, f"Duplicate custom skill rawcode {nid}!"
             seen_skill_ids.add(nid)
             orders_by_lvl: Dict[int, str] = {}
+            base_fields: Dict[str, str] = {}
+            fields_by_level: Dict[Tuple[str, int], str] = {}
             alev = 3
             for fid, vt, lvl, _dptr, val in mods:
                 assert fid in amd, f"Unknown AbilityMetaData field {fid!r} on {nid}"
                 exp_vt = expected_w3_vtype(amd[fid].get("type", ""))
                 assert vt == exp_vt, f"Strict variableType mismatch on ability {nid}.{fid}: {vt} != {exp_vt}"
+                if lvl == 0:
+                    base_fields[fid] = str(val)
+                else:
+                    fields_by_level[(fid, lvl)] = str(val)
                 if fid == "alev":
                     alev = int(val)
                 elif fid == "Ncl6":
@@ -1391,11 +1399,46 @@ def run_verification(w3x_path: Path) -> None:
                 elif fid == "acat":
                     assert str(val) in files and str(val).endswith(".mdx"), f"Missing custom 3D MDX model {val} in MPQ!"
                     seen_skill_fx.add(str(val))
+            # Custom rawcodes are serialized in lexicographic order, not kit order.
+            # Their decimal suffix (A000..A063) preserves the Q/W/E/R slot grouping.
+            is_ultimate = int(nid[1:]) % 4 == 3
+            expected_alev = 1 if is_ultimate else 3
+            expected_arlv = 6 if is_ultimate else 1
+            expected_alsk = 0 if is_ultimate else 2
+            assert int(base_fields.get("alev", "-1")) == expected_alev, f"{nid} has wrong ability rank count"
+            assert int(base_fields.get("arlv", "-1")) == expected_arlv, (
+                f"{nid} first learn level must be {expected_arlv}, got {base_fields.get('arlv')}"
+            )
+            assert int(base_fields.get("alsk", "-1")) == expected_alsk, (
+                f"{nid} level-skip must be {expected_alsk}, got {base_fields.get('alsk')}"
+            )
             for req_lv in range(1, alev + 1):
                 assert orders_by_lvl.get(req_lv, "-") not in ("", "-"), f"Skill {nid} missing Ncl6 order on level {req_lv}!"
+            skill_profiles[nid] = base_fields
+            skill_level_fields[nid] = fields_by_level
         assert len(seen_skill_ids) == 64, f"Expected 64 unique hero abilities, found {len(seen_skill_ids)}"
         assert len(seen_skill_icons) == 64, f"Expected 64 unique BTN skill icons, found {len(seen_skill_icons)}"
         assert len(seen_skill_fx) == 6, f"Expected 6 faction/hero 3D VFX models, found {len(seen_skill_fx)}"
+        assert skill_profiles["A005"].get("anam") == "Mana Burn", "Illidan's original Mana Burn name was lost"
+        assert skill_profiles["A005"].get("aart", "").endswith("BTNManaBurn.blp"), "Mana Burn uses the wrong button art"
+        assert skill_level_fields["A005"].get(("Ncl6", 1)) == "manaburn", "Mana Burn order is incorrect"
+        assert skill_profiles["A019"].get("anam") == "Summon Phoenix: Al'ar", "Kael's Phoenix skill was lost"
+        assert skill_profiles["A031"].get("anam") == "Resurrection", "Uther's Resurrection skill was lost"
+        assert skill_level_fields["A031"].get(("Ncl6", 1)) == "resurrection", "Uther's Resurrection order is incorrect"
+        assert skill_level_fields["A031"].get(("Ncl2", 1)) == "0", "Resurrection must be a self-cast ability"
+        game_jass = files["war3map.j"].decode("utf-8")
+        for engine_marker in (
+            "function WM_ResurrectNearestAlliedHero",
+            "set revived = ReviveHero(corpse",
+            "'hphx'",
+            "ManaBurnTarget.mdl",
+            "function WM_AIFindManaTarget",
+            "function WM_AIHasFallenAllyHero",
+            'IssueImmediateOrder(u, "resurrection")',
+            'IssueTargetOrder(hero, "manaburn", manaTarget)',
+            "call WM_AICastCustomHeroCombo(u, weakFoe)",
+        ):
+            assert engine_marker in game_jass, f"Missing restored hero-skill implementation: {engine_marker}"
 
         # Check all 4-char rawcodes in war3map.j and all 4 .ai files
         for sname in ("war3map.j", "naga_melee.ai", "camphuman_melee.ai", "voidborn_melee.ai", "runeforged_melee.ai"):
@@ -1472,7 +1515,8 @@ def run_verification(w3x_path: Path) -> None:
 
     print(
         f"[PASS] Stage 11: 8-Empire Object & Skill Tables Verified "
-        f"(w3u={len(w3u_orig)}+{len(w3u_cust)}, w3t={len(w3t_cust)}, w3q={len(w3q_orig)}+{len(w3q_cust)}, w3a={len(w3a_cust)}, 0 hero flags, 0 card collisions)"
+        f"(w3u={len(w3u_orig)}+{len(w3u_cust)}, w3t={len(w3t_cust)}, w3q={len(w3q_orig)}+{len(w3q_cust)}, w3a={len(w3a_cust)}, "
+        "16 ultimates gated at level 6, core skill ranks at 1/3/5, 0 hero flags, 0 card collisions)"
     )
 
     # ------------------------------------------------------------------
@@ -1660,11 +1704,11 @@ def run_verification(w3x_path: Path) -> None:
         "CommandBasicStructOrc=ReplaceableTextures\\CommandButtons\\BTNBasicStruct.blp",
         "CommandBasicStructNightElf=ReplaceableTextures\\CommandButtons\\BTNNightElfBuild.blp",
     ):
-        assert skin_key in skin_txt, f"Missing v5 UI skin mapping: {skin_key}"
+        assert skin_key in skin_txt, f"Missing v6 UI skin mapping: {skin_key}"
 
     blp_files = {name: data for name, data in files.items() if name.lower().endswith(".blp")}
     mdx_files = {name: data for name, data in files.items() if name.lower().endswith(".mdx") and name.startswith("WM_FX_")}
-    assert len(blp_files) == 66, f"Expected 66 current v5 portrait/UI/VFX/minimap BLPs, got {len(blp_files)}"
+    assert len(blp_files) == 66, f"Expected 66 current v6 portrait/UI/VFX/minimap BLPs, got {len(blp_files)}"
     assert len(mdx_files) == 6, f"Expected 6 custom 3D VFX models, got {len(mdx_files)}"
 
     portrait_rawcodes = ("Hvsh", "N004", "N001", "N002", "Hkal", "Hvwd", "Hlgr", "Huth", "V001", "V002")

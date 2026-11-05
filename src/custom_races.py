@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Custom Playable Races, Object Modifications & Pro-Level Melee AI Generator
-for `(8) Crown of WarMahdi` v5 (Warcraft III TFT 1.26a/1.27b & Reforged).
+for `(8) Crown of WarMahdi` v6 (Warcraft III TFT 1.26a/1.27b & Reforged).
 
 Implements four ladder-bounded custom empires alongside the 4 classic Warcraft III races:
   5. Abyssal Tideborn / Naga (`RACE_NAGA = 5`, now includes Illidan Stormrage)
@@ -9,7 +9,7 @@ Implements four ladder-bounded custom empires alongside the 4 classic Warcraft I
   7. Voidborn Legion
   8. Runeforged Bastion
 
-Key v5 Engineering, Art & Balance Guarantees:
+Key v6 Engineering, Art & Balance Guarantees:
   - Every unit, caster, siege engine, flying unit, hero, tower, and upgrade is
     placed in its authentic, dedicated production building with clean 4x3 button
     coordinates and Tier-1 / Tier-2 / Tier-3 tech gating (zero misplaced units!).
@@ -132,6 +132,7 @@ OBJECT_MODEL_OVERRIDES = {
     "h001": r"buildings\human\TownHall\TownHall.mdl",
     "h002": r"buildings\human\TownHall\TownHall.mdl",
     "h003": r"buildings\human\TownHall\TownHall.mdl",
+    "h004": r"buildings\human\AltarOfKings\AltarOfKings.mdl",
     "h010": r"buildings\human\Blacksmith\Blacksmith.mdl",
 }
 
@@ -425,7 +426,7 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Spellcaster and flying creature sanctum. Trains Naga Sirens and Couatls, and researches Naga Siren Training and Abolish Magic."),
         ]),
 
-        # Tier 1 Light Melee: Mur'gul Reaver (`nnmg`) — v5 balanced Amphibious Vanguard!
+        # Tier 1 Light Melee: Mur'gul Reaver (`nnmg`) — v6 balanced Amphibious Vanguard!
         # 2 Food, 120g, 19s, 455 HP, +0.65 HP/s tidal regen, 2 Large armor, 12+1d5=15.0 Normal / 1.42s = 10.6 DPS
         ("nnmg", NULL_ID, [
             ("ugol", VT_INT, 120),
@@ -483,7 +484,7 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Venomous ranged reptile armed with Slow Poison spines that slow enemy attack and movement speed. Attacks land and air units."),
         ]),
 
-        # Tier 2 Heavy Melee: Naga Myrmidon (`nmyr`) — v5 balanced Heavy Bruiser!
+        # Tier 2 Heavy Melee: Naga Myrmidon (`nmyr`) — v6 balanced Heavy Bruiser!
         # 4 Food, 235g/50L, 33s, 920 HP, 4 Large armor, 28+1d7=32.0 Normal / 1.60s = 20.0 DPS + Ensnare & Submerge
         ("nmyr", NULL_ID, [
             ("ureq", VT_STR, "n001"),
@@ -512,7 +513,7 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Armored Tier-2 amphibious juggernaut. Wields Ensnare to pull down air units and Submerge to regenerate rapidly."),
         ]),
 
-        # Tier 2 Spellcaster: Naga Siren (`nnsw`) — v5 balanced: 365 HP, 300 MP (150 start), Parasite + Frost Armor + Cyclone
+        # Tier 2 Spellcaster: Naga Siren (`nnsw`) — v6 balanced: 365 HP, 300 MP (150 start), Parasite + Frost Armor + Cyclone
         ("nnsw", NULL_ID, [
             ("ureq", VT_STR, "n001"),
             ("ugol", VT_INT, 140),
@@ -546,7 +547,7 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Mystic Naga spellcaster armed with Frost Armor, Parasite, and Cyclone (Master). Attacks land and air units."),
         ]),
 
-        # Tier 2 Flying Anti-Caster: Couatl (`nwgs`) — v5 balanced: 460 HP, 2 Light armor, 11.5 Magic DPS + Abolish Magic
+        # Tier 2 Flying Anti-Caster: Couatl (`nwgs`) — v6 balanced: 460 HP, 2 Light armor, 11.5 Magic DPS + Abolish Magic
         ("nwgs", NULL_ID, [
             ("ureq", VT_STR, "n001"),
             ("ugol", VT_INT, 155),
@@ -580,7 +581,7 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Swift sky-serpent dealing potent Magic damage to ground and air targets, with Abolish Magic to dispel buffs and shred summons."),
         ]),
 
-        # Tier 2 Siege Beast: Dragon Turtle (`nhyc`) — v5 balanced: 840 HP, 3 Large armor, 23.6 Siege DPS + Spiked Shell & Hardened Skin
+        # Tier 2 Siege Beast: Dragon Turtle (`nhyc`) — v6 balanced: 840 HP, 3 Large armor, 23.6 Siege DPS + Spiked Shell & Hardened Skin
         ("nhyc", NULL_ID, [
             ("ureq", VT_STR, "n001,n004"),
             ("ugol", VT_INT, 230),
@@ -617,7 +618,7 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Colossal armored siege leviathan protected by Hardened Skin and Thorny Shield. Bombards enemy fortifications from range."),
         ]),
 
-        # Tier 3 Elite Champion: Naga Royal Guard (`nnrg`) — v5 balanced Apex Champion!
+        # Tier 3 Elite Champion: Naga Royal Guard (`nnrg`) — v6 balanced Apex Champion!
         # 5 Food, 300g/90L, 1150 HP, 4 Large armor, 21.2 Normal DPS + Crushing Wave, Frost Bolt, Cleave, Resistant Skin & Submerge!
         ("nnrg", NULL_ID, [
             ("ureq", VT_STR, "n002"),
@@ -1061,7 +1062,7 @@ def build_unit_modifications() -> Tuple[
             ("uhot", VT_STR, "K"),
             ("utip", VT_STR, "Summon Sovereign |cffffcc00K|rael'thas"),
             ("utpr", VT_STR, "Revive Sovereign |cffffcc00K|rael'thas"),
-            ("utub", VT_STR, "Solar Archmage of the Sunfury Imperium. Exclusive kit: Flamestrike Pyre (Q), Verdant Gravity Lapse (W), Arcane Mana Siphon (E), and Al'ar Phoenix Rebirth (R)."),
+            ("utub", VT_STR, "Solar Archmage of the Sunfury Imperium. Signature skills: Flamestrike (Q), Verdant Gravity Lapse (W), Arcane Mana Siphon (E), and Summon Phoenix: Al'ar (R)."),
         ]),
 
         ("Hvwd", NULL_ID, [
@@ -1141,7 +1142,7 @@ def build_unit_modifications() -> Tuple[
             ("uhot", VT_STR, "U"),
             ("utip", VT_STR, "Summon Highlord |cffffcc00U|rther"),
             ("utpr", VT_STR, "Revive Highlord |cffffcc00U|rther"),
-            ("utub", VT_STR, "Radiant Sun-Paladin of the Imperium. Exclusive kit: Sunwell Consecration (Q), Hammer of Dawnlight (W), Golden Bastion Blessing (E), and Lightbringer's Miracle (R)."),
+            ("utub", VT_STR, "Radiant Sun-Paladin of the Imperium. Signature skills: Sunwell Consecration (Q), Hammer of Dawnlight (W), Golden Bastion Blessing (E), and Resurrection (R)."),
         ]),
     ]
 
@@ -1194,7 +1195,7 @@ def build_unit_modifications() -> Tuple[
             ("ubpy", VT_INT, 0),
             ("utip", VT_STR, "Summon |cffffcc00I|rllidan Stormrage"),
             ("utpr", VT_STR, "Revive |cffffcc00I|rllidan Stormrage"),
-            ("utub", VT_STR, "Agile Warglaive Lord of the Abyssal Tideborn. Exclusive kit: Azzinoth Glaive Barrage (Q), Shadowstep of the Betrayer (W), Demon-Scale Immolation (E), and Metamorphosis: Abyssal Overlord (R)."),
+            ("utub", VT_STR, "Agile Warglaive Lord of the Abyssal Tideborn. Signature skills: Azzinoth Glaive Barrage (Q), Mana Burn (W), Immolation (E), and Metamorphosis (R)."),
         ]),
 
         ("Otch", "N001", [
@@ -1506,7 +1507,7 @@ def build_unit_modifications() -> Tuple[
 
         ("halt", "h004", [
             ("unam", VT_STR, "Altar of the Sunwell"),
-            ("umdl", VT_STR, r"buildings\other\FountainOfLife\FountainOfHealth.mdl"),
+            ("umdl", VT_STR, r"buildings\human\AltarOfKings\AltarOfKings.mdl"),
             ("usca", VT_REAL, 0.88),
             ("uclr", VT_INT, 255),
             ("uclg", VT_INT, 225),
@@ -2798,7 +2799,7 @@ endfunction
 def generate_custom_races_jass() -> Tuple[str, str]:
     """
     Returns `(globals_block, functions_block)` to embed into `war3map.j`
-    (v5: 8 Playable Empires, Host-first AI Difficulty, smoother picker, 16 exclusive
+    (v6: 8 Playable Empires, Host-first AI Difficulty, smoother picker, 16 exclusive
     Heroes with 64 redesigned skills and native effect-matched buttons, RPG UI/cursor skins, Live Multiboard
     HUD, imported race AIs plus JASS worker-build fallback and tactical micro).
     """

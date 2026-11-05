@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 JASS2 Gameplay, Custom 3D Spell Engine, Sleek Menus, Live Multiboard HUD,
-and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v5.
+and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v6.
 
 Strict Classic 1.26a/1.27b + Reforged JASS2 Guarantees:
   - Every `local` variable is declared at the top of its `function`.
@@ -26,7 +26,7 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     Return `(globals_jass_lines, functions_jass_code)` to embed inside `war3map.j`.
     """
     globals_jass = """
-    // ---- Crown of WarMahdi v5: 8 Empires, 16 Exclusive Heroes, 64 Skills, Dark UI & Pro AI ----
+    // ---- Crown of WarMahdi v6: 8 Empires, 16 Exclusive Heroes, 64 Skills, Dark UI & Pro AI ----
     integer array udg_PlayerFaction
     boolean array udg_PlayerChoseRace
     boolean array udg_PlayerLockedInLobby
@@ -751,6 +751,54 @@ function WM_AIChooseHeroSkill takes unit hero, integer q, integer w, integer e, 
     endif
 endfunction
 
+function WM_AIFindManaTarget takes unit hero, real radius returns unit
+    local player owner = GetOwningPlayer(hero)
+    local unit u = null
+    local unit best = null
+    local real mana = 0.0
+    local real bestMana = -1.0
+    local boolean isHero = false
+    local boolean bestIsHero = false
+    call GroupClear(udg_SpellGroup)
+    call GroupEnumUnitsInRange(udg_SpellGroup, GetUnitX(hero), GetUnitY(hero), radius, null)
+    loop
+        set u = FirstOfGroup(udg_SpellGroup)
+        exitwhen u == null
+        call GroupRemoveUnit(udg_SpellGroup, u)
+        if GetWidgetLife(u) > 0.405 and IsUnitEnemy(u, owner) and not IsUnitType(u, UNIT_TYPE_STRUCTURE) and GetUnitState(u, UNIT_STATE_MAX_MANA) > 0.0 then
+            set mana = GetUnitState(u, UNIT_STATE_MANA)
+            set isHero = IsUnitType(u, UNIT_TYPE_HERO)
+            if best == null or (isHero and not bestIsHero) or (isHero == bestIsHero and mana > bestMana) then
+                set best = u
+                set bestMana = mana
+                set bestIsHero = isHero
+            endif
+        endif
+    endloop
+    set owner = null
+    set u = null
+    return best
+endfunction
+
+function WM_AIHasFallenAllyHero takes unit hero, real radius returns boolean
+    local player owner = GetOwningPlayer(hero)
+    local unit u = null
+    local boolean found = false
+    call GroupClear(udg_SpellGroup)
+    call GroupEnumUnitsInRange(udg_SpellGroup, GetUnitX(hero), GetUnitY(hero), radius, null)
+    loop
+        set u = FirstOfGroup(udg_SpellGroup)
+        exitwhen u == null or found
+        call GroupRemoveUnit(udg_SpellGroup, u)
+        if u != hero and GetUnitTypeId(u) != 0 and IsUnitType(u, UNIT_TYPE_HERO) and IsUnitAlly(u, owner) and GetWidgetLife(u) <= 0.405 then
+            set found = true
+        endif
+    endloop
+    set owner = null
+    set u = null
+    return found
+endfunction
+
 function WM_AICastCustomHeroCombo takes unit hero, unit enemy returns nothing
     local integer hid = GetUnitTypeId(hero)
     local integer q = 0
@@ -758,6 +806,7 @@ function WM_AICastCustomHeroCombo takes unit hero, unit enemy returns nothing
     local integer e = 0
     local integer r = 0
     local integer orderSlot = 0
+    local unit manaTarget = null
     local real ex = GetUnitX(enemy)
     local real ey = GetUnitY(enemy)
     local real hpPct = GetWidgetLife(hero) / RMaxBJ(1.0, GetUnitState(hero, UNIT_STATE_MAX_LIFE))
@@ -849,7 +898,7 @@ function WM_AICastCustomHeroCombo takes unit hero, unit enemy returns nothing
         return
     endif
     call WM_AIChooseHeroSkill(hero, q, w, e, r)
-    if GetUnitState(hero, UNIT_STATE_MANA) < 65.0 then
+    if GetUnitState(hero, UNIT_STATE_MANA) < 50.0 then
         return
     endif
 
@@ -860,9 +909,14 @@ function WM_AICastCustomHeroCombo takes unit hero, unit enemy returns nothing
         endif
     endif
 
-    // Do not let an unavailable/cooling-down ultimate block the hero's Q/W fallback.
+    // Use Uther's Resurrection only when an allied hero can be revived; do not waste it.
+    // Other ultimates use their correct native order and fall through if unavailable.
     if udg_AIDiff >= 2 and GetUnitAbilityLevel(hero, r) > 0 then
-        if r == 'A007' or r == 'A043' then
+        if r == 'A031' then
+            if WM_AIHasFallenAllyHero(hero, 520.0) and IssueImmediateOrder(hero, "resurrection") then
+                return
+            endif
+        elseif r == 'A007' or r == 'A043' then
             if IssueImmediateOrder(hero, "roar") then
                 return
             endif
@@ -877,13 +931,20 @@ function WM_AICastCustomHeroCombo takes unit hero, unit enemy returns nothing
         endif
     endif
     if GetUnitAbilityLevel(hero, w) > 0 then
-        if IssueTargetOrder(hero, "chainlightning", enemy) then
+        if w == 'A005' then
+            set manaTarget = WM_AIFindManaTarget(hero, 600.0)
+            if manaTarget != null and IssueTargetOrder(hero, "manaburn", manaTarget) then
+                set manaTarget = null
+                return
+            endif
+        elseif IssueTargetOrder(hero, "chainlightning", enemy) then
             return
         endif
     endif
     if GetUnitAbilityLevel(hero, e) > 0 then
         call IssueImmediateOrder(hero, "thunderclap")
     endif
+    set manaTarget = null
 endfunction
 function WM_EnumAIItemPickup takes nothing returns nothing
     local item it = GetEnumItem()
@@ -1045,7 +1106,10 @@ function WM_OnAITacticalMicroTick takes nothing returns nothing
                         endif
                     endloop
 
-                    if nearFoe != null then
+                    if IsUnitType(u, UNIT_TYPE_HERO) and GetUnitTypeId(u) == 'Huth' and hpPct >= 0.26 and udg_AIDiff >= 2 and GetUnitAbilityLevel(u, 'A031') > 0 and WM_AIHasFallenAllyHero(u, 520.0) then
+                        // Uther can restore a fallen ally even when no enemy is currently in spell range.
+                        call IssueImmediateOrder(u, "resurrection")
+                    elseif nearFoe != null then
                         // 1. Critical Hero survival potion + tactical retreat (`HP < 26%`)
                         if IsUnitType(u, UNIT_TYPE_HERO) and hpPct < 0.26 and udg_AIDiff >= 2 then
                             call WM_AIUseInventory(u, homeX, homeY)
@@ -1061,7 +1125,11 @@ function WM_OnAITacticalMicroTick takes nothing returns nothing
                             call IssuePointOrder(u, "move", WM_ClampMapCoord(ux + (dx / dlen) * 265.0), WM_ClampMapCoord(uy + (dy / dlen) * 265.0))
                         // 3. Hero custom combo spellcasting!
                         elseif IsUnitType(u, UNIT_TYPE_HERO) then
-                            call WM_AICastCustomHeroCombo(u, nearFoe)
+                            if weakFoe != null then
+                                call WM_AICastCustomHeroCombo(u, weakFoe)
+                            else
+                                call WM_AICastCustomHeroCombo(u, nearFoe)
+                            endif
                         // 4. Focus-fire low-HP target (`HP < 38%` on Grandmaster / Mythic)
                         elseif weakFoe != null and lowestPct < 0.38 and udg_AIDiff >= 3 and IsUnitType(u, UNIT_TYPE_RANGED_ATTACKER) then
                             call IssueTargetOrder(u, "attack", weakFoe)
@@ -1951,7 +2019,7 @@ function InitCustomRacesAndAI takes nothing returns nothing
 
     call WM_CreateImperialCodexQuests()
 
-    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v5 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc64 Hero-Specific Skills|r • |cfff97316Pro AI|r")
+    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v6 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc64 Hero-Specific Skills|r • |cfff97316Pro AI|r")
 
     set udg_BootTimer = CreateTimer()
     set udg_DiffTimeoutTimer = CreateTimer()

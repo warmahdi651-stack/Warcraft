@@ -175,6 +175,44 @@ function WM_GetUltPulseDamage takes unit caster, real baseDamage returns real
     return baseDamage + 0.25 * WM_HeroPrimaryBonus(caster) + levelBonus
 endfunction
 
+function WM_ResurrectNearestAlliedHero takes unit caster, real cx, real cy, real radius returns boolean
+    local player owner = GetOwningPlayer(caster)
+    local unit u = null
+    local unit corpse = null
+    local real dx = 0.0
+    local real dy = 0.0
+    local real distSq = 0.0
+    local real bestDistSq = radius * radius
+    local boolean revived = false
+    call GroupClear(udg_SpellGroup)
+    call GroupEnumUnitsInRange(udg_SpellGroup, cx, cy, radius, null)
+    loop
+        set u = FirstOfGroup(udg_SpellGroup)
+        exitwhen u == null
+        call GroupRemoveUnit(udg_SpellGroup, u)
+        if u != caster and GetUnitTypeId(u) != 0 and IsUnitType(u, UNIT_TYPE_HERO) and IsUnitAlly(u, owner) and GetWidgetLife(u) <= 0.405 then
+            set dx = GetUnitX(u) - cx
+            set dy = GetUnitY(u) - cy
+            set distSq = dx * dx + dy * dy
+            if distSq <= bestDistSq then
+                set bestDistSq = distSq
+                set corpse = u
+            endif
+        endif
+    endloop
+    if corpse != null then
+        call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Human\\Resurrect\\ResurrectTarget.mdl", GetUnitX(corpse), GetUnitY(corpse)))
+        set revived = ReviveHero(corpse, GetUnitX(corpse), GetUnitY(corpse), true)
+        if revived then
+            call SetWidgetLife(corpse, GetUnitState(corpse, UNIT_STATE_MAX_LIFE))
+        endif
+    endif
+    set owner = null
+    set u = null
+    set corpse = null
+    return revived
+endfunction
+
 function WM_OnUltWaveTick takes nothing returns nothing
     local integer idx = 0
     local unit caster = null
@@ -227,12 +265,13 @@ function WM_OnUltWaveTick takes nothing returns nothing
                     call WM_SpawnTimedUnit(owner, 'nsnp', tx - 145.0, ty - 70.0, 16.0)
                 endif
             elseif abil == 'A019' then
-                // Kael: Solar phoenix crown detonations with an allied mana crest.
+                // Kael: the original Phoenix joins the custom solar shockwaves.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Human\\MarkOfChaos\\MarkOfChaosTarget.mdl", tx, ty, rad, 8, I2R(pulse) * 0.48)
                 call WM_ApplyAreaEffect(caster, tx, ty, 400.0, WM_GetUltPulseDamage(caster, 56.0), 12.0, 12.0, 0.0, 30.0)
                 if pulse == 2 then
-                    call WM_SpawnTimedUnit(owner, 'hdhw', tx - 170.0, ty, 18.0)
+                    call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Human\\MarkOfChaos\\MarkOfChaosTarget.mdl", tx, ty))
+                    call WM_SpawnTimedUnit(owner, 'hphx', tx - 170.0, ty, 18.0)
                 endif
             elseif abil == 'A023' then
                 // Sylvanas: three volleys of spectral arrows in expanding rings.
@@ -249,9 +288,12 @@ function WM_OnUltWaveTick takes nothing returns nothing
                     call WM_SpawnTimedUnit(owner, 'hcth', tx - 145.0, ty - 70.0, 14.0)
                 endif
             elseif abil == 'A031' then
-                // Uther: Dawnbringer judgment—damage foes and restore nearby allies.
+                // Uther restores the nearest fallen ally, then pulses the battlefield with Holy Light.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
-                call WM_SpawnRingFX("Abilities\\Spells\\Human\\HolyBolt\\HolyBoltSpecialArt.mdl", tx, ty, rad, 8, I2R(pulse) * 0.25)
+                call WM_SpawnRingFX("Abilities\\Spells\\Human\\Resurrect\\ResurrectTarget.mdl", tx, ty, rad, 8, I2R(pulse) * 0.25)
+                if pulse == 1 then
+                    call WM_ResurrectNearestAlliedHero(caster, tx, ty, 520.0)
+                endif
                 call WM_ApplyAreaEffect(caster, tx, ty, 410.0, WM_GetUltPulseDamage(caster, 48.0), 46.0, 8.0, 0.0, 0.0)
             elseif abil == 'A035' then
                 // Xal'athor: Dark Portal meteor + inward collapse.
@@ -468,28 +510,17 @@ function WM_OnCustomHeroSpellEffect takes nothing returns boolean
             call SetUnitState(caster, UNIT_STATE_MANA, RMinBJ(GetUnitState(caster, UNIT_STATE_MAX_MANA), GetUnitState(caster, UNIT_STATE_MANA) + 12.0 * I2R(lvl)))
         endif
     elseif abil == 'A005' then
+        // Illidan's restored Mana Burn: drain enemy mana and convert every point to spell damage.
         set targ = GetSpellTargetUnit()
-        if targ != null and WM_IsValidSpellEnemy(targ, owner) then
+        if targ != null and WM_IsValidSpellEnemy(targ, owner) and GetUnitState(targ, UNIT_STATE_MAX_MANA) > 0.0 then
             set tx = GetUnitX(targ)
             set ty = GetUnitY(targ)
-            set dx = tx - cx
-            set dy = ty - cy
-            set dist = SquareRoot(dx * dx + dy * dy)
-            if dist < 1.0 then
-                set dist = 1.0
-            endif
-            set tx = WM_ClampMapCoord(tx + dx / dist * 110.0)
-            set ty = WM_ClampMapCoord(ty + dy / dist * 110.0)
-            if not IsTerrainPathable(tx, ty, PATHING_TYPE_WALKABILITY) then
-                call SetUnitPosition(caster, tx, ty)
-            endif
-            call DestroyEffect(AddSpecialEffect("WM_FX_FelGlaive.mdx", GetUnitX(caster), GetUnitY(caster)))
-            call DestroyEffect(AddSpecialEffectTarget("Abilities\\Weapons\\DemonHunterMissile\\DemonHunterMissile.mdl", targ, "chest"))
-            call WM_DealSpellDamage(caster, targ, dmg * 1.22)
-            if GetUnitState(targ, UNIT_STATE_MAX_MANA) > 0.0 then
-                set manaTaken = RMinBJ(20.0, GetUnitState(targ, UNIT_STATE_MANA))
+            set manaTaken = RMinBJ(35.0 + 25.0 * I2R(lvl - 1), GetUnitState(targ, UNIT_STATE_MANA))
+            call DestroyEffect(AddSpecialEffect("WM_FX_FelGlaive.mdx", tx, ty))
+            call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\NightElf\\ManaBurn\\ManaBurnTarget.mdl", targ, "origin"))
+            if manaTaken > 0.0 then
                 call SetUnitState(targ, UNIT_STATE_MANA, GetUnitState(targ, UNIT_STATE_MANA) - manaTaken)
-                call SetUnitState(caster, UNIT_STATE_MANA, RMinBJ(GetUnitState(caster, UNIT_STATE_MAX_MANA), GetUnitState(caster, UNIT_STATE_MANA) + manaTaken))
+                call WM_DealSpellDamage(caster, targ, manaTaken)
             endif
         endif
     elseif abil == 'A009' then
@@ -715,7 +746,7 @@ function WM_OnCustomHeroSpellEffect takes nothing returns boolean
 
     // ---- R: all 16 unique, expanding multi-pulse Hero Ultimates ----
     if abil == 'A003' or abil == 'A007' or abil == 'A011' or abil == 'A015' or abil == 'A019' or abil == 'A023' or abil == 'A027' or abil == 'A031' or abil == 'A035' or abil == 'A039' or abil == 'A043' or abil == 'A047' or abil == 'A051' or abil == 'A055' or abil == 'A059' or abil == 'A063' then
-        if abil == 'A007' or abil == 'A043' then
+        if abil == 'A007' or abil == 'A031' or abil == 'A043' then
             set tx = cx
             set ty = cy
         endif

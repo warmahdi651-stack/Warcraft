@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Deterministic Procedural Generator for `(8) Crown of WarMahdi` v5.
+Deterministic Procedural Generator for `(8) Crown of WarMahdi` v6.
 An 8-player D4-symmetric Sunken-Astral Altered Melee map with 8 playable empires,
 64 exclusive hero skills, custom cursor/RPG UI, 4 race AI scripts and a JASS safety net.
 Targets Frozen Throne 1.26a/1.27b-era APIs and Warcraft III Reforged 1.32+.
@@ -47,11 +47,12 @@ MAP_DISPLAY_NAME = "(8) Crown of WarMahdi"
 MAP_AUTHOR = "WarMahdi Studio"
 MAP_RECOMMENDED_PLAYERS = "8 Empires • Host AI Menu"
 MAP_DESCRIPTION = (
-    "|cffffd700★ (8) Crown of WarMahdi v5 ★|r — 8-Empire Sunken-Astral Altered Melee (4v4 / 2v2 / FFA). "
+    "|cffffd700★ (8) Crown of WarMahdi v6 ★|r — 8-Empire Sunken-Astral Altered Melee (4v4 / 2v2 / FFA). "
     "4 Classic Races + 4 Custom Empires: |cff22d3eeAbyssal Tideborn (with Illidan)|r, |cfffbbf24Sunfury Imperium|r, "
     "|cfff97316Voidborn Legion|r & |cff38bdf8Runeforged Bastion|r! "
-    "Features 16 heroes, 64 distinct effect-matched native skill buttons, ten custom hero-portrait pairs, "
-    "faction-appropriate structures, redesigned abilities, improved Naga AI, a custom cursor/RPG UI and six VFX models."
+    "Features 16 heroes and 64 native-art skills; core ranks unlock at levels 1/3/5 and ultimates at level 6. "
+    "Restored signature Mana Burn, Phoenix and Resurrection skills, faction-matched buildings, smarter tactical AI, "
+    "a custom cursor/RPG UI and six VFX models."
 )
 
 # 192x192 tiles => 193x193 terrain corners; 1 tile = 128 world units; 1 pathing cell = 32 world units
@@ -1131,7 +1132,7 @@ def serialize_wts() -> bytes:
         (3, MAP_DESCRIPTION),
         (4, MAP_RECOMMENDED_PLAYERS),
         (5, "Forces"),
-        (6, "8-Empire Sunken-Astral Altered Melee • v5"),
+        (6, "8-Empire Sunken-Astral Altered Melee • v6"),
         (7, "4 Custom Empires + 4 Classic Races, 16 Heroes with 64 unique custom skills, Dark Astral UI, host-first AI difficulty, and resilient Pro AI."),
     ]
     for pid in range(8):
@@ -1721,13 +1722,13 @@ def export_web_metadata(
             {
                 "id": "abyssal",
                 "name": "Abyssal Tideborn (Naga Empire)",
-                "badge": "v5 • 16 Hero-Specific Skills • 4 Heroes • Custom Portraits",
+                "badge": "v6 • 16 Hero-Specific Skills • Level-6 Ultimates • Custom Portraits",
                 "lobbyHandicap": "Menu [1] or 90% Handicap",
                 "color": "#22d3ee",
                 "halls": ["Temple of Tides (T1)", "Sanctuary of Tides (T2)", "Abyssal Citadel (T3)"],
                 "heroes": [
                     "Empress Vashj • Q Maelstrom Vortex • W Forked Tempest Arc • E Mana-Tide Aegis • R Cataclysmic Tsunami",
-                    "Illidan Stormrage • Q Azzinoth Glaive Barrage • W Shadowstep • E Demon-Scale Immolation • R Metamorphosis",
+                    "Illidan Stormrage • Q Azzinoth Glaive Barrage • W Mana Burn • E Immolation • R Metamorphosis",
                     "Leviathan Warlord Naj'entus • Q Spine Quake • W Harpoon Undertow • E Tidal Bulwark • R Wrath of Naj'entus",
                     "Nazjatar Tideweaver Athissa • Q Bioluminescent Geyser • W Pearl-frost Prison • E Siren's Vital Chorus • R Abyssal Kraken",
                 ],
@@ -1743,15 +1744,15 @@ def export_web_metadata(
             {
                 "id": "sunfury",
                 "name": "Sunfury Imperium (Solar Highborne)",
-                "badge": "v5 • 16 Unique Solar/Ranger/Marshal/Paladin Skills • Native Art",
+                "badge": "v6 • 16 Solar/Ranger/Marshal/Paladin Skills • Native Art",
                 "lobbyHandicap": "Menu [2] or 80% Handicap",
                 "color": "#fbbf24",
                 "halls": ["Silvermoon Sanctum (T1)", "Sunwell Keep (T2)", "Silvermoon Citadel (T3)"],
                 "heroes": [
-                    "Kael'thas • Verdant Sunfire Pillar • Arcane Gravity Lapse • Molten Barrier • Al'ar Rebirth",
+                    "Kael'thas • Verdant Sunfire Pillar • Arcane Gravity Lapse • Molten Barrier • Summon Phoenix: Al'ar",
                     "Sylvanas • Sunhawk Volley • Windrunner's Piercing Shot • Gale Stride • Eclipse Starfall",
                     "Garithos • Shock Charge • Execution Decree • Iron Phalanx • Grand Crusade",
-                    "Uther • Sunwell Consecration • Dawnlight Hammer • Golden Bastion • Lightbringer's Miracle",
+                    "Uther • Sunwell Consecration • Dawnlight Hammer • Golden Bastion • Resurrection",
                 ],
                 "units": [
                     "Silvermoon Worker • Swordsman • Archer • Alliance Captain • Chaplain • Hydromancer • Spell Breaker",
