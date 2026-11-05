@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-v4 Master Expansion Module for `(8) Crown of WarMahdi`:
+v5 Master Expansion Module for `(8) Crown of WarMahdi`:
   - Two complete, tournament-balanced Custom Playable Empires with race-specific
-    Build mechanics, non-Human 3D models, and custom BLP icons:
+    Build mechanics, faction-appropriate models, and model-matched native icons:
       7. Voidborn Legion (`v001..v019`, Heroes `V001..V004`, Upgrades `R000..R001`)
          -> Undead-style Dimensional Rift Build (`CommandBasicStructUndead`) on normal
             ground (`upar=""`, zero Blight required)!
       8. Runeforged Bastion (`t001..t019`, Heroes `T001..T004`, Upgrades `R002..R003`)
          -> Orc-style Internal Foundry Assembly (`CommandBasicStructOrc`) with authentic
-            Clockwork/Titan/Arcane models and custom Runeforged BLP icons!
+            Clockwork/Titan/Arcane models and model-matched native icons.
   - `war3map.w3a` (v2) generator for ALL **64 Unique Custom Hero Skills (`A000..A063`)**
     (16 Custom Heroes x 4 Exclusive Skills = ZERO shared hero skills anywhere!), each
-    paired with its own unique `BTN_WM_S00..S63` / `DISBTN_WM_S00..S63` BLP icon!
+    paired with a stock Warcraft III command button selected for its actual effect.
   - `war3mapSkin.txt` Full Custom UI Overhaul (`[CustomSkin]` + `[FrameDef]`):
       * Custom Animated Mouse Cursor (`UI\\Cursor\\HumanCursor.mdl` + 4 racial BLPs)
       * Custom RPG Infocard Damage Type, Armor Type & Hero Attribute (`STR/AGI/INT`) icons
@@ -63,7 +63,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("urac", VT_STR, "undead"),
             ("utyp", VT_STR, "Peon,undead"),
             ("umdl", VT_STR, "units\\creeps\\VoidWalker\\VoidWalker.mdl"),
-            ("uico", VT_STR, "ReplaceableTextures\\CommandButtons\\BTN_WM_VoidWorker.blp"),
             ("usnd", VT_STR, "ObsidianDestroyer"),
             ("usca", VT_REAL, 0.72),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 130), ("uclb", VT_INT, 255),
@@ -88,7 +87,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "TownHall,undead,Mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\undead\\Necropolis\\Necropolis.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidHall1.blp"),
             ("usnd", VT_STR, "Necropolis"),
             ("uclr", VT_INT, 175), ("uclg", VT_INT, 100), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 385), ("ulum", VT_INT, 185), ("ubld", VT_INT, 115),
@@ -105,7 +103,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "TownHall,undead,Mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\DarkPortal\\DarkPortal.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidHall2.blp"),
             ("usnd", VT_STR, "Necropolis"),
             ("usca", VT_REAL, 0.68),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 115), ("uclb", VT_INT, 255),
@@ -124,7 +121,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "TownHall,undead,Mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\DarkPortal2\\DarkPortal2.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidHall3.blp"),
             ("usnd", VT_STR, "Necropolis"),
             ("usca", VT_REAL, 0.76),
             ("uclr", VT_INT, 210), ("uclg", VT_INT, 130), ("uclb", VT_INT, 255),
@@ -145,7 +141,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\NerubianZiggurat\\NerubianZiggurat.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidPylon.blp"),
             ("usnd", VT_STR, "Ziggurat"),
             ("usca", VT_REAL, 0.86),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 115), ("uclb", VT_INT, 255),
@@ -164,7 +159,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\demon\\DemonGate\\DemonGate.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidGate.blp"),
             ("usnd", VT_STR, "Crypt"),
             ("usca", VT_REAL, 0.85),
             ("uclr", VT_INT, 190), ("uclg", VT_INT, 115), ("uclb", VT_INT, 255),
@@ -183,7 +177,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\undead\\SacrificialPit\\SacrificialPit.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidCrucible.blp"),
             ("usnd", VT_STR, "Graveyard"),
             ("uclr", VT_INT, 180), ("uclg", VT_INT, 105), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 140), ("ulum", VT_INT, 60), ("ubld", VT_INT, 52),
@@ -202,7 +195,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\BookOfSummoning\\BookOfSummoning.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidAltar.blp"),
             ("usnd", VT_STR, "AltarOfDarkness"),
             ("usca", VT_REAL, 1.05),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 120), ("uclb", VT_INT, 255),
@@ -221,7 +213,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\undead\\TombOfRelics\\TombOfRelics.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidVault.blp"),
             ("usnd", VT_STR, "TombOfRelics"),
             ("uclr", VT_INT, 190), ("uclg", VT_INT, 120), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 130), ("ulum", VT_INT, 30), ("ubld", VT_INT, 48),
@@ -241,7 +232,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\DalaranGuardTower\\DalaranGuardTower.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidTower.blp"),
             ("usnd", VT_STR, "ElvenGuardTower"),
             ("uclr", VT_INT, 190), ("uclg", VT_INT, 115), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 135), ("ulum", VT_INT, 80), ("ubld", VT_INT, 45),
@@ -266,7 +256,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\undead\\TempleOfTheDamned\\TempleOfTheDamned.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidSanctum.blp"),
             ("usnd", VT_STR, "TempleOfTheDamned"),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 115), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 150), ("ulum", VT_INT, 140), ("ubld", VT_INT, 58),
@@ -284,7 +273,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\DragonBuildingBlack\\DragonBuildingBlack.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidPit.blp"),
             ("usnd", VT_STR, "DragonRoost"),
             ("usca", VT_REAL, 0.85),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 105), ("uclb", VT_INT, 255),
@@ -301,7 +289,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Void Zealot"),
             ("urac", VT_STR, "undead"),
             ("umdl", VT_STR, "units\\demon\\FelgaurdBlue\\FelgaurdBlue.mdl"),
-            ("uico", VT_STR, "ReplaceableTextures\\CommandButtons\\BTN_WM_VoidZealot.blp"),
             ("usnd", VT_STR, "DoomGuard"),
             ("usca", VT_REAL, 0.86),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 130), ("uclb", VT_INT, 255),
@@ -317,7 +304,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Astral Arbalist"),
             ("urac", VT_STR, "undead"),
             ("umdl", VT_STR, "Units\\Creeps\\FacelessOne\\FacelessOne.mdl"),
-            ("uico", VT_STR, "ReplaceableTextures\\CommandButtons\\BTN_WM_VoidArbalist.blp"),
             ("usnd", VT_STR, "FacelessOne"),
             ("usca", VT_REAL, 0.84),
             ("uclr", VT_INT, 205), ("uclg", VT_INT, 145), ("uclb", VT_INT, 255),
@@ -336,7 +322,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Dread Enforcer"),
             ("urac", VT_STR, "undead"),
             ("umdl", VT_STR, "Units\\Creeps\\DragonSpawnPurple\\DragonSpawnPurple.mdl"),
-            ("uico", VT_STR, "ReplaceableTextures\\CommandButtons\\BTN_WM_VoidEnforcer.blp"),
             ("usnd", VT_STR, "DragonSpawn"),
             ("usca", VT_REAL, 0.90),
             ("ugol", VT_INT, 240), ("ulum", VT_INT, 50), ("ufoo", VT_INT, 4), ("ubld", VT_INT, 32),
@@ -352,7 +337,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Void Weaver"),
             ("urac", VT_STR, "undead"),
             ("umdl", VT_STR, "units\\demon\\EredarWarlockPurple\\EredarWarlockPurple.mdl"),
-            ("uico", VT_STR, "ReplaceableTextures\\CommandButtons\\BTN_WM_VoidWeaver.blp"),
             ("usnd", VT_STR, "PitLord"),
             ("usca", VT_REAL, 0.76),
             ("ugol", VT_INT, 145), ("ulum", VT_INT, 30), ("ufoo", VT_INT, 2), ("ubld", VT_INT, 26),
@@ -369,7 +353,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Nether Drakelet"),
             ("urac", VT_STR, "undead"),
             ("umdl", VT_STR, "units\\creeps\\NetherDragon\\NetherDragon.mdl"),
-            ("uico", VT_STR, "ReplaceableTextures\\CommandButtons\\BTN_WM_VoidDrake.blp"),
             ("usnd", VT_STR, "NetherDragon"),
             ("usca", VT_REAL, 0.74),
             ("ugol", VT_INT, 165), ("ulum", VT_INT, 40), ("ufoo", VT_INT, 2), ("ubld", VT_INT, 28),
@@ -388,7 +371,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Rift Devastator"),
             ("urac", VT_STR, "undead"),
             ("umdl", VT_STR, "units\\creeps\\InfernalCannonFlame\\InfernalCannonFlame.mdl"),
-            ("uico", VT_STR, "ReplaceableTextures\\CommandButtons\\BTN_WM_VoidDevastator.blp"),
             ("usnd", VT_STR, "InfernalMachine"),
             ("usca", VT_REAL, 0.80),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 115), ("uclb", VT_INT, 255),
@@ -407,7 +389,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Oblivion Colossus"),
             ("urac", VT_STR, "undead"),
             ("umdl", VT_STR, "units\\demon\\DoomGuard\\DoomGuard.mdl"),
-            ("uico", VT_STR, "ReplaceableTextures\\CommandButtons\\BTN_WM_VoidColossus.blp"),
             ("usnd", VT_STR, "DoomGuard"),
             ("usca", VT_REAL, 1.04),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 115), ("uclb", VT_INT, 255),
@@ -424,7 +405,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
         # ---- 4 VOIDBORN HEROES (`V001..V004`) — 16 EXCLUSIVE SKILLS (`A032..A047`), ZERO `urev`! ----
         ("Nplh", "V001", [
             ("unam", VT_STR, "Rift Sovereign"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidHeroXalathor.blp"),
             ("upro", VT_STR, "Xal'athor,Vael'gorath,Nihil'zar,Mal'korath"), ("upru", VT_INT, 4),
             ("urac", VT_STR, "undead"),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 105), ("uclb", VT_INT, 255),
@@ -444,7 +424,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("upro", VT_STR, "Sargen'eth,Kael'vor,Ombros,Zurael"), ("upru", VT_INT, 4),
             ("urac", VT_STR, "undead"),
             ("umdl", VT_STR, "units\\demon\\EredarWarlockPurple\\EredarWarlockPurple.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidHeroSargen.blp"),
             ("usnd", VT_STR, "PitLord"), ("usca", VT_REAL, 0.96),
             ("ugol", VT_INT, 425), ("ulum", VT_INT, 100), ("ufoo", VT_INT, 5), ("ubld", VT_INT, 55),
             ("urqc", VT_INT, 3), ("urq1", VT_STR, "v002"), ("urq2", VT_STR, "v003"),
@@ -461,7 +440,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("upro", VT_STR, "Akama,Ashtongue,Kzr'eth,Shadrel"), ("upru", VT_INT, 4),
             ("urac", VT_STR, "undead"),
             ("umdl", VT_STR, "units\\other\\DranaiAkama\\DranaiAkama.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_HeroAkama.blp"),
             ("usnd", VT_STR, "Akama"),
             ("usca", VT_REAL, 1.05),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 155), ("uclb", VT_INT, 255),
@@ -478,7 +456,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
         ]),
         ("Udre", "V004", [
             ("unam", VT_STR, "Entropy Archon"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_VoidHeroAetheron.blp"),
             ("upro", VT_STR, "Aetheron,Val'kesh,Mor'duun,Xylar"), ("upru", VT_INT, 4),
             ("urac", VT_STR, "undead"),
             ("uclr", VT_INT, 165), ("uclg", VT_INT, 145), ("uclb", VT_INT, 255),
@@ -508,7 +485,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("urac", VT_STR, "orc"),
             ("utyp", VT_STR, "Peon"),
             ("umdl", VT_STR, "Units\\Creeps\\HeroTinkerRobot\\HeroTinkerRobot.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneWorker.blp"),
             ("usnd", VT_STR, "ClockwerkGoblin"),
             ("usca", VT_REAL, 0.85),
             ("uclr", VT_INT, 235), ("uclg", VT_INT, 215), ("uclb", VT_INT, 170),
@@ -524,14 +500,13 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utub", VT_STR, "Clockwork-runic builder unit. Enters inside Runeforged blueprints to assemble Titan structures safely, harvests Gold & Lumber, and Repairs."),
         ]),
 
-        # Tier 1/2/3 Titan Halls (`t001 -> t002 -> t003` — Non-Human Mechanical/Arcane/Portal models + Custom Runeforged BLP Icons!)
+        # Tier 1/2/3 Titan Halls (`t001 -> t002 -> t003` — mechanical/arcane/portal models with native matched buttons).
         ("ogre", "t001", [
             ("unam", VT_STR, "Titan Foundry"),
             ("urac", VT_STR, "orc"),
             ("utyp", VT_STR, "TownHall,Mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\AmmoDump\\AmmoDump.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneHall1.blp"),
             ("usnd", VT_STR, "Workshop"),
             ("usca", VT_REAL, 0.96),
             ("uclr", VT_INT, 200), ("uclg", VT_INT, 230), ("uclb", VT_INT, 255),
@@ -549,7 +524,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "TownHall,Mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\ArcaneObservatory\\ArcaneObservatory.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneHall2.blp"),
             ("usnd", VT_STR, "ArcaneSanctum"),
             ("usca", VT_REAL, 0.95),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
@@ -567,7 +541,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "TownHall,Mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\Waygate\\Waygate.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneHall3.blp"),
             ("usnd", VT_STR, "Castle"),
             ("usca", VT_REAL, 1.24),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 240), ("uclb", VT_INT, 255),
@@ -587,7 +560,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\PowerGenerator\\PowerGenerator.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneCore.blp"),
             ("usnd", VT_STR, "Workshop"),
             ("usca", VT_REAL, 0.72),
             ("ugol", VT_INT, 90), ("ulum", VT_INT, 25), ("ubld", VT_INT, 32),
@@ -605,7 +577,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "Units\\Creeps\\HeroTinkerFactory\\HeroTinkerFactory.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneGarrison.blp"),
             ("usnd", VT_STR, "Workshop"),
             ("usca", VT_REAL, 1.25),
             ("uclr", VT_INT, 200), ("uclg", VT_INT, 230), ("uclb", VT_INT, 255),
@@ -624,7 +595,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\orc\\WarMill\\WarMill.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneAnvil.blp"),
             ("usnd", VT_STR, "Blacksmith"),
             ("uclr", VT_INT, 180), ("uclg", VT_INT, 225), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 140), ("ulum", VT_INT, 60), ("ubld", VT_INT, 52),
@@ -643,7 +613,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\BridgeObelisk\\BridgeObelisk.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneAltar.blp"),
             ("usnd", VT_STR, "AltarOfKings"),
             ("usca", VT_REAL, 1.12),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
@@ -662,7 +631,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\Merchant\\Merchant.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneVault.blp"),
             ("usnd", VT_STR, "ArcaneVault"),
             ("usca", VT_REAL, 0.88),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
@@ -683,7 +651,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\TowerDefenseTower\\TowerDefenseTower.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneTurret.blp"),
             ("usnd", VT_STR, "ArcaneTower"),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 135), ("ulum", VT_INT, 80), ("ubld", VT_INT, 45),
@@ -707,7 +674,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\FountainOfMana\\FountainOfMana.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneConduit.blp"),
             ("usnd", VT_STR, "ArcaneSanctum"),
             ("usca", VT_REAL, 0.90),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
@@ -726,7 +692,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("umdl", VT_STR, "buildings\\other\\GoblinShipyard\\GoblinShipyard.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneBay.blp"),
             ("usnd", VT_STR, "Workshop"),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 230), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 180), ("ulum", VT_INT, 140), ("ubld", VT_INT, 62),
@@ -742,7 +707,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Runic Sentinel"),
             ("urac", VT_STR, "orc"),
             ("umdl", VT_STR, "units\\creeps\\IronGolem\\IronGolem.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneSentinel.blp"),
             ("usnd", VT_STR, "IronGolem"),
             ("usca", VT_REAL, 0.74),
             ("uclr", VT_INT, 210), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
@@ -758,7 +722,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Thunder Arquebusier"),
             ("urac", VT_STR, "orc"),
             ("umdl", VT_STR, "Units\\Critters\\Marine\\Marine.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneArquebusier.blp"),
             ("usnd", VT_STR, "Rifleman"),
             ("usca", VT_REAL, 0.92),
             ("uclr", VT_INT, 190), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
@@ -776,7 +739,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Stormforged Juggernaut"),
             ("urac", VT_STR, "orc"),
             ("umdl", VT_STR, "units\\creeps\\GolemStatue\\GolemStatue.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneJuggernaut.blp"),
             ("usnd", VT_STR, "IronGolem"),
             ("usca", VT_REAL, 0.88),
             ("uclr", VT_INT, 235), ("uclg", VT_INT, 200), ("uclb", VT_INT, 135),
@@ -793,7 +755,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Rune Diviner"),
             ("urac", VT_STR, "orc"),
             ("umdl", VT_STR, "Units\\Creeps\\HeroTinker\\HeroTinker.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneDiviner.blp"),
             ("usnd", VT_STR, "SpellBreaker"),
             ("usca", VT_REAL, 0.82),
             ("uclr", VT_INT, 175), ("uclg", VT_INT, 230), ("uclb", VT_INT, 255),
@@ -810,7 +771,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
         ("hgyr", "t015", [
             ("unam", VT_STR, "Gyro-Interceptor"),
             ("urac", VT_STR, "orc"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneInterceptor.blp"),
             ("uclr", VT_INT, 180), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
             ("usca", VT_REAL, 1.05),
             ("ugol", VT_INT, 165), ("ulum", VT_INT, 40), ("ufoo", VT_INT, 2), ("ubld", VT_INT, 26),
@@ -829,7 +789,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
         ("hmtt", "t016", [
             ("unam", VT_STR, "Siege Behemoth"),
             ("urac", VT_STR, "orc"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneSiege.blp"),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 230), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 215), ("ulum", VT_INT, 65), ("ufoo", VT_INT, 4), ("ubld", VT_INT, 35),
             ("uhpm", VT_INT, 740), ("udef", VT_INT, 3), ("udty", VT_STR, "large"), ("umvs", VT_INT, 225),
@@ -848,7 +807,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Titan Construct"),
             ("urac", VT_STR, "orc"),
             ("umdl", VT_STR, "units\\creeps\\RockGolem\\RockGolem.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneTitan.blp"),
             ("usnd", VT_STR, "RockGolem"),
             ("usca", VT_REAL, 1.12),
             ("uclr", VT_INT, 180), ("uclg", VT_INT, 230), ("uclb", VT_INT, 255),
@@ -867,7 +825,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("unam", VT_STR, "Stormforged Prime"),
             ("upro", VT_STR, "Thorim,Ra-den,Odyn,Archaedas"), ("upru", VT_INT, 4),
             ("urac", VT_STR, "orc"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneHero1.blp"),
             ("uclr", VT_INT, 180), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
             ("usca", VT_REAL, 1.15),
             ("ugol", VT_INT, 425), ("ulum", VT_INT, 100), ("ufoo", VT_INT, 5), ("ubld", VT_INT, 55),
@@ -885,7 +842,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("upro", VT_STR, "Ignis,Volcanus,Khaz'goroth,Pyrion"), ("upru", VT_INT, 4),
             ("urac", VT_STR, "orc"),
             ("upra", VT_STR, "STR"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneHero2.blp"),
             ("uclr", VT_INT, 255), ("uclg", VT_INT, 195), ("uclb", VT_INT, 130),
             ("usca", VT_REAL, 1.06),
             ("ugol", VT_INT, 425), ("ulum", VT_INT, 100), ("ufoo", VT_INT, 5), ("ubld", VT_INT, 55),
@@ -903,7 +859,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("upro", VT_STR, "Mimiron,Gearspark,Volt'ron,Mecha-Prime"), ("upru", VT_INT, 4),
             ("urac", VT_STR, "orc"),
             ("upra", VT_STR, "AGI"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneHero3.blp"),
             ("usca", VT_REAL, 1.05),
             ("ugol", VT_INT, 425), ("ulum", VT_INT, 100), ("ufoo", VT_INT, 5), ("ubld", VT_INT, 55),
             ("urqc", VT_INT, 3), ("urq1", VT_STR, "t002"), ("urq2", VT_STR, "t003"),
@@ -922,7 +877,6 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("urac", VT_STR, "orc"),
             ("upra", VT_STR, "INT"),
             ("umdl", VT_STR, "units\\creeps\\RevenantOfTheWaves\\RevenantOfTheWaves.mdl"),
-            ("uico", VT_STR, BTN_PREFIX + "BTN_WM_RuneHero4.blp"),
             ("usnd", VT_STR, "Revenant"),
             ("usca", VT_REAL, 1.12),
             ("uclr", VT_INT, 165), ("uclg", VT_INT, 245), ("uclb", VT_INT, 255),
@@ -952,104 +906,131 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
 HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
     # ---- EMPIRE 5: ABYSSAL TIDEBORN (NAGA) ----
     # Hero 1: Hvsh — Empress Lady Vashj (`A000..A003`)
-    ("A000", 0, 2, "flamestrike",    "Maelstrom Vortex",           "Conjures a swirling abyssal whirlpool that pulls enemies inward, dealing 85/145/205 + INT spell damage and slowing movement."),
-    ("A001", 1, 1, "chainlightning", "Forked Tempest Arc",         "Hurls a high-voltage abyssal lightning bolt at a target and arcs to nearby foes for 80/140/200 + INT damage."),
-    ("A002", 2, 0, "thunderclap",    "Mana-Tide Aegis",            "Restores 95/155/215 HP to Vashj and nearby allies while unleashing a 280-AoE riptide shockwave."),
-    ("A003", 3, 2, "monsoon",        "Cataclysmic Tsunami",        "Ultimate: Unleashes a colossal tidal cataclysm across 380 AoE, dealing 240 + 1.5xINT damage and crushing enemy formations."),
+    ("A000", 0, 2, "flamestrike",    "Maelstrom Vortex",           "Point-targeted 275 AoE: deals damage scaled by ability level and Vashj's INT, and pulls nearby non-immune enemies toward the whirlpool."),
+    ("A001", 1, 1, "chainlightning", "Forked Tempest Arc",         "Lightning jumps to up to 3 enemies within 300 range of one another; each later jump deals less damage. Vashj gains 12 Mana per ability level."),
+    ("A002", 2, 0, "thunderclap",    "Mana-Tide Aegis",            "In 300 AoE, deals 18 + 18 per ability level damage to enemies and restores 65 + 25 per level HP to nearby allies, including Vashj."),
+    ("A003", 3, 2, "monsoon",        "Cataclysmic Tsunami",        "Three expanding 390-AoE waves. Each pulse scales with Vashj's INT and hero level, heals allies for 18 HP, and pushes enemies outward."),
 
     # Hero 2: N004 — Illidan Stormrage, Betrayer of Tides (`A004..A007`)
-    ("A004", 0, 2, "flamestrike",    "Azzinoth Glaive Barrage",    "Hurls whirling twin warglaives of Azzinoth across 260 AoE, slashing enemies for 90/150/210 + AGI damage and crippling speed."),
-    ("A005", 1, 1, "chainlightning", "Shadowstep of the Betrayer", "Instantly blinks onto the target, striking for 75/130/185 + 1.2xAGI damage and burning 35/55/75 Mana!"),
-    ("A006", 2, 0, "thunderclap",    "Demon-Scale Immolation",     "Ignites a Fel-Abyssal aura burst around Illidan, scorching foes in 280 AoE for 75/125/175 damage and siphoning 110/175/240 HP."),
-    ("A007", 3, 0, "roar",           "Metamorphosis: Abyssal Overlord", "Ultimate: Illidan unleashes his Demon-Naga form, restoring 350 HP, blasting 380 AoE for 230 + 1.6xAGI Chaos-Fel damage, and summoning 2 Fel-Tidal Stalkers!"),
+    ("A004", 0, 2, "flamestrike",    "Azzinoth Glaive Barrage",    "Three crossing glaive lanes strike toward the target point; the side lanes hit harder than the center and a 150-AoE burst hits the endpoint. Damage scales with AGI."),
+    ("A005", 1, 1, "chainlightning", "Shadowstep of the Betrayer", "Shadowsteps to a walkable point just beyond the target, deals 1.22x stat-scaled damage, and steals up to 20 Mana from the enemy."),
+    ("A006", 2, 0, "thunderclap",    "Demon-Scale Immolation",     "Deals 0.82x stat-scaled damage in 270 AoE, pushes foes away, and heals Illidan for 55 + 35 per ability level. At levels 2-3, summons one Mur'gul Reaver for 12 seconds."),
+    ("A007", 3, 0, "roar",           "Metamorphosis: Abyssal Overlord", "Three 380-AoE pulses scale with Illidan's AGI and hero level. Each heals nearby allies for 12 HP, heals Illidan for 28 HP, and pushes enemies outward."),
 
     # Hero 3: N001 — Leviathan Warlord Naj'entus (`A008..A011`)
-    ("A008", 0, 2, "flamestrike",    "Impaling Spine Quake",       "Ruptures the seabed with razor coral spines across 270 AoE for 85/145/205 + STR damage and heavy slow."),
-    ("A009", 1, 1, "chainlightning", "Harpoon Undertow",           "Impales an enemy with a barbed tidal harpoon, dragging them toward Naj'entus and dealing 80/135/190 + STR damage."),
-    ("A010", 2, 0, "thunderclap",    "Tidal Carapace Roar",        "Slams the ground to damage nearby foes for 70/115/160 while fortifying Naj'entus and allies (+120/190/260 HP)."),
-    ("A011", 3, 2, "monsoon",        "Wrath of the Kraken",        "Ultimate: Crushes a 380-AoE zone for 225 + 1.4xSTR damage and summons 2 Naga Myrmidon Honor Guards!"),
+    ("A008", 0, 2, "flamestrike",    "Impaling Spine Quake",       "Three coral shock rings converge on the target point; enemies within 285 take 1.18x stat-scaled damage and are pushed away."),
+    ("A009", 1, 1, "chainlightning", "Harpoon Undertow",           "Harpoons one enemy for 1.16x stat-scaled damage and drags non-immune, non-giant targets 190 units toward Naj'entus."),
+    ("A010", 2, 0, "thunderclap",    "Tidal Carapace Roar",        "Around Naj'entus, deals 0.64x stat-scaled damage, heals allies for 70 + 18 per level, and pushes enemies outward."),
+    ("A011", 3, 2, "monsoon",        "Wrath of the Kraken",        "Three 390-AoE undertow pulses scale with Naj'entus's STR and hero level and pull enemies inward. The second pulse summons two Myrmidons for 12 seconds."),
 
     # Hero 4: N002 — Nazjatar Tideweaver Athissa (`A012..A015`)
-    ("A012", 0, 2, "flamestrike",    "Bioluminescent Depthcharge", "Detonates a pearl depthcharge across 280 AoE that heals allies for 75/125/175 HP and damages enemies for 80/135/190."),
-    ("A013", 1, 1, "chainlightning", "Siren's Crushing Prison",    "Encases an enemy in high-pressure abyssal ice, dealing 85/145/205 + INT damage and snaring them."),
-    ("A014", 2, 0, "thunderclap",    "Blessing of Azshara",        "Restores 60/95/130 Mana and 90/145/200 HP to Athissa and nearby allied forces."),
-    ("A015", 3, 2, "monsoon",        "Eye of Nazjatar",            "Ultimate: Opens an abyssal maelstrom for 220 + 1.4xINT AoE damage and summons 2 Snap Dragon Guardians!"),
+    ("A012", 0, 2, "flamestrike",    "Bioluminescent Depthcharge", "Point-targeted 280 AoE: damages enemies with INT-scaled spell damage and heals nearby allies for 52 + 12 per ability level."),
+    ("A013", 1, 1, "chainlightning", "Siren's Crushing Prison",    "The target and enemies within 190 take splash damage; the target also takes a direct hit and is pulled toward Athissa. Burns 26 Mana from nearby enemy casters."),
+    ("A014", 2, 0, "thunderclap",    "Blessing of Azshara",        "Restores 48 + 15 per ability level HP and 42 + 18 Mana to nearby allies in 330 AoE."),
+    ("A015", 3, 2, "monsoon",        "Eye of Nazjatar",            "Three 400-AoE pulses scale with Athissa's INT and hero level; each heals allies and restores Mana, drains enemy Mana, and pulls foes inward. The second pulse summons two Snap Dragons for 16 seconds."),
 
     # ---- EMPIRE 6: SUNFURY IMPERIUM (SILVERMOON) ----
     # Hero 5: Hkal — Sovereign Kael'thas (`A016..A019`)
-    ("A016", 0, 2, "flamestrike",    "Verdant Sunfire Pillar",     "Calls down a pillar of verdant solar fire across 275 AoE, searing enemies for 90/155/220 + INT damage."),
-    ("A017", 1, 1, "chainlightning", "Arcane Gravity Lapse",       "Slams a target with arcane gravity for 80/140/200 + INT damage while draining 30/50/70 Mana to Kael'thas."),
-    ("A018", 2, 0, "thunderclap",    "Pyromancer's Molten Barrier","Unleashes a ring of solar flame (75/125/175 PBAoE damage) and restores 100/160/220 HP & 45 Mana."),
-    ("A019", 3, 2, "monsoon",        "Rebirth of Al'ar",           "Ultimate: Detonates a 380-AoE Supernova for 235 + 1.5xINT damage and summons a blazing Dragonhawk Phoenix Avatar!"),
+    ("A016", 0, 2, "flamestrike",    "Verdant Sunfire Pillar",     "Point-targeted 275 AoE: deals 1.12x INT-scaled damage and burns 16 Mana per ability level from affected enemies."),
+    ("A017", 1, 1, "chainlightning", "Arcane Gravity Lapse",       "Hits one target for 0.94x INT-scaled damage, drains 36 Mana and transfers 28 Mana to Kael, then pulls the target toward him."),
+    ("A018", 2, 0, "thunderclap",    "Pyromancer's Molten Barrier","In 310 AoE, deals 0.44x INT-scaled damage, restores 68 + 16 per level HP and 24 Mana to allies, and burns 10 enemy Mana."),
+    ("A019", 3, 2, "monsoon",        "Rebirth of Al'ar",           "Three 400-AoE pulses scale with Kael's INT and hero level. Each restores 12 HP and Mana to allies and pushes foes away; the second summons a Dragonhawk Rider for 18 seconds."),
 
     # Hero 6: Hvwd — Ranger-General Sylvanas (`A020..A023`)
-    ("A020", 0, 2, "flamestrike",    "Rain of Starlight Arrows",   "Rains enchanted starlight shafts over 290 AoE for 85/145/205 + AGI damage and slows enemy movement."),
-    ("A021", 1, 1, "chainlightning", "Windrunner's Piercing Shot", "Fires a supersonic runed arrow at a target for 95/160/225 + 1.2xAGI armor-piercing damage and knockback."),
-    ("A022", 2, 0, "thunderclap",    "Elven Gale Stride",          "Sylvanas rallies Quel'Thalas, healing 95/150/205 HP and summoning 2 High Elven Ranger Scouts for 20s!"),
-    ("A023", 3, 2, "monsoon",        "Tempest of Quel'Thalas",     "Ultimate: Blankets a massive 420-AoE killzone in silver arrows for 245 + 1.5xAGI damage!"),
+    ("A020", 0, 2, "flamestrike",    "Rain of Starlight Arrows",   "Fires three arrow lanes toward the target point: the main lane deals 1.08x AGI-scaled damage and two angled lanes deal 0.55x each."),
+    ("A021", 1, 1, "chainlightning", "Windrunner's Piercing Shot", "A piercing shot damages enemies along an 85-width line for 1.18x AGI-scaled damage; the selected target takes an additional 0.45x hit."),
+    ("A022", 2, 0, "thunderclap",    "Elven Gale Stride",          "In 350 AoE, heals allies for 58 + 20 per ability level, grants 12 Mana, and summons two High Elven Archers for 16 seconds."),
+    ("A023", 3, 2, "monsoon",        "Tempest of Quel'Thalas",     "Three expanding 410-AoE arrow volleys scale with Sylvanas's AGI and hero level and push enemies outward."),
 
     # Hero 7: Hlgr — Grand Marshal Garithos (`A024..A027`)
-    ("A024", 0, 2, "flamestrike",    "Earthshaker Warhammer",      "Smashes a target zone with seismic force, dealing 85/145/205 + STR damage and knocking enemies outward."),
-    ("A025", 1, 1, "chainlightning", "Imperial Execution Decree",  "Delivers a ruthless execution blow dealing 80/135/190 + STR base damage PLUS 20% of the target's missing HP!"),
-    ("A026", 2, 0, "thunderclap",    "Iron Phalanx Command",       "Bolsters nearby Imperial troops (+115/180/245 HP) while staggering adjacent foes for 70/115/160 damage."),
-    ("A027", 3, 2, "monsoon",        "Grand Cavalry Charge",       "Ultimate: Tramples a 380-AoE battleground for 225 + 1.4xSTR damage and deploys 2 Elite Alliance Captains!"),
+    ("A024", 0, 2, "flamestrike",    "Earthshaker Warhammer",      "A point-targeted seismic strike deals 1.08x STR-scaled damage in 245 AoE and pushes enemies away from the impact."),
+    ("A025", 1, 1, "chainlightning", "Imperial Execution Decree",  "Execution blow: 48 + 1.15x Garithos's STR bonus, plus 16% of the target's missing HP (base damage capped at 280)."),
+    ("A026", 2, 0, "thunderclap",    "Iron Phalanx Command",       "In 330 AoE, deals 0.48x STR-scaled damage, heals allies for 82 + 22 per level, and pushes enemies away."),
+    ("A027", 3, 2, "monsoon",        "Grand Cavalry Charge",       "Three 390-AoE cavalry shockwaves scale with Garithos's STR and hero level; each heals allies and knocks enemies back. The second summons two Alliance Captains for 14 seconds."),
 
     # Hero 8: Huth — Highlord Uther (`A028..A031`)
-    ("A028", 0, 2, "flamestrike",    "Consecrated Sunwell Ground", "Sanctifies 285 AoE with golden light: heals allies inside for 85/140/195 HP and sears enemies for 80/135/190."),
-    ("A029", 1, 1, "chainlightning", "Hammer of Radiant Verdict",  "Hurls a blazing warhammer of light at a foe for 85/145/205 + STR damage and purges speed."),
-    ("A030", 2, 0, "thunderclap",    "Aegis of the Silver Hand",   "Radiates a divine sanctuary wave that heals Uther and all nearby allies for 125/200/275 HP."),
-    ("A031", 3, 2, "monsoon",        "Dawnbringer Judgment",       "Ultimate: Calls down the Sunwell's judgment across 400 AoE — 220 + 1.4xSTR enemy damage and +240 AoE allied heal!"),
+    ("A028", 0, 2, "flamestrike",    "Consecrated Sunwell Ground", "Sanctifies a 285-AoE target area, dealing 0.72x STR-scaled damage to foes and healing allies for 70 + 10 per level."),
+    ("A029", 1, 1, "chainlightning", "Hammer of Radiant Verdict",  "A radiant hammer hits the target for 1.2x STR-scaled damage, splashes 0.35x damage in 180 AoE, and pushes nearby enemies away."),
+    ("A030", 2, 0, "thunderclap",    "Aegis of the Silver Hand",   "Restores 90 + 28 per ability level HP to nearby allies in 360 AoE."),
+    ("A031", 3, 2, "monsoon",        "Dawnbringer Judgment",       "Three 410-AoE pulses scale with Uther's STR and hero level; each damages enemies, heals allies for 46 HP, and restores 8 Mana."),
 
     # ---- EMPIRE 7: VOIDBORN LEGION ----
     # Hero 9: V001 — Rift Sovereign Xal'athor (`A032..A035`)
-    ("A032", 0, 2, "flamestrike",    "Event Horizon Crater",       "Tears open a gravitational singularity that pulls enemies inward and deals 85/145/205 + STR Void damage."),
-    ("A033", 1, 1, "chainlightning", "Oblivion Cleave Lance",      "Cleaves an enemy for 85/145/205 + STR damage and leeches 60% of damage dealt back to Xal'athor as HP!"),
-    ("A034", 2, 0, "thunderclap",    "Dreadlord's Abyssal Howl",   "Unleashes a terrifying Void shockwave (80/130/180 PBAoE damage) and fortifies Xal'athor (+120/190/260 HP)."),
-    ("A035", 3, 2, "monsoon",        "Cataclysm of the Dark Portal","Ultimate: Crashes a dimensional meteor into 380 AoE for 230 + 1.4xSTR damage and warps in 2 Void Zealots!"),
+    ("A032", 0, 2, "flamestrike",    "Event Horizon Crater",       "A point-targeted 285-AoE gravity well deals 1.04x STR-scaled damage, burns 18 Mana per ability level, and pulls enemies inward."),
+    ("A033", 1, 1, "chainlightning", "Oblivion Cleave Lance",      "A void cleave deals 54 + 34 per ability level + 0.85x Xal'athor's STR bonus and heals him for 48% of its base damage."),
+    ("A034", 2, 0, "thunderclap",    "Dreadlord's Abyssal Howl",   "In 295 AoE, deals 0.82x STR-scaled damage, heals allies for 42 + 14 per level, and burns 22 enemy Mana."),
+    ("A035", 3, 2, "monsoon",        "Cataclysm of the Dark Portal","Three 400-AoE collapse pulses scale with Xal'athor's STR and hero level, drain enemy Mana, and pull foes inward. The second summons two Void Zealots for 18 seconds."),
 
     # Hero 10: V002 — Nether Inquisitor Sargen'eth (`A036..A039`)
-    ("A036", 0, 2, "flamestrike",    "Entropy Rift Storm",         "Bombards 280 AoE with volatile nether bolts for 90/155/220 + INT spell damage."),
-    ("A037", 1, 1, "chainlightning", "Soul Siphon Tether",         "Rips 80/140/200 + INT life and 35/55/75 Mana from an enemy directly into Sargen'eth!"),
-    ("A038", 2, 0, "thunderclap",    "Astral Phase Surge",         "Releases a 280-AoE arcane pulse (75/125/175 damage) while restoring 70/110/150 Mana and 90 HP."),
-    ("A039", 3, 2, "monsoon",        "Singularity Collapse",       "Ultimate: Collapses space across 400 AoE, pulling all enemies to the center for 245 + 1.5xINT devastation!"),
+    ("A036", 0, 2, "flamestrike",    "Entropy Rift Storm",         "A nether storm hits a 265-AoE center and two flanking 135-AoE zones. Center targets take 0.84x INT-scaled damage and lose 12 Mana per level; flanks take 0.36x damage."),
+    ("A037", 1, 1, "chainlightning", "Soul Siphon Tether",         "Drains one target: 45 + 34 per ability level + 0.85x INT bonus damage, up to 45 Mana stolen and 32 returned to Sargen'eth, plus healing for 30% of base damage."),
+    ("A038", 2, 0, "thunderclap",    "Astral Phase Surge",         "In 320 AoE, deals 0.55x INT-scaled damage, heals allies for 42 HP, and restores 55 + 20 per level Mana."),
+    ("A039", 3, 2, "monsoon",        "Singularity Collapse",       "Three 410-AoE singularity pulses scale with Sargen'eth's INT and hero level, burn enemy Mana, and pull foes toward the center."),
 
     # Hero 11: V003 — Shadowblade Akama (`A040..A043`)
-    ("A040", 0, 2, "flamestrike",    "Umbral Shuriken Fan",        "Flings cursed Ashtongue blades across 270 AoE for 85/145/205 + AGI damage."),
-    ("A041", 1, 1, "chainlightning", "Phantom Ambush Strike",      "Shadowsteps behind an enemy for a lethal backstab dealing 85/145/205 + 1.4xAGI critical strike damage!"),
-    ("A042", 2, 0, "thunderclap",    "Smoke Veil of Karabor",      "Blinds adjacent enemies in shadow smoke (70/115/160 damage) and summons 2 Void Zealot Phantoms for 18s!"),
-    ("A043", 3, 0, "roar",           "Dance of a Thousand Shadows","Ultimate: Akama vanishes in a blur of twin sickles, slashing enemies across 380 AoE for 250 + 1.6xAGI damage and healing 220 HP!"),
+    ("A040", 0, 2, "flamestrike",    "Umbral Shuriken Fan",        "A forward fan of three piercing lanes reaches 700 range: the center deals 0.86x AGI-scaled damage and the two side lanes deal 0.56x each."),
+    ("A041", 1, 1, "chainlightning", "Phantom Ambush Strike",      "Shadowsteps to a walkable point just beyond one enemy and strikes for 1.38x AGI-scaled damage."),
+    ("A042", 2, 0, "thunderclap",    "Smoke Veil of Karabor",      "In 260 AoE around Akama, deals 0.72x AGI-scaled damage, pushes enemies away, and summons two Void Zealots for 14 seconds."),
+    ("A043", 3, 0, "roar",           "Dance of a Thousand Shadows","Three 380-AoE shadow pulses around Akama scale with AGI and hero level. Each heals allies for 12 HP and Akama for 35 HP, while pushing foes away."),
 
     # Hero 12: V004 — Entropy Archon Aetheron (`A044..A047`)
-    ("A044", 0, 2, "flamestrike",    "Starfall Singularity",       "Rains cosmic astral shards across 285 AoE for 85/145/205 + INT damage."),
-    ("A045", 1, 1, "chainlightning", "Dimensional Banish Bolt",    "Warps an enemy in chrono-stasis, dealing 85/145/205 + INT damage and knocking them back."),
-    ("A046", 2, 0, "thunderclap",    "Null-Field Purge Barrier",   "Shields nearby Voidborn allies (+115/180/245 HP) and blasts enemy summons & units in 280 AoE."),
-    ("A047", 3, 2, "monsoon",        "Twilight of the Cosmos",     "Ultimate: Unleashes a cosmic supernova across 400 AoE — 230 + 1.5xINT enemy damage and +180 allied barrier!"),
+    ("A044", 0, 2, "flamestrike",    "Starfall Singularity",       "Point-targeted starfall singularity deals 0.94x INT-scaled damage in 285 AoE and pulls enemies toward the center."),
+    ("A045", 1, 1, "chainlightning", "Dimensional Banish Bolt",    "Banish bolt hits one enemy for 0.97x INT-scaled damage, pushes it away, and drains 26 Mana if it has Mana."),
+    ("A046", 2, 0, "thunderclap",    "Null-Field Purge Barrier",   "In 330 AoE, deals 32 + 16 per level damage, heals allies for 62 + 18 per level, restores 22 Mana to allies, and burns 18 enemy Mana."),
+    ("A047", 3, 2, "monsoon",        "Twilight of the Cosmos",     "Three 410-AoE cosmic pulses scale with Aetheron's INT and hero level and heal nearby allies for 24 HP per pulse."),
 
     # ---- EMPIRE 8: RUNEFORGED BASTION ----
     # Hero 13: T001 — Stormforged Prime Thorim (`A048..A051`)
-    ("A048", 0, 2, "flamestrike",    "Mjolnir Thunderfall",        "Calls down a Titan lightning hammer on 275 AoE for 90/150/210 + STR storm damage."),
-    ("A049", 1, 1, "chainlightning", "Titan's Magnetic Grip",      "Yanks a target enemy magnetically toward Thorim and slams them for 80/135/190 + STR damage!"),
-    ("A050", 2, 0, "thunderclap",    "Overcharged Aegis Core",     "Discharges static lightning in 280 AoE (75/125/175 damage) and repairs Thorim for 120/190/260 HP."),
-    ("A051", 3, 2, "monsoon",        "Wrath of the Pantheon",      "Ultimate: Strikes 390 AoE with Pantheon sky-bolts for 235 + 1.4xSTR damage and deploys 2 Runic Sentinels!"),
+    ("A048", 0, 2, "flamestrike",    "Mjolnir Thunderfall",        "A point-targeted 280-AoE hammer strike deals 1.12x STR-scaled damage and pushes enemies away."),
+    ("A049", 1, 1, "chainlightning", "Titan's Magnetic Grip",      "Magnetically pulls one target 210 units toward Thorim and deals 1.06x STR-scaled damage."),
+    ("A050", 2, 0, "thunderclap",    "Overcharged Aegis Core",     "In 310 AoE, deals 0.52x STR-scaled damage, heals allies for 66 + 18 per level, grants 20 Mana, and pushes enemies outward."),
+    ("A051", 3, 2, "monsoon",        "Wrath of the Pantheon",      "Three 400-AoE storm pulses scale with Thorim's STR and hero level and push enemies away. The second summons two Runic Sentinels for 16 seconds."),
 
     # Hero 14: T002 — Runesmith Highlord Ignis (`A052..A055`)
-    ("A052", 0, 2, "flamestrike",    "Molten Slag Eruption",       "Erupts superheated forge magma across 275 AoE for 90/150/210 + STR fire damage."),
-    ("A053", 1, 1, "chainlightning", "Forgehammer Sundering",      "Crushes an enemy with a white-hot anvil strike for 90/150/210 + 1.2xSTR damage and knockback."),
-    ("A054", 2, 0, "thunderclap",    "Tempered Rune-Plating",      "Repairs and tempers Ignis and all nearby Runeforged allies (+120/190/260 HP) while searing foes."),
-    ("A055", 3, 2, "monsoon",        "Awaken Forge Colossus",      "Ultimate: Detonates a 380-AoE magma blast (225 + 1.4xSTR damage) and awakens a Stormforged Juggernaut!"),
+    ("A052", 0, 2, "flamestrike",    "Molten Slag Eruption",       "A point-targeted 260-AoE magma eruption deals 1.12x STR-scaled damage and pushes enemies away."),
+    ("A053", 1, 1, "chainlightning", "Forgehammer Sundering",      "Forgehammer strikes one target for 1.18x STR-scaled damage and heals Ignis for 55 + 18 per ability level."),
+    ("A054", 2, 0, "thunderclap",    "Tempered Rune-Plating",      "In 335 AoE, deals 0.4x STR-scaled damage to enemies and heals allies for 76 + 18 per level."),
+    ("A055", 3, 2, "monsoon",        "Awaken Forge Colossus",      "Three 390-AoE magma pulses scale with Ignis's STR and hero level and push enemies away. The second summons one Stormforged Juggernaut for 20 seconds."),
 
     # Hero 15: T003 — Clockwork Vanguard Mimiron (`A056..A059`)
-    ("A056", 0, 2, "flamestrike",    "Cluster Rocket Salvo",       "Saturates a 290-AoE target zone with micro-rockets for 85/145/205 + AGI explosive damage."),
-    ("A057", 1, 1, "chainlightning", "Railgun Gauss Snipe",        "Fires a hyper-velocity Gauss slug at a target for 95/160/225 + 1.25xAGI piercing damage."),
-    ("A058", 2, 0, "thunderclap",    "Deploy Pocket Auto-Turrets", "Assembles 2 armed Runic Sentinel Constructs for 20s and repairs Mimiron for 95/150/205 HP!"),
-    ("A059", 3, 2, "monsoon",        "Omega Orbital Laser",        "Ultimate: Locks an orbital Titan beam onto 410 AoE, incinerating enemies for 250 + 1.5xAGI damage!"),
+    ("A056", 0, 2, "flamestrike",    "Cluster Rocket Salvo",       "Three rocket impact zones hit the target area: 0.78x AGI-scaled damage in 225 AoE and 0.36x in each flanking 150 AoE; the center pushes enemies outward."),
+    ("A057", 1, 1, "chainlightning", "Railgun Gauss Snipe",        "Railgun slug pierces a 58-width line from Mimiron to the target, dealing 1.32x AGI-scaled damage to enemies along the path."),
+    ("A058", 2, 0, "thunderclap",    "Deploy Pocket Auto-Turrets", "In 250 AoE, deals 0.48x AGI-scaled damage and heals allies for 48 + 16 per level. Summons two Runic Sentinels for 16 seconds."),
+    ("A059", 3, 2, "monsoon",        "Omega Orbital Laser",        "Three expanding 420-AoE orbital laser pulses scale with Mimiron's AGI and hero level."),
 
     # Hero 16: T004 — Tempest Savant Loken (`A060..A063`)
-    ("A060", 0, 2, "flamestrike",    "Ionosphere Plasma Field",    "Projects an ionized storm field over 285 AoE, dealing 85/145/205 + INT damage and burning enemy Mana."),
-    ("A061", 1, 1, "chainlightning", "Arc-Conduit Chain Surge",    "Bounces high-energy arc plasma from an enemy for 85/145/205 + INT damage and heals Loken for 80/130/180 HP."),
-    ("A062", 2, 0, "thunderclap",    "Chrono-Dynamo Overdrive",    "Recharges 65/105/145 Mana and 95/150/205 HP across nearby allies while shocking adjacent enemies."),
-    ("A063", 3, 2, "monsoon",        "Stormcore Superconductor",   "Ultimate: Triggers a 400-AoE Tesla Overload (230 + 1.5xINT damage) and deploys 2 Gyro-Interceptors!"),
+    ("A060", 0, 2, "flamestrike",    "Ionosphere Plasma Field",    "Point-targeted 280 AoE: deals INT-scaled damage and burns 20 Mana per ability level from affected enemies."),
+    ("A061", 1, 1, "chainlightning", "Arc-Conduit Chain Surge",    "Lightning jumps to up to 3 enemies within 300 range; later jumps deal less damage. Loken heals 26 HP when the chain is cast."),
+    ("A062", 2, 0, "thunderclap",    "Chrono-Dynamo Overdrive",    "In 335 AoE, deals 0.58x INT-scaled damage, heals allies for 50 + 20 per level, and restores 65 + 18 per level Mana."),
+    ("A063", 3, 2, "monsoon",        "Stormcore Superconductor",   "Three 410-AoE Tesla pulses scale with Loken's INT and hero level, heal allies, and burn enemy Mana. The second summons two Gyro-Interceptors for 18 seconds."),
 ]
+
+# Stock Warcraft III command-button art, mapped one-to-one to the custom skills.
+# Filenames are verified against 1.27.1 native object metadata and use the game's
+# own BTN/DISBTN assets on 1.26a, 1.27b and Reforged.
+_SKILL_BUTTON_STEMS = (
+    "BTNMonsoon", "BTNChainLightning", "BTNHealingWave", "BTNCrushingWave",
+    "BTNFanOfKnives", "BTNBlink", "BTNImmolationOn", "BTNMetamorphosis",
+    "BTNImpale", "BTNEnsnare", "BTNFrostArmor", "BTNLocustSwarm",
+    "BTNVolcano", "BTNCharm", "BTNRejuvenation", "BTNTornado",
+    "BTNWallOfFire", "BTNManaDrain", "BTNHealingWard", "BTNMarkOfFire",
+    "BTNSearingArrowsOn", "BTNTheBlackArrow", "BTNWindWalkOn", "BTNStarfall",
+    "BTNWarStomp", "BTNCriticalStrike", "BTNBattleStations", "BTNStampede",
+    "BTNHolyBolt", "BTNStormBolt", "BTNDivineIntervention", "BTNResurrection",
+    "BTNDeathAndDecay", "BTNCarrionSwarm", "BTNAntiMagicShell", "BTNDarkSummoning",
+    "BTNBlizzard", "BTNLifeDrain", "BTNDarkRitual", "BTNAbsorbMagic",
+    "BTNShadowStrike", "BTNAmbush", "BTNEtherealFormOn", "BTNSpiritOfVengeance",
+    "BTNMoonStone", "BTNBanish", "BTNSpellShieldAmulet", "BTNInfernal",
+    "BTNHammer", "BTNShockWave", "BTNAvatarOn", "BTNEarthquake",
+    "BTNFire", "BTNGolemStormBolt", "BTNRepairOn", "BTNMechanicalCritter",
+    "BTNClusterRockets", "BTNFlare", "BTNPocketFactory", "BTNFireForTheCannon",
+    "BTNManaFlare", "BTNOrbOfLightning", "BTNManaRechargeOn", "BTNStormEarth&Fire",
+)
+assert len(_SKILL_BUTTON_STEMS) == 64 and len(set(_SKILL_BUTTON_STEMS)) == 64
+HERO_SKILL_ICON_PATHS = {
+    spec[0]: f"{BTN_PREFIX}{stem}.blp"
+    for spec, stem in zip(HERO_SKILL_SPECS_64, _SKILL_BUTTON_STEMS)
+}
 
 
 def _make_ancl_hero_skill(
@@ -1063,10 +1044,10 @@ def _make_ancl_hero_skill(
 ) -> Tuple[str, str, List[LevelModEntry]]:
     """
     Build a 100% compliant `ANcl` (Channel) custom Hero ability entry for `war3map.w3a`:
-      - Every skill `0..63` gets its own unique custom icon `BTN_WM_S{idx:02d}.blp`!
+      - Every skill receives a distinct native Warcraft III button icon selected for its effect.
       - Sets `Ncl1..6` across EVERY level `1..levels` so levels 2 & 3 never revert!
     """
-    icon = f"{BTN_PREFIX}BTN_WM_S{idx:02d}.blp"
+    icon = HERO_SKILL_ICON_PATHS[new_id]
     is_ult = (slot_idx == 3)
     levels = 1 if is_ult else 3
     btn_x = slot_idx
@@ -1157,8 +1138,8 @@ def serialize_war3map_skin() -> bytes:
       - All 16 Infocard Damage Type icons (Upgraded + Neutral)
       - All 16 Infocard Armor Type icons (Upgraded + Neutral)
       - All 6 Hero Primary Attribute icons (`STR`, `AGI`, `INT` on Infocard & Hero Panel)
-      - All 8 Core Command Card action buttons (`Attack`, `Move`, `Stop`, `Hold`, `Patrol`, `Skill`, `Rally`, `Cancel`)
-      - All 5 Race-Specific Worker `Build` buttons (`Naga`, `Sunfury/Human`, `Voidborn/Undead`, `Runeforged/Orc`, `NightElf`)
+      - Retains recognizable native Warcraft III command-card action buttons
+      - Uses native race-appropriate construction buttons for Naga, Human, Undead, Orc and Night Elf
       - Resource bar icons, inventory filler, dark obsidian dialog/tooltip/multiboard backgrounds, and RPG Damage/Armor text styling!
     """
     IC = "UI\\CrownUI\\Infocard\\"
@@ -1183,8 +1164,8 @@ def serialize_war3map_skin() -> bytes:
         "EscMenuBackground=UI\\CrownUI\\MenuBG.blp",
         "QuestDialogBackground=UI\\CrownUI\\MenuBG.blp",
         "MultiboardBackground=UI\\CrownUI\\MenuBG.blp",
-        f"MultiboardDefaultIcon={BTN_PREFIX}BTN_WM_CrownCrest.blp",
-        f"IdlePeon={BTN_PREFIX}BTN_WM_FactionTome.blp",
+        f"MultiboardDefaultIcon={BTN_PREFIX}BTN_WM_Portrait_Hvsh.blp",
+        f"IdlePeon={BTN_PREFIX}BTNPeasant.blp",
 
         # ---- Badass RPG Infocard Damage Type Icons (Upgraded + Neutral) ----
         f"InfoPanelIconDamageUnknown={IC}DmgNormal.blp",
@@ -1234,23 +1215,13 @@ def serialize_war3map_skin() -> bytes:
         f"HeroAgilityIcon={IC}AttrAGI.blp",
         f"HeroIntelligenceIcon={IC}AttrINT.blp",
 
-        # ---- Custom Command Card Action Buttons ----
-        f"CommandAttack={BTN_PREFIX}BTN_WM_CmdAttack.blp",
-        f"CommandAttackGround={BTN_PREFIX}BTN_WM_CmdAttack.blp",
-        f"CommandMove={BTN_PREFIX}BTN_WM_CmdMove.blp",
-        f"CommandStop={BTN_PREFIX}BTN_WM_CmdStop.blp",
-        f"CommandHoldPosition={BTN_PREFIX}BTN_WM_CmdHold.blp",
-        f"CommandPatrol={BTN_PREFIX}BTN_WM_CmdPatrol.blp",
-        f"CommandNewSkill={BTN_PREFIX}BTN_WM_CmdSkill.blp",
-        f"CommandRally={BTN_PREFIX}BTN_WM_CmdRally.blp",
-        f"CommandCancel={BTN_PREFIX}BTN_WM_CmdCancel.blp",
-
-        # ---- 5 Race-Specific Worker `Build` Buttons! ----
-        f"CommandBasicStruct={BTN_PREFIX}BTN_WM_BuildNaga.blp",
-        f"CommandBasicStructHuman={BTN_PREFIX}BTN_WM_BuildSunfury.blp",
-        f"CommandBasicStructUndead={BTN_PREFIX}BTN_WM_BuildVoidborn.blp",
-        f"CommandBasicStructOrc={BTN_PREFIX}BTN_WM_BuildRuneforged.blp",
-        f"CommandBasicStructNightElf={BTN_PREFIX}BTN_WM_BuildNightElf.blp",
+        # Keep Warcraft III's recognizable native attack/move/stop/patrol/skill buttons.
+        # Race-specific construction buttons use stock faction art, not generated glyphs.
+        f"CommandBasicStruct={BTN_PREFIX}BTNAltarOfDepths.blp",
+        f"CommandBasicStructHuman={BTN_PREFIX}BTNHumanBuild.blp",
+        f"CommandBasicStructUndead={BTN_PREFIX}BTNScourgeBuild.blp",
+        f"CommandBasicStructOrc={BTN_PREFIX}BTNBasicStruct.blp",
+        f"CommandBasicStructNightElf={BTN_PREFIX}BTNNightElfBuild.blp",
         "",
         "[FrameDef]",
         "UPKEEP_NONE=|cff38bdf8WarMahdi Crown|r",
@@ -1280,7 +1251,7 @@ def serialize_war3map_skin() -> bytes:
         "ARMOR_SMALL=Aegis: |cff6ee7b7Agile Guard|r",
         "ARMOR_NONE=Aegis: |cffc084fcAstral Shroud|r",
         "UPPER_BUTTON_QUEST_TIP=|cffffcc00WarMahdi Codex & Guide|r (|cffffcc00F9|r)",
-        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v4 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681-100 Supply:|r 40% Gold Income",
+        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v5 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681-100 Supply:|r 40% Gold Income",
         "",
     ]
     return "\r\n".join(lines).encode("utf-8")
@@ -1306,7 +1277,7 @@ def _build_custom_faction_ai(
 ) -> str:
     return f"""//============================================================================
 //  {title_comment}
-//  Tournament Melee AI for `(8) Crown of WarMahdi` v4
+//  Tournament Melee AI for `(8) Crown of WarMahdi` v5
 //============================================================================
 globals
     integer CF_WORKER    = '{worker}'

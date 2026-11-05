@@ -40,21 +40,21 @@ def build_archive_manifest() -> dict:
         "archiveBytes": MAP_FILE.stat().st_size,
         "entries": entries,
         "checks": [
-            "Stage 1: HM3W Pre-Header (0x1FC1A) + MPQ v1 Container + StormLib CRC32/MD5 (439 Files)",
-            "Stage 2: TFT Binary v25 — Sunken-Astral 'Z' Tileset + 5,920 Harvestable Trees + 41 Shrine Props",
-            "Stage 3a: JASS2 Static Typecheck vs TFT 1.27b Common.j + Blizzard.j (109 functions, 0 Errors)",
-            "Stage 3b: JASS2 Static Typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (109 functions, 0 Errors)",
-            "Stage 4 & 5: 1-to-1 Sync (war3mapUnits.doo <-> war3map.j <-> war3map.mmp <-> war3map.wts)",
-            "Stage 6: 8-Player Spawn Layout + buildable/collision-free mirrored starting zones",
-            "Stage 7: Zero Collision Footprints Across 181 Units & 5,920 Harvestable Trees",
-            "Stage 8: Dynamic Pathing Grid BFS: 401,756 Walkable Cells (100% Connected)",
-            "Stage 9: 200u Camp Acquisition & Highway / Central Crown Shrine Safe-Zones",
-            "Stage 10: Exact 8-Way Dihedral Group (D4) Terrain, Pathing & Forest Symmetry",
-            "Stage 11: 8-Empire Objects (w3u=42+65, w3t=5, w3q=6+4, w3a=64); 16 heroes, 64 unique skills, 0 Rally Flags/Card Collisions",
-            "Stage 12: All 4 Imported Race AI Scripts Typechecked vs Common.j + common.ai (0 Errors)",
-            "Stage 13: All 31 Combat Units + 16 Heroes; ladder DPS/EHP/Cost & exact 55-point hero stat audit",
-            "Stage 14: Custom Lobby TGA, 408 MPQ BLP1s, all 64 BTN/DISBTN pairs, 4 animated cursor atlases, RPG Damage/Armor infocards & 6 MDX VFX",
-            "Stage 15: TFT 1.26-era API compatibility proxy + AI worker-build fallback, real consumables, imported AI startup and 3-hero cap checks",
+            "Stage 1: HM3W header + PurePython MPQ v1 archive (97 files)",
+            "Stage 2: TFT v25 — 192x192 Sunken-Astral terrain + 5,961 placed trees within the World Editor limit",
+            "Stage 3a: JASS2 static typecheck vs 1.27b Common.j + Blizzard.j (110 functions, 0 errors)",
+            "Stage 3b: JASS2 static typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (110 functions, 0 errors)",
+            "Stage 4 & 5: 181 preplaced units, 15 strings, 45 minimap icons and 256x256 BLP1 minimap synchronized",
+            "Stage 6: All 8 mirrored player starts, mines and town-hall zones are buildable",
+            "Stage 7: Zero collision footprints across 181 units and the 5,920 harvestable trees",
+            "Stage 8: Dynamic pathing BFS — 401,756 walkable cells, all bases/mines/shops/creeps reachable",
+            "Stage 9: 200u creep-camp acquisition and Tavern/base safe-zones verified",
+            "Stage 10: Exact 8-way D4 terrain, pathing and forest symmetry",
+            "Stage 11: 8 playable empires, 16 heroes, 64 skills; object tables and command-card collisions verified",
+            "Stage 12: All 4 imported race AI scripts typechecked against Common.j + common.ai (0 errors)",
+            "Stage 13: 31 combat units + 16 heroes; ladder DPS/EHP/cost and 55-point stat audits",
+            "Stage 14: 66 BLP1s (20 icon-only portrait files), native effect-matched skill art and 6 MDX VFX",
+            "Stage 15: TFT 1.26-era API compatibility proxy, worker-build fallback, item use and AI safeguards",
         ],
     }
 
@@ -63,7 +63,7 @@ ARCHIVE_MANIFEST_CACHE = build_archive_manifest()
 
 
 class MapPreviewHandler(BaseHTTPRequestHandler):
-    server_version = "CrownOfWarMahdiPreview/4.0"
+    server_version = "CrownOfWarMahdiPreview/5.0"
 
     def log_message(self, fmt: str, *args: object) -> None:
         sys.stdout.write("[HTTP] " + (fmt % args) + "\n")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 JASS2 Gameplay, Custom 3D Spell Engine, Sleek Menus, Live Multiboard HUD,
-and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v4.
+and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v5.
 
 Strict Classic 1.26a/1.27b + Reforged JASS2 Guarantees:
   - Every `local` variable is declared at the top of its `function`.
@@ -26,7 +26,7 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     Return `(globals_jass_lines, functions_jass_code)` to embed inside `war3map.j`.
     """
     globals_jass = """
-    // ---- Crown of WarMahdi v4: 8 Empires, 16 Exclusive Heroes, 64 Skills, Dark UI & Pro AI ----
+    // ---- Crown of WarMahdi v5: 8 Empires, 16 Exclusive Heroes, 64 Skills, Dark UI & Pro AI ----
     integer array udg_PlayerFaction
     boolean array udg_PlayerChoseRace
     boolean array udg_PlayerLockedInLobby
@@ -143,20 +143,31 @@ function WM_GetDiffLabel takes integer d returns string
 endfunction
 
 function WM_HeroPrimaryBonus takes unit u returns real
-    local integer s = GetHeroStr(u, true)
-    local integer a = GetHeroAgi(u, true)
-    local integer i = GetHeroInt(u, true)
-    local integer m = s
-    if a > m then
-        set m = a
+    local integer heroId = GetUnitTypeId(u)
+    local integer stat = 0
+
+    // Use the hero's declared primary attribute, not whichever attribute happens
+    // to be highest after items/levels. This keeps INT, AGI and STR kits coherent.
+    if heroId == 'Hvsh' or heroId == 'N002' or heroId == 'Hkal' or heroId == 'V002' or heroId == 'V004' or heroId == 'T004' then
+        set stat = GetHeroInt(u, true)
+    elseif heroId == 'N004' or heroId == 'Hvwd' or heroId == 'V003' or heroId == 'T003' then
+        set stat = GetHeroAgi(u, true)
+    elseif heroId == 'N001' or heroId == 'Hlgr' or heroId == 'Huth' or heroId == 'V001' or heroId == 'T001' or heroId == 'T002' then
+        set stat = GetHeroStr(u, true)
+    else
+        set stat = GetHeroStr(u, true)
+        if GetHeroAgi(u, true) > stat then
+            set stat = GetHeroAgi(u, true)
+        endif
+        if GetHeroInt(u, true) > stat then
+            set stat = GetHeroInt(u, true)
+        endif
     endif
-    if i > m then
-        set m = i
+
+    if stat > 90 then
+        set stat = 90
     endif
-    if m > 90 then
-        set m = 90
-    endif
-    return I2R(m) * 0.85
+    return I2R(stat) * 0.85
 endfunction
 
 function WM_ClampMapCoord takes real v returns real
@@ -580,7 +591,7 @@ function WM_CreateCrownMultiboard takes nothing returns nothing
         set mbitem = MultiboardGetItem(udg_CrownBoard, i, 0)
         call MultiboardSetItemStyle(mbitem, true, i == 0)
         if i == 0 then
-            call MultiboardSetItemIcon(mbitem, "ReplaceableTextures\\CommandButtons\\BTN_WM_CrownCrest.blp")
+            call MultiboardSetItemIcon(mbitem, "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_Hvsh.blp")
         endif
         call MultiboardSetItemWidth(mbitem, 0.085)
         call MultiboardReleaseItem(mbitem)
@@ -844,17 +855,20 @@ function WM_AICastCustomHeroCombo takes unit hero, unit enemy returns nothing
 
     // Defensive self/ally E skills are prioritized below 72% health.
     if hpPct < 0.72 and GetUnitAbilityLevel(hero, e) > 0 then
-        call IssueImmediateOrder(hero, "thunderclap")
-        return
+        if IssueImmediateOrder(hero, "thunderclap") then
+            return
+        endif
     endif
 
+    // Do not let an unavailable/cooling-down ultimate block the hero's Q/W fallback.
     if udg_AIDiff >= 2 and GetUnitAbilityLevel(hero, r) > 0 then
         if r == 'A007' or r == 'A043' then
-            call IssueImmediateOrder(hero, "roar")
-        else
-            call IssuePointOrder(hero, "monsoon", ex, ey)
+            if IssueImmediateOrder(hero, "roar") then
+                return
+            endif
+        elseif IssuePointOrder(hero, "monsoon", ex, ey) then
+            return
         endif
-        return
     endif
 
     if GetUnitAbilityLevel(hero, q) > 0 then
@@ -1840,12 +1854,12 @@ function WM_CreateImperialCodexQuests takes nothing returns nothing
     local quest q1 = CreateQuest()
     local quest q2 = CreateQuest()
     call QuestSetTitle(q1, "Crown of WarMahdi — 16 Exclusive Heroes / 64 Skills")
-    call QuestSetIconPath(q1, "ReplaceableTextures\\CommandButtons\\BTN_WM_CrownCrest.blp")
+    call QuestSetIconPath(q1, "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_Hvsh.blp")
     call QuestSetDescription(q1, "4 Original Empires join the 4 Classic Races. Every one of the 16 custom Heroes now has a private Q/W/E/R kit (64 distinct skills, buttons, and spell shapes).\n• Abyssal Tideborn: Vashj, Illidan Stormrage, Naj'entus, Athissa.\n• Sunfury Imperium: Kael'thas, Sylvanas, Garithos, Uther.\n• Voidborn Legion: Xal'athor, Sargen'eth, Akama, Aetheron.\n• Runeforged Bastion: Thorim, Ignis, Mimiron, Loken.\n\nHold the Central Crown Shrine for resources, healing, and a live HUD.")
     call QuestSetRequired(q1, true)
 
     call QuestSetTitle(q2, "Quick Commands & Pro AI")
-    call QuestSetIconPath(q2, "ReplaceableTextures\\CommandButtons\\BTN_WM_FactionTome.blp")
+    call QuestSetIconPath(q2, "ReplaceableTextures\\CommandButtons\\BTNHeroTinker.blp")
     call QuestSetDescription(q2, "• Host picks AI Difficulty at 0:00 (Novice / Veteran / Grandmaster / WarMahdi Mythic).\n• Type -race (or -abyss / -sun / -void / -titan) in the opening 40s to switch empire.")
     call QuestSetRequired(q2, false)
     set q1 = null
@@ -1937,7 +1951,7 @@ function InitCustomRacesAndAI takes nothing returns nothing
 
     call WM_CreateImperialCodexQuests()
 
-    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v4 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc64 Hero-Specific Custom Skills|r • |cfff97316Pro AI|r")
+    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v5 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc64 Hero-Specific Skills|r • |cfff97316Pro AI|r")
 
     set udg_BootTimer = CreateTimer()
     set udg_DiffTimeoutTimer = CreateTimer()

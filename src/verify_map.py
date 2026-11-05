@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-15-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v4.
+15-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v5.
 Checks the MPQ, TFT v25, JASS2 APIs (TFT-era proxy, 1.27b and Reforged), all 64 hero abilities,
 16 unique hero kits, 8 empire spawn/build definitions, four AI scripts and the JASS AI fallback,
-object/card/rally flags, ladder stat budgets, all BLP1s/MDXs, pathing, creep safety and D4 symmetry.
+object/card/rally flags, native icon/model references, portrait/UI BLP1s/MDXs, pathing, creep safety and D4 symmetry.
 It cannot replace launching the map in an actual Warcraft III client.
 """
 
@@ -1038,7 +1038,7 @@ def run_verification(w3x_path: Path) -> None:
     _, w3t_orig, w3t_cust = parse_obj_table(files["war3map.w3t"], False)
     _, w3q_orig, w3q_cust = parse_obj_table(files["war3map.w3q"], True)
     _, w3a_orig, w3a_cust = parse_obj_table(files["war3map.w3a"], True)
-    assert len(w3u_orig) >= 24 and len(w3u_cust) == 65, f"Unexpected v4 w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
+    assert len(w3u_orig) >= 24 and len(w3u_cust) == 65, f"Unexpected v5 w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
     assert len(w3t_cust) == 5 and len(w3q_orig) == 6 and len(w3q_cust) == 4, (
         f"Unexpected w3t/w3q counts: w3t={len(w3t_cust)}, w3q={len(w3q_orig)}+{len(w3q_cust)}"
     )
@@ -1052,7 +1052,7 @@ def run_verification(w3x_path: Path) -> None:
         else:
             assert nid[0].islower(), f"Custom non-Hero {nid} (parent {oid}) MUST start with lowercase!"
 
-    # Independent JS binary parser cross-check via mdx-m3-viewer (all 6 custom .mdx models + 407 BLP1s).
+    # Independent JS parser cross-check via mdx-m3-viewer (all 6 custom .mdx models and BLP1 assets).
     imp_expected = struct.unpack_from("<II", files["war3map.imp"], 0)[1]
     blp_paths_json = json.dumps([name for name in files if name.lower().endswith(".blp")])
     mdx_dir = Path("/tmp/wc3ref/node_modules/mdx-m3-viewer")
@@ -1084,7 +1084,7 @@ def run_verification(w3x_path: Path) -> None:
                     if (mdl.version !== 800 || mdl.sequences.length < 2 || mdl.geosets.length < 2) process.exit(2);
                 }}
                 const icon = new BlpImage();
-                icon.load(m.get("ReplaceableTextures\\\\CommandButtons\\\\BTN_WM_S00.blp").bytes());
+                icon.load(m.get("ReplaceableTextures\\\\CommandButtons\\\\BTN_WM_Portrait_Hvsh.blp").bytes());
                 if (icon.width !== 64 || icon.height !== 64) process.exit(3);
                 const cursor = new BlpImage();
                 cursor.load(m.get("UI\\\\Cursor\\\\HumanCursor.blp").bytes());
@@ -1199,6 +1199,105 @@ def run_verification(w3x_path: Path) -> None:
                             except ValueError:
                                 pass
 
+        # Cross-reference Blizzard's Naga building rawcodes against the native
+        # campaign function records (the relevant structures are around lines 990-1070)
+        # and unitui.slk model paths. These are the model/button sources for custom Naga buildings.
+        native_button_art_paths: Set[str] = set()
+        native_func_fields: Dict[str, Dict[str, str]] = {}
+        for fp in slk_dir.glob("*func.txt"):
+            section: Optional[str] = None
+            for line in fp.read_text(errors="ignore").splitlines():
+                line = line.strip()
+                if line.startswith("[") and line.endswith("]") and len(line) == 6:
+                    section = line[1:5].lower()
+                    native_func_fields.setdefault(section, {})
+                    continue
+                if not section or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key, value = key.strip().lower(), value.strip()
+                native_func_fields[section][key] = value
+                if key in ("art", "researchart"):
+                    native_button_art_paths.add(value.replace("/", "\\").lower())
+        native_unit_ui = load_slk_ids(slk_dir / "unitui.slk", "unitUIID")
+        naga_native_buildings = {
+            "nnad": (r"buildings\naga\AltarOfDepths\AltarOfDepths", r"ReplaceableTextures\CommandButtons\BTNAltarOfDepths.blp"),
+            "nnfm": (r"buildings\naga\CoralBed\CoralBed", r"ReplaceableTextures\CommandButtons\BTNCoralBed.blp"),
+            "nnsa": (r"buildings\naga\ShrineOfAshjara\ShrineOfAshjara", r"ReplaceableTextures\CommandButtons\BTNShrineOfAszhara.blp"),
+            "nnsg": (r"buildings\naga\SpawningGrounds\SpawningGrounds", r"ReplaceableTextures\CommandButtons\BTNSpawningGrounds.blp"),
+            "nntg": (r"buildings\naga\TidalGuardian\TidalGuardian", r"ReplaceableTextures\CommandButtons\BTNTidalGuardian.blp"),
+            "nntt": (r"buildings\naga\TempleofTides\TempleofTides", r"ReplaceableTextures\CommandButtons\BTNTempleOfTides.blp"),
+        }
+        for native_id, (model_path, button_path) in naga_native_buildings.items():
+            assert native_id in native_unit_ui, f"Native Naga building {native_id} missing from unitui.slk"
+            assert str(native_unit_ui[native_id].get("file", "")).lower() == model_path.lower(), (
+                f"Native Naga model mismatch for {native_id}: {native_unit_ui[native_id].get('file')}"
+            )
+            assert native_func_fields.get(native_id, {}).get("art", "").lower() == button_path.lower(), (
+                f"Native Naga button mismatch for {native_id}: {native_func_fields.get(native_id, {}).get('art')}"
+            )
+            assert button_path.lower() in native_button_art_paths, f"Unrecognized native Naga button {button_path}"
+
+        custom_u_by_id = {
+            nid: {fid: str(value) for fid, _vt, _lvl, _dptr, value in mods}
+            for _oid, nid, mods in w3u_cust if nid != "\x00\x00\x00\x00"
+        }
+        custom_model_paths = {
+            nid: mods["umdl"] for nid, mods in custom_u_by_id.items() if mods.get("umdl")
+        }
+        assert len(custom_model_paths) == 55, (
+            f"Expected all 55 custom faction model overrides to survive icon normalization, got {len(custom_model_paths)}"
+        )
+        native_model_paths = {
+            str(row.get("file", "")).replace("/", "\\").lower()
+            for row in native_unit_ui.values() if row.get("file")
+        }
+        for custom_id, model_path in custom_model_paths.items():
+            model_key = model_path.replace("/", "\\").removesuffix(".mdl").lower()
+            assert model_key in native_model_paths, (
+                f"Custom object {custom_id} references non-native/unverified model {model_path}"
+            )
+        representative_models = {
+            "h007": r"buildings\other\ElvenVillageBuilding3\ElvenVillageBuilding3.mdl",
+            "h008": r"buildings\other\ElvenVillageBuilding4\ElvenVillageBuilding4.mdl",
+            "h009": r"buildings\other\DragonRoost\DragonRoost.mdl",
+            "v001": r"buildings\undead\Necropolis\Necropolis.mdl",
+            "v010": r"units\creeps\VoidWalker\VoidWalker.mdl",
+            "t001": r"buildings\other\AmmoDump\AmmoDump.mdl",
+            "t002": r"buildings\other\ArcaneObservatory\ArcaneObservatory.mdl",
+            "t010": r"Units\Creeps\HeroTinkerRobot\HeroTinkerRobot.mdl",
+        }
+        for custom_id, expected_model in representative_models.items():
+            assert custom_u_by_id.get(custom_id, {}).get("umdl", "").lower() == expected_model.lower(), (
+                f"Faction model override for {custom_id} was removed or changed"
+            )
+
+        for custom_id, native_id in (("n003", "nnsa"), ("n004", "nnad"), ("n005", "nnsg")):
+            expected_model, expected_button = naga_native_buildings[native_id]
+            actual_model = custom_u_by_id.get(custom_id, {}).get("umdl", "").removesuffix(".mdl")
+            actual_button = custom_u_by_id.get(custom_id, {}).get("uico", "")
+            assert actual_model.lower() == expected_model.lower(), f"{custom_id} is not using native Naga model {expected_model}.mdl"
+            assert actual_button.lower() == expected_button.lower(), f"{custom_id} is not using matched native Naga button {expected_button}"
+
+        for custom_id, native_id in (("h001", "htow"), ("h002", "hkee"), ("h003", "hcas"), ("h010", "hbla")):
+            expected_model = str(native_unit_ui[native_id].get("file", ""))
+            actual_model = custom_u_by_id.get(custom_id, {}).get("umdl", "").removesuffix(".mdl")
+            assert actual_model.lower() == expected_model.lower(), (
+                f"{custom_id} does not retain its native Human model {expected_model}.mdl"
+            )
+
+        # Native art paths are external game assets: validate their metadata, rather
+        # than incorrectly requiring Blizzard's icons to be imported into the map.
+        def normalize_button_path(path: str) -> str:
+            return path.replace("/", "\\").lower()
+
+        def disabled_button_path(path: str) -> str:
+            marker = "\\commandbuttons\\btn"
+            normalized = normalize_button_path(path)
+            assert marker in normalized, f"Not a normal Warcraft command button path: {path}"
+            idx = normalized.index(marker)
+            return path[:idx] + path[idx:].replace("\\CommandButtons\\BTN", "\\CommandButtonsDisabled\\DISBTN", 1)
+
         null_id = "\x00\x00\x00\x00"
         for oid, nid, mods in w3u_orig + w3u_cust:
             assert oid in slk_ubal, f"Unknown parent unit ID {oid!r}"
@@ -1212,6 +1311,14 @@ def run_verification(w3x_path: Path) -> None:
                     f"Strict variableType mismatch on {target_label}.{fid} ({umd[fid].get('type')}): "
                     f"got vt={vt}, expected vt={exp_vt}!"
                 )
+                if fid == "uico":
+                    icon_path = str(val)
+                    if r"\CommandButtons\BTN_WM_Portrait_" in icon_path:
+                        assert icon_path in files, f"Missing custom hero portrait icon {icon_path} in MPQ"
+                    else:
+                        assert normalize_button_path(icon_path) in native_button_art_paths, (
+                            f"Unrecognized native object button art {icon_path} on {target_label}"
+                        )
                 # CRITICAL HERO RALLY-FLAG GUARD (`urev` and all building-only fields forbidden on Heroes!)
                 if is_hero_obj:
                     assert fid != "urev", f"CRITICAL RALLY-FLAG BUG: Hero {target_label} has building-only 'urev'!"
@@ -1266,10 +1373,21 @@ def run_verification(w3x_path: Path) -> None:
                 elif fid == "Ncl6":
                     orders_by_lvl[lvl] = str(val)
                 elif fid == "aart":
-                    assert str(val) in files, f"Missing custom skill icon {val} in MPQ!"
-                    dis_p = str(val).replace("\\CommandButtons\\BTN_", "\\CommandButtonsDisabled\\DISBTN_")
-                    assert dis_p in files, f"Missing DISBTN twin {dis_p} in MPQ!"
-                    seen_skill_icons.add(str(val))
+                    icon_path = str(val)
+                    normalized_icon = normalize_button_path(icon_path)
+                    assert normalized_icon.startswith("replaceabletextures\\commandbuttons\\btn"), (
+                        f"Skill {nid} does not use a normal Warcraft command button: {icon_path}"
+                    )
+                    assert "btn_wm_s" not in normalized_icon, f"Legacy generated skill art remains: {icon_path}"
+                    assert normalized_icon in native_button_art_paths, (
+                        f"Skill {nid} button is not found in native Warcraft III function metadata: {icon_path}"
+                    )
+                    disabled_path = disabled_button_path(icon_path)
+                    normalized_disabled = normalize_button_path(disabled_path)
+                    assert "\\commandbuttonsdisabled\\disbtn" in normalized_disabled, (
+                        f"Invalid native disabled-button twin path for {icon_path}: {disabled_path}"
+                    )
+                    seen_skill_icons.add(normalized_icon)
                 elif fid == "acat":
                     assert str(val) in files and str(val).endswith(".mdx"), f"Missing custom 3D MDX model {val} in MPQ!"
                     seen_skill_fx.add(str(val))
@@ -1526,7 +1644,7 @@ def run_verification(w3x_path: Path) -> None:
     print("[PASS] Stage 13: All-31-Unit, 16-Hero/64-Skill, 8-Spawn-Branch, Ladder DPS/EHP/Cost/Role Audit Passed")
 
     # ------------------------------------------------------------------
-    # STAGE 14: Custom Lobby Art, Full Dark RPG UI, Animated Cursor & 414 Assets
+    # STAGE 14: Lobby Art, Native Skill Buttons, Hero Portraits, UI & VFX
     # ------------------------------------------------------------------
     tga = files["war3mapPreview.tga"]
     assert tga[2] == 2 and struct.unpack_from("<HHB", tga, 12) == (256, 256, 24), "Invalid 256x256 24-bit war3mapPreview.tga!"
@@ -1536,29 +1654,46 @@ def run_verification(w3x_path: Path) -> None:
         "Cursor=UI\\Cursor\\HumanCursor.mdl",
         "InfoPanelIconDamageChaos=UI\\CrownUI\\Infocard\\DmgChaos.blp",
         "InfoPanelIconArmorFort=UI\\CrownUI\\Infocard\\ArmFort.blp",
-        "CommandBasicStructUndead=ReplaceableTextures\\CommandButtons\\BTN_WM_BuildVoidborn.blp",
-        "CommandBasicStructOrc=ReplaceableTextures\\CommandButtons\\BTN_WM_BuildRuneforged.blp",
+        "CommandBasicStruct=ReplaceableTextures\\CommandButtons\\BTNAltarOfDepths.blp",
+        "CommandBasicStructHuman=ReplaceableTextures\\CommandButtons\\BTNHumanBuild.blp",
+        "CommandBasicStructUndead=ReplaceableTextures\\CommandButtons\\BTNScourgeBuild.blp",
+        "CommandBasicStructOrc=ReplaceableTextures\\CommandButtons\\BTNBasicStruct.blp",
+        "CommandBasicStructNightElf=ReplaceableTextures\\CommandButtons\\BTNNightElfBuild.blp",
     ):
-        assert skin_key in skin_txt, f"Missing v4 custom UI skin mapping: {skin_key}"
+        assert skin_key in skin_txt, f"Missing v5 UI skin mapping: {skin_key}"
 
     blp_files = {name: data for name, data in files.items() if name.lower().endswith(".blp")}
     mdx_files = {name: data for name, data in files.items() if name.lower().endswith(".mdx") and name.startswith("WM_FX_")}
-    assert len(blp_files) >= 400, f"Expected 400+ custom BLP1s, got {len(blp_files)}"
+    assert len(blp_files) == 66, f"Expected 66 current v5 portrait/UI/VFX/minimap BLPs, got {len(blp_files)}"
     assert len(mdx_files) == 6, f"Expected 6 custom 3D VFX models, got {len(mdx_files)}"
+
+    portrait_rawcodes = ("Hvsh", "N004", "N001", "N002", "Hkal", "Hvwd", "Hlgr", "Huth", "V001", "V002")
+    portrait_blp_paths: Set[str] = set()
+    for rawcode in portrait_rawcodes:
+        portrait_blp_paths.add(f"ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_{rawcode}.blp")
+        portrait_blp_paths.add(f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_Portrait_{rawcode}.blp")
+    assert portrait_blp_paths.issubset(blp_files), f"Missing custom portrait BLP pairs: {sorted(portrait_blp_paths - set(blp_files))}"
+
+    palette_blp_paths: Set[str] = set()
     for name, data in blp_files.items():
         assert data[:4] == b"BLP1", f"Invalid BLP1 magic on {name}"
-        _content, _alpha, bw, bh, _typ, _mips = struct.unpack_from("<6I", data, 4)
+        content, alpha_bits, bw, bh, _typ, _mips = struct.unpack_from("<6I", data, 4)
+        assert content in (0, 1), f"Unknown BLP1 encoding {content} on {name}"
         assert bw > 0 and bh > 0 and (bw & (bw - 1)) == 0 and (bh & (bh - 1)) == 0, f"Invalid BLP1 dimensions on {name}: {bw}x{bh}"
-        if "BTN_WM_S" in name or "DISBTN_WM_S" in name:
-            assert (bw, bh) == (64, 64), f"Hero skill icon must be 64x64: {name}"
+        if content == 1:
+            assert name in portrait_blp_paths, f"Palette-encoded BLP is not an icon: {name}"
+            assert (bw, bh) == (64, 64), f"Custom hero portrait must be 64x64: {name}"
+            assert alpha_bits == 0, f"Portrait icon should not declare a palette alpha channel: {name}"
+            palette_blp_paths.add(name)
+        else:
+            assert name not in portrait_blp_paths, f"Custom portrait icon must remain icon-only paletted BLP: {name}"
+    assert palette_blp_paths == portrait_blp_paths, "Palette BLP use must be limited to the ten portrait BTN/DISBTN pairs"
+    assert not any("BTN_WM_S" in name or "DISBTN_WM_S" in name for name in blp_files), "Obsolete generated skill-icon assets remain in MPQ"
+
     for race_cursor in ("Human", "Orc", "Undead", "NightElf"):
         name = f"UI\\Cursor\\{race_cursor}Cursor.blp"
         assert name in files and struct.unpack_from("<II", files[name], 12)[0:2] == (256, 128), f"Missing or invalid custom cursor atlas: {name}"
-    for i in range(64):
-        icon = f"ReplaceableTextures\\CommandButtons\\BTN_WM_S{i:02d}.blp"
-        disabled = f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_S{i:02d}.blp"
-        assert icon in files and disabled in files, f"Missing exclusive skill BTN/DISBTN pair S{i:02d}"
-    print(f"[PASS] Stage 14: Lobby TGA + Custom Cursor + RPG Damage/Armor UI + 64 Unique Skills + {len(blp_files)} BLP1s + 6 MDX Models")
+    print(f"[PASS] Stage 14: Lobby TGA + native faction/skill art + 10 portrait pairs + icon-only palette BLPs + {len(blp_files)} BLP1s + 6 MDX models")
 
     # ------------------------------------------------------------------
     # STAGE 15: TFT 1.26-era API Compatibility & AI Startup/Fallback Coverage
@@ -1582,6 +1717,28 @@ def run_verification(w3x_path: Path) -> None:
         'StartMeleeAI(p, "runeforged_melee.ai")',
     ):
         assert ai_path in jass_src, f"Missing custom AI startup call {ai_path}!"
+    for ai_name, first_id, last_id in (("voidborn_melee.ai", 32, 47), ("runeforged_melee.ai", 48, 63)):
+        ai_src = files[ai_name].decode("utf-8")
+        expected_skill_ids = {f"A{i:03d}" for i in range(first_id, last_id + 1)}
+        assigned_skill_ids = set(re.findall(r"'([A][0-9]{3})'", ai_src))
+        assert expected_skill_ids.issubset(assigned_skill_ids), (
+            f"{ai_name} is missing its exact 16 custom hero-skill rawcodes: "
+            f"{sorted(expected_skill_ids - assigned_skill_ids)}"
+        )
+
+    naga_ai_src = files["naga_melee.ai"].decode("utf-8")
+    for upgrade in ("UPG_NAGA_ENSNARE", "UPG_NAGA_SUBMERGE", "UPG_NAGA_ABOLISH"):
+        assert f"if GetUpgradeLevel({upgrade}) < 1 then" in naga_ai_src, (
+            f"Naga AI must guard repeat research orders for {upgrade}"
+        )
+    for order_guard in (
+        'if IssueImmediateOrder(hero, "roar") then',
+        'elseif IssuePointOrder(hero, "monsoon", ex, ey) then',
+        'if IssuePointOrder(hero, "flamestrike", ex, ey) then',
+        'if IssueTargetOrder(hero, "chainlightning", enemy) then',
+    ):
+        assert order_guard in jass_src, f"AI hero order fallback is missing {order_guard}"
+
     assert "function WM_AIFallbackBuild" in jass_src and "IssueBuildOrderById" in jass_src, "AI worker-build fallback missing!"
     assert "function WM_AIUseInventory" in jass_src and "UnitUseItemPoint" in jass_src, "AI consumable/retreat micro fallback missing!"
     assert "WM_CountLivingHeroes(p) < 3" in jass_src, "AI hero cap guard missing!"

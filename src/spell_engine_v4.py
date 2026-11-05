@@ -95,9 +95,9 @@ endfunction
 function WM_CastChainLightning takes unit caster, unit firstTarget, integer jumps, real damage, string fxPath returns nothing
     local player owner = GetOwningPlayer(caster)
     local unit current = firstTarget
-    local unit previous = null
     local unit u = null
     local unit best = null
+    local group hit = CreateGroup()
     local real bestD = 99999999.0
     local real dx = 0.0
     local real dy = 0.0
@@ -105,7 +105,8 @@ function WM_CastChainLightning takes unit caster, unit firstTarget, integer jump
     local integer hop = 0
     loop
         exitwhen current == null or hop >= jumps
-        if WM_IsValidSpellEnemy(current, owner) then
+        if WM_IsValidSpellEnemy(current, owner) and not IsUnitInGroup(current, hit) then
+            call GroupAddUnit(hit, current)
             call DestroyEffect(AddSpecialEffect(fxPath, GetUnitX(current), GetUnitY(current)))
             call WM_DealSpellDamage(caster, current, damage / (1.0 + I2R(hop) * 0.32))
             set best = null
@@ -116,7 +117,7 @@ function WM_CastChainLightning takes unit caster, unit firstTarget, integer jump
                 set u = FirstOfGroup(udg_TempGroupB)
                 exitwhen u == null
                 call GroupRemoveUnit(udg_TempGroupB, u)
-                if u != current and u != previous and WM_IsValidSpellEnemy(u, owner) then
+                if not IsUnitInGroup(u, hit) and WM_IsValidSpellEnemy(u, owner) then
                     set dx = GetUnitX(u) - GetUnitX(current)
                     set dy = GetUnitY(u) - GetUnitY(current)
                     set d = dx * dx + dy * dy
@@ -126,33 +127,52 @@ function WM_CastChainLightning takes unit caster, unit firstTarget, integer jump
                     endif
                 endif
             endloop
-            set previous = current
             set current = best
         else
             set current = null
         endif
         set hop = hop + 1
     endloop
+    call DestroyGroup(hit)
+    set hit = null
     set owner = null
     set current = null
-    set previous = null
     set u = null
     set best = null
 endfunction
 
 function WM_EnqueueUltPulse takes unit caster, integer abilId, real tx, real ty, integer pulses returns nothing
-    local integer idx = udg_UltCount
-    if idx >= 48 then
-        set idx = 0
+    local integer idx = 0
+    if pulses <= 0 or caster == null then
+        return
     endif
+
+    // Reuse expired entries; never overwrite slot zero while its ultimate is active.
+    loop
+        exitwhen idx >= 48 or udg_UltCaster[idx] == null or udg_UltTicksLeft[idx] <= 0
+        set idx = idx + 1
+    endloop
+    if idx >= 48 then
+        return
+    endif
+
     set udg_UltCaster[idx] = caster
     set udg_UltAbil[idx] = abilId
     set udg_UltX[idx] = tx
     set udg_UltY[idx] = ty
     set udg_UltTicksLeft[idx] = pulses
-    if idx == udg_UltCount then
-        set udg_UltCount = udg_UltCount + 1
+    if idx >= udg_UltCount then
+        set udg_UltCount = idx + 1
     endif
+endfunction
+
+function WM_GetUltPulseDamage takes unit caster, real baseDamage returns real
+    local integer heroLevel = GetHeroLevel(caster)
+    local real levelBonus = I2R(heroLevel - 6) * 2.0
+    if levelBonus < 0.0 then
+        set levelBonus = 0.0
+    endif
+    return baseDamage + 0.25 * WM_HeroPrimaryBonus(caster) + levelBonus
 endfunction
 
 function WM_OnUltWaveTick takes nothing returns nothing
@@ -176,58 +196,68 @@ function WM_OnUltWaveTick takes nothing returns nothing
             set rad = 150.0 + I2R(pulse) * 92.0
             if GetWidgetLife(caster) <= 0.405 then
                 set udg_UltTicksLeft[idx] = 0
+                set udg_UltCaster[idx] = null
             elseif abil == 'A003' then
                 // Vashj: three advancing Tsunami fronts, healing friendlies behind the wave.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Other\\CrushingWave\\CrushingWaveDamage.mdl", tx, ty, rad, 10, I2R(pulse) * 0.18)
-                call WM_ApplyAreaEffect(caster, tx, ty, 390.0, 49.0, 18.0, 0.0, 0.0, 42.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 390.0, WM_GetUltPulseDamage(caster, 49.0), 18.0, 0.0, 0.0, 42.0)
             elseif abil == 'A007' then
                 // Illidan: fel-tidal metamorphosis orbit and twin-glaive shock pulses.
                 call DestroyEffect(AddSpecialEffect("WM_FX_FelGlaive.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\NightElf\\Immolation\\ImmolationDamage.mdl", tx, ty, rad, 8, I2R(pulse) * 0.42)
-                call WM_ApplyAreaEffect(caster, tx, ty, 380.0, 52.0, 12.0, 0.0, 0.0, 36.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 380.0, WM_GetUltPulseDamage(caster, 52.0), 12.0, 0.0, 0.0, 36.0)
                 call SetWidgetLife(caster, GetWidgetLife(caster) + 28.0)
             elseif abil == 'A011' then
                 // Naj'entus: Kraken undertow pulls the enemy formation into the trench.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Other\\CrushingWave\\CrushingWaveDamage.mdl", tx, ty, rad, 8, I2R(pulse) * 0.26)
-                call WM_ApplyAreaEffect(caster, tx, ty, 390.0, 54.0, 0.0, 0.0, 0.0, -48.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 390.0, WM_GetUltPulseDamage(caster, 54.0), 0.0, 0.0, 0.0, -48.0)
+                if pulse == 2 then
+                    call WM_SpawnTimedUnit(owner, 'nmyr', tx + 145.0, ty + 70.0, 12.0)
+                    call WM_SpawnTimedUnit(owner, 'nmyr', tx - 145.0, ty - 70.0, 12.0)
+                endif
             elseif abil == 'A015' then
                 // Athissa: pearl-surge ring, mana drain, and the final undertow.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Other\\Monsoon\\MonsoonBoltTarget.mdl", tx, ty, rad, 8, I2R(pulse) * 0.34)
-                call WM_ApplyAreaEffect(caster, tx, ty, 400.0, 48.0, 16.0, 10.0, 18.0, -32.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 400.0, WM_GetUltPulseDamage(caster, 48.0), 16.0, 10.0, 18.0, -32.0)
                 if pulse == 2 then
-                    call WM_SpawnTimedUnit(owner, 'nnrg', tx + 160.0, ty, 18.0)
+                    call WM_SpawnTimedUnit(owner, 'nsnp', tx + 145.0, ty + 70.0, 16.0)
+                    call WM_SpawnTimedUnit(owner, 'nsnp', tx - 145.0, ty - 70.0, 16.0)
                 endif
             elseif abil == 'A019' then
                 // Kael: Solar phoenix crown detonations with an allied mana crest.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Human\\MarkOfChaos\\MarkOfChaosTarget.mdl", tx, ty, rad, 8, I2R(pulse) * 0.48)
-                call WM_ApplyAreaEffect(caster, tx, ty, 400.0, 56.0, 12.0, 12.0, 0.0, 30.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 400.0, WM_GetUltPulseDamage(caster, 56.0), 12.0, 12.0, 0.0, 30.0)
                 if pulse == 2 then
-                    call WM_SpawnTimedUnit(owner, 'hgry', tx - 170.0, ty, 18.0)
+                    call WM_SpawnTimedUnit(owner, 'hdhw', tx - 170.0, ty, 18.0)
                 endif
             elseif abil == 'A023' then
                 // Sylvanas: three volleys of spectral arrows in expanding rings.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Weapons\\Arrow\\ArrowMissile.mdl", tx, ty, rad, 12, I2R(pulse) * 0.15)
-                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, 54.0, 0.0, 0.0, 0.0, 18.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, WM_GetUltPulseDamage(caster, 54.0), 0.0, 0.0, 0.0, 18.0)
             elseif abil == 'A027' then
                 // Garithos: Imperial cavalry shockwaves knock the formation aside.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Human\\Thunderclap\\ThunderClapCaster.mdl", tx, ty, rad, 6, I2R(pulse) * 0.35)
-                call WM_ApplyAreaEffect(caster, tx, ty, 390.0, 56.0, 8.0, 0.0, 0.0, 48.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 390.0, WM_GetUltPulseDamage(caster, 56.0), 8.0, 0.0, 0.0, 48.0)
+                if pulse == 2 then
+                    call WM_SpawnTimedUnit(owner, 'hcth', tx + 145.0, ty + 70.0, 14.0)
+                    call WM_SpawnTimedUnit(owner, 'hcth', tx - 145.0, ty - 70.0, 14.0)
+                endif
             elseif abil == 'A031' then
                 // Uther: Dawnbringer judgment—damage foes and restore nearby allies.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Human\\HolyBolt\\HolyBoltSpecialArt.mdl", tx, ty, rad, 8, I2R(pulse) * 0.25)
-                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, 48.0, 46.0, 8.0, 0.0, 0.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, WM_GetUltPulseDamage(caster, 48.0), 46.0, 8.0, 0.0, 0.0)
             elseif abil == 'A035' then
                 // Xal'athor: Dark Portal meteor + inward collapse.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Void.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Undead\\DarkRitual\\DarkRitualTarget.mdl", tx, ty, rad, 7, I2R(pulse) * 0.30)
-                call WM_ApplyAreaEffect(caster, tx, ty, 400.0, 58.0, 0.0, 0.0, 20.0, -46.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 400.0, WM_GetUltPulseDamage(caster, 58.0), 0.0, 0.0, 20.0, -46.0)
                 if pulse == 2 then
                     call WM_SpawnTimedUnit(owner, 'v011', tx + 140.0, ty + 80.0, 18.0)
                     call WM_SpawnTimedUnit(owner, 'v011', tx - 140.0, ty - 80.0, 18.0)
@@ -236,30 +266,34 @@ function WM_OnUltWaveTick takes nothing returns nothing
                 // Sargen'eth: singularity pulses vacuum enemies and burn their mana.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Void.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Undead\\Possession\\PossessionMissile.mdl", tx, ty, rad, 8, I2R(pulse) * 0.22)
-                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, 56.0, 0.0, 0.0, 24.0, -58.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, WM_GetUltPulseDamage(caster, 56.0), 0.0, 0.0, 24.0, -58.0)
             elseif abil == 'A043' then
                 // Akama: close-range shadow-dance orbit, healing the assassin between strikes.
                 set tx = GetUnitX(caster)
                 set ty = GetUnitY(caster)
                 call DestroyEffect(AddSpecialEffect("WM_FX_Void.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\NightElf\\Blink\\BlinkCaster.mdl", tx, ty, rad * 0.72, 8, I2R(pulse) * 0.50)
-                call WM_ApplyAreaEffect(caster, tx, ty, 380.0, 61.0, 12.0, 0.0, 0.0, 34.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 380.0, WM_GetUltPulseDamage(caster, 61.0), 12.0, 0.0, 0.0, 34.0)
                 call SetWidgetLife(caster, GetWidgetLife(caster) + 35.0)
             elseif abil == 'A047' then
                 // Aetheron: starfall-and-barrier over the cosmic field.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Void.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\NightElf\\Starfall\\StarfallCaster.mdl", tx, ty, rad, 10, I2R(pulse) * 0.18)
-                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, 56.0, 24.0, 0.0, 0.0, 0.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, WM_GetUltPulseDamage(caster, 56.0), 24.0, 0.0, 0.0, 0.0)
             elseif abil == 'A051' then
                 // Thorim: sequential Pantheon bolts strike a widening runic circle.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Other\\Monsoon\\MonsoonBoltTarget.mdl", tx, ty, rad, 8, I2R(pulse) * 0.4)
-                call WM_ApplyAreaEffect(caster, tx, ty, 400.0, 59.0, 0.0, 0.0, 0.0, 38.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 400.0, WM_GetUltPulseDamage(caster, 59.0), 0.0, 0.0, 0.0, 38.0)
+                if pulse == 2 then
+                    call WM_SpawnTimedUnit(owner, 't011', tx + 145.0, ty + 70.0, 16.0)
+                    call WM_SpawnTimedUnit(owner, 't011', tx - 145.0, ty - 70.0, 16.0)
+                endif
             elseif abil == 'A055' then
                 // Ignis: magma implosions awaken one temporary Stormforged Juggernaut.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Other\\Volcano\\VolcanoMissile.mdl", tx, ty, rad, 6, I2R(pulse) * 0.22)
-                call WM_ApplyAreaEffect(caster, tx, ty, 390.0, 58.0, 0.0, 0.0, 0.0, 24.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 390.0, WM_GetUltPulseDamage(caster, 58.0), 0.0, 0.0, 0.0, 24.0)
                 if pulse == 2 then
                     call WM_SpawnTimedUnit(owner, 't013', tx + 150.0, ty, 20.0)
                 endif
@@ -267,12 +301,12 @@ function WM_OnUltWaveTick takes nothing returns nothing
                 // Mimiron: an orbital laser sweeps 3 successive circles.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Other\\Doom\\DoomDeath.mdl", tx, ty, rad * 0.8, 8, I2R(pulse) * 0.38)
-                call WM_ApplyAreaEffect(caster, tx, ty, 420.0, 60.0, 0.0, 0.0, 0.0, 0.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 420.0, WM_GetUltPulseDamage(caster, 60.0), 0.0, 0.0, 0.0, 0.0)
             elseif abil == 'A063' then
                 // Loken: Tesla overcharge steals mana and calls two short-lived interceptors.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl", tx, ty, rad, 8, I2R(pulse) * 0.33)
-                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, 56.0, 8.0, 0.0, 22.0, 0.0)
+                call WM_ApplyAreaEffect(caster, tx, ty, 410.0, WM_GetUltPulseDamage(caster, 56.0), 8.0, 0.0, 22.0, 0.0)
                 if pulse == 2 then
                     call WM_SpawnTimedUnit(owner, 't015', tx + 160.0, ty, 18.0)
                     call WM_SpawnTimedUnit(owner, 't015', tx - 160.0, ty, 18.0)
@@ -308,6 +342,7 @@ function WM_OnCustomHeroSpellEffect takes nothing returns boolean
     local real dist = 0.0
     local real dmg = 0.0
     local real missingLife = 0.0
+    local real manaTaken = 0.0
     local real ang = 0.0
 
     if abil < 'A000' or abil > 'A063' then
@@ -367,21 +402,10 @@ function WM_OnCustomHeroSpellEffect takes nothing returns boolean
         call WM_ApplyLineEffect(caster, cx, cy, WM_ClampMapCoord(tx + Cos(ang + 0.22) * 85.0), WM_ClampMapCoord(ty + Sin(ang + 0.22) * 85.0), 55.0, dmg * 0.55)
         call WM_ApplyLineEffect(caster, cx, cy, WM_ClampMapCoord(tx + Cos(ang - 0.22) * 85.0), WM_ClampMapCoord(ty + Sin(ang - 0.22) * 85.0), 55.0, dmg * 0.55)
     elseif abil == 'A024' then
-        // Garithos — Shock Charge: rushes up to 400 units, then knocks enemies away.
-        set dx = tx - cx
-        set dy = ty - cy
-        set dist = SquareRoot(dx * dx + dy * dy)
-        if dist > 400.0 then
-            set tx = WM_ClampMapCoord(cx + (dx / dist) * 400.0)
-            set ty = WM_ClampMapCoord(cy + (dy / dist) * 400.0)
-        endif
-        call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", cx, cy))
-        if not IsTerrainPathable(tx, ty, PATHING_TYPE_WALKABILITY) then
-            call SetUnitPosition(caster, tx, ty)
-        endif
-        call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", GetUnitX(caster), GetUnitY(caster)))
-        call WM_SpawnRingFX("Abilities\\Spells\\Human\\Thunderclap\\ThunderClapCaster.mdl", GetUnitX(caster), GetUnitY(caster), 170.0, 6, 0.0)
-        call WM_ApplyAreaEffect(caster, GetUnitX(caster), GetUnitY(caster), 245.0, dmg * 1.08, 0.0, 0.0, 0.0, 65.0)
+        // Garithos — Earthshaker Warhammer: a point-targeted ground shock, not a hero dash.
+        call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
+        call WM_SpawnRingFX("Abilities\\Spells\\Human\\Thunderclap\\ThunderClapCaster.mdl", tx, ty, 190.0, 8, 0.0)
+        call WM_ApplyAreaEffect(caster, tx, ty, 245.0, dmg * 1.08, 0.0, 0.0, 0.0, 65.0)
     elseif abil == 'A028' then
         // Uther — Consecration: radiant AoE damages foes and heals allies.
         call DestroyEffect(AddSpecialEffect("WM_FX_Solar.mdx", tx, ty))
@@ -462,7 +486,11 @@ function WM_OnCustomHeroSpellEffect takes nothing returns boolean
             call DestroyEffect(AddSpecialEffect("WM_FX_FelGlaive.mdx", GetUnitX(caster), GetUnitY(caster)))
             call DestroyEffect(AddSpecialEffectTarget("Abilities\\Weapons\\DemonHunterMissile\\DemonHunterMissile.mdl", targ, "chest"))
             call WM_DealSpellDamage(caster, targ, dmg * 1.22)
-            call SetUnitState(caster, UNIT_STATE_MANA, RMaxBJ(0.0, GetUnitState(caster, UNIT_STATE_MANA) - 20.0))
+            if GetUnitState(targ, UNIT_STATE_MAX_MANA) > 0.0 then
+                set manaTaken = RMinBJ(20.0, GetUnitState(targ, UNIT_STATE_MANA))
+                call SetUnitState(targ, UNIT_STATE_MANA, GetUnitState(targ, UNIT_STATE_MANA) - manaTaken)
+                call SetUnitState(caster, UNIT_STATE_MANA, RMinBJ(GetUnitState(caster, UNIT_STATE_MAX_MANA), GetUnitState(caster, UNIT_STATE_MANA) + manaTaken))
+            endif
         endif
     elseif abil == 'A009' then
         set targ = GetSpellTargetUnit()
@@ -479,7 +507,8 @@ function WM_OnCustomHeroSpellEffect takes nothing returns boolean
             call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", GetUnitX(targ), GetUnitY(targ)))
             call WM_ApplyAreaEffect(caster, GetUnitX(targ), GetUnitY(targ), 190.0, dmg * 0.50, 0.0, 0.0, 26.0, 0.0)
             call WM_DealSpellDamage(caster, targ, dmg * 0.85)
-            call WM_PullOrPushUnit(targ, cx, cy, 150.0)
+            // Athissa's pressure cage draws its trapped target inward instead of knocking it away.
+            call WM_PullOrPushUnit(targ, cx, cy, -150.0)
         endif
     elseif abil == 'A017' then
         set targ = GetSpellTargetUnit()

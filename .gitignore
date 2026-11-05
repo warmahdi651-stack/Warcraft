@@ -1,4 +1,6 @@
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+.venv/
+venv/
+node_modules/
 _build_tmp/

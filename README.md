@@ -1,48 +1,36 @@
-# `(8) Crown of WarMahdi` — v4 8-Empire Warcraft III Altered Melee (`.w3x`)
+# `(8) Crown of WarMahdi` — v5 Warcraft III 8-Empire Altered Melee
 
-A large **192×192, 8-player** Sunken-Astral Altered Melee map for Warcraft III TFT / Reforged, with 4 classic races plus four custom empires. v4 focuses on the issues from the latest playtest: hero kits no longer share the same four spells, custom races have their own worker/build/unit/building icons, Naga gains a balanced Illidan hero and a measured army buff, damage/armor infocards and the mouse cursor are reskinned, and a JASS worker-build fallback backs up the imported race AIs.
+A **192×192, 8-player** Sunken-Astral map for Warcraft III TFT and Reforged. It preserves the existing terrain, theme and in-game UI while addressing playtest feedback on repetitive/buggy hero skills, mismatched art and custom-race AI—especially Naga.
 
-## Download
+## Download and preview
 
-- **Map:** [`(8) Crown of WarMahdi.w3x` (2,128,366 bytes)](https://github.com/warmahdi651-stack/Warcraft/raw/arena/483b840a-warcraft/maps/%288%29CrownOfWarMahdi.w3x)
-- **Tactical preview:** `maps/(8)CrownOfWarMahdi_Preview.png`
-- **Web preview:** run `python3 web/server.py` and open the Arena preview on port 8080.
+- **Map (`.w3x`, 1,087,822 bytes):** [Download from GitHub](https://github.com/warmahdi651-stack/Warcraft/raw/arena/483b840a-warcraft/maps/%288%29CrownOfWarMahdi.w3x)
+- **Tactical map preview:** `maps/(8)CrownOfWarMahdi_Preview.png`
+- **Web preview:** run `python3 web/server.py` and open the preview on port 8080. The page includes the archive manifest, static-check summary and download route.
 
-Install the map in `Warcraft III/Maps/FrozenThrone/` for classic clients or `Documents/Warcraft III/Maps/Download/` for Reforged.
+Install into `Warcraft III/Maps/FrozenThrone/` for classic clients or `Documents/Warcraft III/Maps/Download/` for Reforged.
 
-## v4 roster and systems
+## What changed in v5
 
-### Eight playable empires
+- **Eight playable races:** Human, Orc, Undead, Night Elf, Abyssal Tideborn (Naga), Sunfury Imperium, Voidborn Legion and Runeforged Bastion.
+- **Hero skills:** all 64 custom abilities have unique, effect-matched native Warcraft III command-button art. The skill art is referenced from the game rather than repackaged as procedurally drawn icons. Ability logic/tooltips were retuned; notable fixes include a mana-drain/transfer skill, a point-targeted Earthshaker strike, a corrected inward pull and primary-stat/level scaling for ultimate pulses.
+- **Recognizable portraits and object art:** ten custom heroes have portrait BTN/DISBTN pairs; the other six retain recognizable stock portraits. Native stock buttons are selected for the altered units/buildings. Naga building rawcodes were cross-referenced against the 1.27.1 campaign unit function data and `unitui.slk`; custom Naga structures use native Naga models. Sunfury hall tiers retain the native Human Town Hall model and tier animations.
+- **AI:** Naga research requests are guarded against repeated queueing; hero spell orders fall through to other available skills when an order fails. The four custom race AIs retain their faction-specific production and hero skill tables, backed by the JASS construction/item-use safeguards.
+- **Assets and UI:** the archive contains 97 MPQ entries, 66 BLP1 files and six MDX VFX models. The 20 paletted BLP1s are limited to the ten custom portrait icon pairs; UI, cursor and effect textures use four-channel JPEG BLP1 encoding.
 
-1. Human
-2. Orc
-3. Undead
-4. Night Elf
-5. **Abyssal Tideborn** — four Naga heroes: Lady Vashj, Illidan Stormrage, Naj'entus, and Athissa. The Naga frontline, ranged units, casters, flyers and siege unit received a measured stat pass.
-6. **Sunfury Imperium** — four Highborne/Silvermoon heroes and faction-specific halls, a forge, lumber conservatory, buildings and unit portraits.
-7. **Voidborn Legion** — four Void heroes, a race-themed worker and dimensional-rift building set.
-8. **Runeforged Bastion** — four Titan/clockwork heroes, a race-themed worker and mechanical building/unit icon set.
-
-Each faction's structures have distinct build-card positions. The 8 player starts remain D4-symmetric and have clear mirrored build zones.
-
-### 16 heroes with 64 exclusive skills
-
-The 16 custom heroes each have their own Q/W/E/R names, effects, icons and 3D visual theme. The MPQ contains 64 individual `BTN_WM_S00..S63` icons and matching disabled icons, plus six original `WM_FX_*.mdx` effects and supporting textures. Hero abilities are serialized into `war3map.w3a` as 64 `ANcl` abilities and handled by the JASS spell engine.
-
-### UI, AI and map theme
-
-- A host-first AI difficulty dialog, followed by the custom-empires picker; `[A]` chooses randomly from all eight races.
-- Custom cursor atlases, RPG-style Damage/Armor/Strength/Agility/Intelligence infocards, action buttons, race build icons, and astral resource/tooltip textures.
-- Four imported melee AI scripts plus JASS tactical macro/micro. The JASS fallback can issue actual construction orders for the four custom empires, and AI heroes can use carried healing/mana items, pick up nearby items, retreat, learn their own skill kits and attack.
-- Sunken-Astral `Z` tiles, Ashenvale twilight lighting, Outland sky, the embedded lobby art, and the central Crown Shrine.
-
-## Verification and build
+## Build and verification
 
 ```bash
-python3 src/build_map.py
-python3 src/verify_map.py
+python3 -m venv .venv
+.venv/bin/pip install Pillow
+mkdir -p /tmp/wc3ref
+git clone --depth 1 https://github.com/sumneko/w3x2lni /tmp/wc3ref/w3x2lni
+git clone --depth 1 https://github.com/lep/jassdoc /tmp/wc3ref/jassdoc
+npm install --prefix /tmp/wc3ref mdx-m3-viewer@5.12.0
+.venv/bin/python src/build_map.py
+.venv/bin/python src/verify_map.py
 ```
 
-The current generated archive passed **15 automated static/binary verification stages**, including StormLib archive checks, TFT v25 structure checks, JASS2 static typechecks against 1.27b and Reforged 1.32.8 APIs plus a 1.24.4-era API compatibility proxy, AI-script typechecks, object/hero/rally-flag checks, 64-skill/icon checks, D4 symmetry, pathing, and ladder stat bounds.
+The current build passed **all 15 automated static/binary verification stages**, including MPQ/TFT v25 structure, JASS typechecks against 1.27b and Reforged 1.32.8 APIs, a 1.26-era compatibility proxy, all four race-AI scripts, object tables, icon/model references, portrait BLP encoding, pathing, D4 symmetry and balance bounds.
 
-These checks are not a substitute for launching Warcraft III. Please run a short LAN/local-client smoke test on the intended 1.26a/1.27b and Reforged clients—especially AI construction, cursor rendering, and hero spell targeting—and share any game log or screenshot if something behaves differently in a client.
+**Testing limitation:** no Warcraft III client was available here, so this is not an in-game playtest and “bug-free” cannot be guaranteed. A short LAN/local-client smoke test on 1.26a/1.27b and Reforged is still recommended—especially for model/portrait rendering, cursor/UI appearance, AI construction and spell targeting.
