@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Deterministic Procedural Generator for `(8) Crown of WarMahdi` v6.
+Deterministic Procedural Generator for `(8) Crown of WarMahdi` v7.
 An 8-player D4-symmetric Sunken-Astral Altered Melee map with 8 playable empires,
-64 exclusive hero skills, custom cursor/RPG UI, 4 race AI scripts and a JASS safety net.
+64 exclusive hero skills, custom cursor/RPG UI, authoritative JASS custom-faction AI and native standard-race melee AI.
 Targets Frozen Throne 1.26a/1.27b-era APIs and Warcraft III Reforged 1.32+.
 """
 
@@ -47,12 +47,12 @@ MAP_DISPLAY_NAME = "(8) Crown of WarMahdi"
 MAP_AUTHOR = "WarMahdi Studio"
 MAP_RECOMMENDED_PLAYERS = "8 Empires • Host AI Menu"
 MAP_DESCRIPTION = (
-    "|cffffd700★ (8) Crown of WarMahdi v6 ★|r — 8-Empire Sunken-Astral Altered Melee (4v4 / 2v2 / FFA). "
+    "|cffffd700★ (8) Crown of WarMahdi v7 ★|r — 8-Empire Sunken-Astral Altered Melee (4v4 / 2v2 / FFA). "
     "4 Classic Races + 4 Custom Empires: |cff22d3eeAbyssal Tideborn (with Illidan)|r, |cfffbbf24Sunfury Imperium|r, "
     "|cfff97316Voidborn Legion|r & |cff38bdf8Runeforged Bastion|r! "
     "Features 16 heroes and 64 native-art skills; core ranks unlock at levels 1/3/5 and ultimates at level 6. "
-    "Restored signature Mana Burn, Phoenix and Resurrection skills, faction-matched buildings, smarter tactical AI, "
-    "a custom cursor/RPG UI and six VFX models."
+    "Restored signature Mana Burn, Phoenix and Resurrection skills, faction-matched buildings, and distinct custom-race AI openings. "
+    "Includes 64 skill-specific, geometrically varied spell MDX effects plus six faction sigils, custom cursor/RPG UI, and the preserved Sunken-Astral terrain."
 )
 
 # 192x192 tiles => 193x193 terrain corners; 1 tile = 128 world units; 1 pathing cell = 32 world units
@@ -1132,8 +1132,8 @@ def serialize_wts() -> bytes:
         (3, MAP_DESCRIPTION),
         (4, MAP_RECOMMENDED_PLAYERS),
         (5, "Forces"),
-        (6, "8-Empire Sunken-Astral Altered Melee • v6"),
-        (7, "4 Custom Empires + 4 Classic Races, 16 Heroes with 64 unique custom skills, Dark Astral UI, host-first AI difficulty, and resilient Pro AI."),
+        (6, "8-Empire Sunken-Astral Altered Melee • v7"),
+        (7, "4 Custom Empires + 4 Classic Races, 16 Heroes with 64 unique skills and 64 distinct spell MDX effects, host-first AI difficulty, faction-specific build strategies, and tactical JASS AI."),
     ]
     for pid in range(8):
         entries.append((10 + pid, f"Player {pid + 1}"))
@@ -1709,7 +1709,9 @@ def export_web_metadata(
             "customSkills": 64,
             "customHeroes": 16,
             "customAssets": custom_assets_count,
-            "customVfxModels": 6,
+            "archiveFiles": custom_assets_count + 25,
+            "blpFiles": 130,
+            "customVfxModels": 70,
             "goldMines": sum(1 for u in units if u.uid == "ngol"),
             "totalGoldOnMap": sum(u.gold for u in units if u.uid == "ngol"),
             "neutralBuildings": sum(1 for u in units if u.player == 15 and u.uid != "ngol"),
@@ -1722,7 +1724,7 @@ def export_web_metadata(
             {
                 "id": "abyssal",
                 "name": "Abyssal Tideborn (Naga Empire)",
-                "badge": "v6 • 16 Hero-Specific Skills • Level-6 Ultimates • Custom Portraits",
+                "badge": "v7 • 16 Hero-Specific Skills • Level-6 Ultimates • 64 Unique Spell VFX",
                 "lobbyHandicap": "Menu [1] or 90% Handicap",
                 "color": "#22d3ee",
                 "halls": ["Temple of Tides (T1)", "Sanctuary of Tides (T2)", "Abyssal Citadel (T3)"],
@@ -1744,7 +1746,7 @@ def export_web_metadata(
             {
                 "id": "sunfury",
                 "name": "Sunfury Imperium (Solar Highborne)",
-                "badge": "v6 • 16 Solar/Ranger/Marshal/Paladin Skills • Native Art",
+                "badge": "v7 • Fast Altar/Ranged Opening • 64 Unique Spell VFX",
                 "lobbyHandicap": "Menu [2] or 80% Handicap",
                 "color": "#fbbf24",
                 "halls": ["Silvermoon Sanctum (T1)", "Sunwell Keep (T2)", "Silvermoon Citadel (T3)"],
@@ -1766,7 +1768,7 @@ def export_web_metadata(
             {
                 "id": "voidborn",
                 "name": "Voidborn Legion [NEW]",
-                "badge": "4 Distinct Hero Kits • Native Faction Art • Custom Hero Portraits",
+                "badge": "v7 • Fiend-Inspired Ranged Tech Opening • Unique Spell VFX",
                 "lobbyHandicap": "Menu [3] or 70% Handicap",
                 "color": "#c084fc",
                 "halls": ["Void Nexus (T1)", "Astral Riftcore (T2)", "Citadel of Oblivion (T3)"],
@@ -1788,7 +1790,7 @@ def export_web_metadata(
             {
                 "id": "runeforged",
                 "name": "Runeforged Bastion [NEW]",
-                "badge": "4 Distinct Titan/Forge/Clockwork/Storm Kits • Native Matched Art",
+                "badge": "v7 • Fast Altar/Tech Opening • Unique Spell VFX",
                 "lobbyHandicap": "Menu [4] or 60% Handicap",
                 "color": "#f97316",
                 "halls": ["Titan Foundry (T1)", "Stormforge Hold (T2)", "Apex Pantheon (T3)"],
@@ -1901,7 +1903,7 @@ def build_all(repo_root: Path) -> Path:
     misc_bytes = serialize_war3map_misc()
     skin_bytes = serialize_war3map_skin()
 
-    print("[4.5/6] Generating portrait pairs, cursor atlases, RPG Damage/Armor UI textures and six VFX models...")
+    print("[4.5/6] Generating portrait pairs, cursor atlases, RPG UI, six faction sigils and 64 skill-specific MDX effects...")
     custom_assets_map = generate_all_custom_assets()
     imp_bytes = serialize_imp(list(custom_assets_map.keys()))
 

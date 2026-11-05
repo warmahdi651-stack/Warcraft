@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-15-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v6.
-Checks the MPQ, TFT v25, JASS2 APIs (TFT-era proxy, 1.27b and Reforged), all 64 hero abilities,
+15-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v7.
+Checks the MPQ, TFT v25, JASS2 APIs (TFT-era proxy, 1.27b and Reforged), all 64 hero abilities and skill-specific VFX,
 16 unique hero kits, 8 empire spawn/build definitions, four AI scripts and the JASS AI fallback,
 object/card/rally flags, native icon/model references, portrait/UI BLP1s/MDXs, pathing, creep safety and D4 symmetry.
 It cannot replace launching the map in an actual Warcraft III client.
@@ -1038,7 +1038,7 @@ def run_verification(w3x_path: Path) -> None:
     _, w3t_orig, w3t_cust = parse_obj_table(files["war3map.w3t"], False)
     _, w3q_orig, w3q_cust = parse_obj_table(files["war3map.w3q"], True)
     _, w3a_orig, w3a_cust = parse_obj_table(files["war3map.w3a"], True)
-    assert len(w3u_orig) >= 24 and len(w3u_cust) == 65, f"Unexpected v6 w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
+    assert len(w3u_orig) >= 24 and len(w3u_cust) == 65, f"Unexpected v7 w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
     assert len(w3t_cust) == 5 and len(w3q_orig) == 6 and len(w3q_cust) == 4, (
         f"Unexpected w3t/w3q counts: w3t={len(w3t_cust)}, w3q={len(w3q_orig)}+{len(w3q_cust)}"
     )
@@ -1055,6 +1055,8 @@ def run_verification(w3x_path: Path) -> None:
     # Independent JS parser cross-check via mdx-m3-viewer (all 6 custom .mdx models and BLP1 assets).
     imp_expected = struct.unpack_from("<II", files["war3map.imp"], 0)[1]
     blp_paths_json = json.dumps([name for name in files if name.lower().endswith(".blp")])
+    custom_mdx_paths = [name for name in files if name.lower().endswith(".mdx") and (name.startswith("WM_FX_") or name.startswith("WM_Skill_"))]
+    mdx_paths_json = json.dumps(custom_mdx_paths)
     mdx_dir = Path("/tmp/wc3ref/node_modules/mdx-m3-viewer")
     if mdx_dir.exists():
         js_check = subprocess.run(
@@ -1078,10 +1080,12 @@ def run_verification(w3x_path: Path) -> None:
                 const a = new W3d(); a.load(m.get("war3map.w3a").bytes());
                 const imp = new Imp(); imp.load(m.get("war3map.imp").bytes());
                 if (u.version !== 2 || t.version !== 2 || q.version !== 2 || a.version !== 2 || imp.entries.size !== {imp_expected}) process.exit(1);
-                for (const fx of ["WM_FX_Abyssal.mdx", "WM_FX_FelGlaive.mdx", "WM_FX_Solar.mdx", "WM_FX_Void.mdx", "WM_FX_Runic.mdx", "WM_FX_Emerald.mdx"]) {{
+                const customMdxPaths = {mdx_paths_json};
+                if (customMdxPaths.length !== 70) process.exit(2);
+                for (const fx of customMdxPaths) {{
                     const mdl = new MdxModel();
                     mdl.load(m.get(fx).bytes());
-                    if (mdl.version !== 800 || mdl.sequences.length < 2 || mdl.geosets.length < 2) process.exit(2);
+                    if (mdl.version !== 800 || mdl.sequences.length < 2 || mdl.geosets.length !== 2) process.exit(2);
                 }}
                 const icon = new BlpImage();
                 icon.load(m.get("ReplaceableTextures\\\\CommandButtons\\\\BTN_WM_Portrait_Hvsh.blp").bytes());
@@ -1704,12 +1708,28 @@ def run_verification(w3x_path: Path) -> None:
         "CommandBasicStructOrc=ReplaceableTextures\\CommandButtons\\BTNBasicStruct.blp",
         "CommandBasicStructNightElf=ReplaceableTextures\\CommandButtons\\BTNNightElfBuild.blp",
     ):
-        assert skin_key in skin_txt, f"Missing v6 UI skin mapping: {skin_key}"
+        assert skin_key in skin_txt, f"Missing v7 UI skin mapping: {skin_key}"
 
     blp_files = {name: data for name, data in files.items() if name.lower().endswith(".blp")}
-    mdx_files = {name: data for name, data in files.items() if name.lower().endswith(".mdx") and name.startswith("WM_FX_")}
-    assert len(blp_files) == 66, f"Expected 66 current v6 portrait/UI/VFX/minimap BLPs, got {len(blp_files)}"
-    assert len(mdx_files) == 6, f"Expected 6 custom 3D VFX models, got {len(mdx_files)}"
+    mdx_files = {name: data for name, data in files.items() if name.lower().endswith(".mdx") and (name.startswith("WM_FX_") or name.startswith("WM_Skill_"))}
+    skill_mdx_files = {name: data for name, data in mdx_files.items() if name.startswith("WM_Skill_")}
+    faction_mdx_files = {name: data for name, data in mdx_files.items() if name.startswith("WM_FX_")}
+    assert len(blp_files) == 130, f"Expected 130 current v7 portrait/UI/VFX/minimap BLPs, got {len(blp_files)}"
+    assert len(mdx_files) == 70 and len(faction_mdx_files) == 6, f"Expected 6 faction + 64 skill MDX models, got {len(mdx_files)} total"
+    expected_skill_mdx = {f"WM_Skill_{i:02d}.mdx" for i in range(64)}
+    expected_skill_blp = {f"Textures\\WM_Skill_{i:02d}.blp" for i in range(64)}
+    assert set(skill_mdx_files) == expected_skill_mdx, "The 64 skill-specific MDX models are incomplete or misnamed"
+    assert expected_skill_blp.issubset(blp_files), "At least one skill-specific true-color texture is missing"
+    assert len({skill_mdx_files[name] for name in expected_skill_mdx}) == 64, "Skill model binaries must all be distinct"
+    assert len({blp_files[name] for name in expected_skill_blp}) == 64, "Skill textures must all be distinct"
+    skill_index_src = jass_src.split("function WM_GetUniqueSkillVFXIndex", 1)[1].split("endfunction", 1)[0]
+    skill_index_pairs = [(int(raw), int(index)) for raw, index in re.findall(r"(?:if|elseif) abil == 'A([0-9]{3})' then\s+return ([0-9]+)", skill_index_src)]
+    skill_index_pairs = [(int(raw), int(index)) for raw, index in re.findall(r"(?:if|elseif) abil == 'A([0-9]{3})' then\s+return ([0-9]+)", skill_index_src)]
+    for name, data in skill_mdx_files.items():
+        assert data[:4] == b"MDLX" and data[4:8] == b"VERS" and struct.unpack_from("<I", data, 12)[0] == 800, f"Invalid skill MDX: {name}"
+    for name in expected_skill_blp:
+        content, _alpha, width, height, _typ, _mips = struct.unpack_from("<6I", blp_files[name], 4)
+        assert content == 0 and (width, height) == (128, 128), f"Skill VFX texture must be true-color 128x128: {name}"
 
     portrait_rawcodes = ("Hvsh", "N004", "N001", "N002", "Hkal", "Hvwd", "Hlgr", "Huth", "V001", "V002")
     portrait_blp_paths: Set[str] = set()
@@ -1737,7 +1757,7 @@ def run_verification(w3x_path: Path) -> None:
     for race_cursor in ("Human", "Orc", "Undead", "NightElf"):
         name = f"UI\\Cursor\\{race_cursor}Cursor.blp"
         assert name in files and struct.unpack_from("<II", files[name], 12)[0:2] == (256, 128), f"Missing or invalid custom cursor atlas: {name}"
-    print(f"[PASS] Stage 14: Lobby TGA + native faction/skill art + 10 portrait pairs + icon-only palette BLPs + {len(blp_files)} BLP1s + 6 MDX models")
+    print(f"[PASS] Stage 14: Lobby TGA + native faction/skill art + 10 portrait pairs + icon-only palette BLPs + {len(blp_files)} BLP1s + 6 faction/64 skill MDX models")
 
     # ------------------------------------------------------------------
     # STAGE 15: TFT 1.26-era API Compatibility & AI Startup/Fallback Coverage
@@ -1760,7 +1780,10 @@ def run_verification(w3x_path: Path) -> None:
         'StartMeleeAI(p, "voidborn_melee.ai")',
         'StartMeleeAI(p, "runeforged_melee.ai")',
     ):
-        assert ai_path in jass_src, f"Missing custom AI startup call {ai_path}!"
+        assert ai_path not in jass_src, f"Custom faction must not start a competing native .ai controller: {ai_path}"
+    assert "if faction >= 5 then" in jass_src, "Custom factions must bypass StartMeleeAI"
+    for standard_ai in ("Scripts\\\\human.ai", "Scripts\\\\orc.ai", "Scripts\\\\undead.ai", "Scripts\\\\elf.ai"):
+        assert standard_ai in jass_src, f"Standard race melee AI path missing: {standard_ai}"
     for ai_name, first_id, last_id in (("voidborn_melee.ai", 32, 47), ("runeforged_melee.ai", 48, 63)):
         ai_src = files[ai_name].decode("utf-8")
         expected_skill_ids = {f"A{i:03d}" for i in range(first_id, last_id + 1)}
@@ -1773,20 +1796,23 @@ def run_verification(w3x_path: Path) -> None:
     naga_ai_src = files["naga_melee.ai"].decode("utf-8")
     for upgrade in ("UPG_NAGA_ENSNARE", "UPG_NAGA_SUBMERGE", "UPG_NAGA_ABOLISH"):
         assert f"if GetUpgradeLevel({upgrade}) < 1 then" in naga_ai_src, (
-            f"Naga AI must guard repeat research orders for {upgrade}"
+            f"Naga AI data script must guard repeat research orders for {upgrade}"
         )
-    for order_guard in (
-        'if IssueImmediateOrder(hero, "roar") then',
-        'elseif IssuePointOrder(hero, "monsoon", ex, ey) then',
-        'if IssuePointOrder(hero, "flamestrike", ex, ey) then',
-        'if IssueTargetOrder(hero, "chainlightning", enemy) then',
-    ):
-        assert order_guard in jass_src, f"AI hero order fallback is missing {order_guard}"
 
-    assert "function WM_AIFallbackBuild" in jass_src and "IssueBuildOrderById" in jass_src, "AI worker-build fallback missing!"
+    assert "function WM_AIFallbackBuild" in jass_src and "function WM_AIQueueFallbackBuild" in jass_src and "IssueBuildOrderById" in jass_src, "Sequential worker-build controller missing!"
+    assert "function WM_OnAIFallbackBuildFinished" in jass_src and "EVENT_PLAYER_UNIT_CONSTRUCT_FINISH" in jass_src, "AI construction latch is not cleared on completion!"
+    assert "udg_AIFallbackPendingRaw" in jass_src and "udg_AINextRaxOrderAt" in jass_src, "AI pending-build/production cooldown state missing!"
+    assert "WM_IsCustomAIWorker(f, rawcode)" in jass_src and "'nmpe'" in jass_src and "'nhew'" in jass_src and "'v010'" in jass_src and "'t010'" in jass_src, "Explicit custom-worker detection is incomplete!"
+    assert "WM_AIChooseCustomHeroSkill(u, f)" in jass_src and "heroCount < 3" in jass_src, "Independent hero skill spending or altar hero-count guard missing!"
+    assert "udg_AINextHeroOrderAt[i]" in jass_src and "udg_AINextSanctumOrderAt[i]" in jass_src, "Sequential altar/caster orders are not guarded!"
     assert "function WM_AIUseInventory" in jass_src and "UnitUseItemPoint" in jass_src, "AI consumable/retreat micro fallback missing!"
-    assert "WM_CountLivingHeroes(p) < 3" in jass_src, "AI hero cap guard missing!"
-    print(f"[PASS] Stage 15: Legacy JASS API Proxy ({legacy_fn_count} functions) + 4 Imported Race AIs + Worker-Build/Item/3-Hero Safeguards")
+
+    # Ensure each custom worker is typed as a peon and owns real harvesting/build abilities.
+    for faction_id, _hall_id, worker_id in spawn_templates:
+        worker_mods = mod_lookup[worker_id][1]
+        assert "Peon" in str(worker_mods.get("utyp", "")), f"Empire {faction_id} worker {worker_id} is missing the Peon type tag"
+        assert "Ahar" in str(worker_mods.get("uabi", "")), f"Empire {faction_id} worker {worker_id} is missing its explicit Harvest ability"
+    print(f"[PASS] Stage 15: Legacy JASS API Proxy ({legacy_fn_count} functions) + Native Standard AI + Authoritative Custom JASS AI + Sequential Economy/Tech/Army Guards")
 
     print("======================================================================")
     print("  ALL 15 VERIFICATION STAGES PASSED; no static errors or known object/UI/AI-startup defects.")

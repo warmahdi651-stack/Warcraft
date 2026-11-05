@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Artwork and UI asset pipeline for `(8) Crown of WarMahdi` v6.
+Artwork and UI asset pipeline for `(8) Crown of WarMahdi` v7.
 
 Generates Warcraft III binary assets while keeping gameplay art recognizable and
 patch-safe:
@@ -9,8 +9,9 @@ patch-safe:
   3. RPG infocard, resource and console textures for the existing in-game UI.
   4. Ten AI-generated 64x64 hero portrait BLPs from source art in
      `src/assets/hero_portraits/`; other heroes use authentic native WC3 portraits.
-  5. Six additive sigil textures and six version-800 spell-effect MDX models,
-     compiled and roundtrip-checked with `mdx-m3-viewer`.
+  5. Six additive faction sigils plus 64 individually themed, geometrically distinct
+     skill textures and version-800 MDX models, compiled and roundtrip-checked with
+     `mdx-m3-viewer`.
 
 Hero/unit/building buttons inherit recognizable stock Warcraft III artwork. The 64
 custom skills use native command-button icons selected to match their effects; no
@@ -668,6 +669,7 @@ def build_ui_resource_textures() -> Dict[str, bytes]:
 
 
 def build_sigil_texture(main_rgb: Tuple[int, int, int], core_rgb: Tuple[int, int, int], spikes: int = 8) -> bytes:
+    """Create a true-color additive faction-sigil texture (never used for icons)."""
     S = 128
     img = Image.new("RGBA", (S, S), (0, 0, 0, 255))
     d = ImageDraw.Draw(img)
@@ -682,7 +684,7 @@ def build_sigil_texture(main_rgb: Tuple[int, int, int], core_rgb: Tuple[int, int
     d.polygon(pts, outline=(*main_rgb, 255), width=3)
     d.ellipse([44, 44, 83, 83], fill=(*core_rgb, 255), outline=(*main_rgb, 255), width=4)
     img = img.filter(ImageFilter.GaussianBlur(0.8))
-    # Zero out outer border so additive quad never clips visibly
+    # Fade the perimeter so the additive quad does not clip at its bounds.
     px = img.load()
     for y in range(S):
         for x in range(S):
@@ -694,7 +696,338 @@ def build_sigil_texture(main_rgb: Tuple[int, int, int], core_rgb: Tuple[int, int
     return encode_blp1_truecolor(img)
 
 
-def _generate_vfx_mdl(model_name: str, tex_path: str) -> str:
+# Each four-skill kit has a visual family, while hero palette, geometry variation,
+# and rune placement make every one of the 64 textures/models individually distinct.
+SPELL_FX_SHAPES = ("burst", "bolt", "shield", "portal")
+SPELL_HERO_PALETTES: Tuple[Tuple[Tuple[int, int, int], Tuple[int, int, int]], ...] = (
+    ((24, 208, 238), (220, 255, 255)),   # Vashj - tidal aqua
+    ((70, 242, 125), (242, 255, 185)),   # Illidan - fel jade
+    ((15, 128, 194), (180, 248, 255)),  # Naj'entus - deep coral
+    ((90, 224, 210), (255, 246, 216)),  # Athissa - pearl tide
+    ((249, 130, 34), (255, 242, 175)),  # Kael'thas - sunfire
+    ((234, 73, 94), (255, 226, 140)),   # Sylvanas - blood moon
+    ((210, 164, 79), (255, 238, 180)),  # Garithos - bronze
+    ((248, 220, 158), (255, 255, 238)), # Uther - holy gold
+    ((139, 71, 244), (229, 208, 255)),  # Xal'athor - void violet
+    ((221, 55, 194), (255, 205, 246)),  # Sargen'eth - entropy magenta
+    ((69, 111, 222), (196, 224, 255)),  # Akama - shadow blue
+    ((83, 211, 245), (237, 244, 255)),  # Aetheron - astral ice
+    ((75, 205, 255), (255, 240, 160)),  # Thorim - stormsteel
+    ((255, 101, 35), (255, 226, 120)),  # Ignis - molten rune
+    ((192, 149, 92), (148, 230, 255)),  # Mimiron - brass/arc
+    ((91, 91, 235), (185, 255, 190)),   # Loken - lightning indigo
+)
+
+
+def build_spell_vfx_texture(ability_index: int) -> bytes:
+    """Draw a unique hero-and-skill motif into a true-color additive BLP1 texture."""
+    if not 0 <= ability_index < 64:
+        raise ValueError(f"spell-effect index out of range: {ability_index}")
+    hero_index = ability_index // 4
+    slot = ability_index % 4
+    variant = ability_index
+    main_rgb, core_rgb = SPELL_HERO_PALETTES[hero_index]
+    shape = SPELL_FX_SHAPES[slot]
+    S = 256
+    c = (S - 1) / 2.0
+    angle = math.radians((hero_index * 19 + variant * 11) % 360)
+    img = Image.new("RGBA", (S, S), (0, 0, 0, 255))
+    glow = Image.new("RGBA", (S, S), (0, 0, 0, 255))
+    gd = ImageDraw.Draw(glow)
+    d = ImageDraw.Draw(img)
+    outer = 88 + (variant % 8) * 4
+    inner = 30 + (variant % 6) * 3
+    glow_rgb = tuple(min(255, int(c0 * 0.72 + 60)) for c0 in main_rgb)
+
+    if shape == "burst":
+        points = []
+        teeth = 7 + (variant % 6)
+        for k in range(teeth * 2):
+            radius = outer if k % 2 == 0 else inner + (variant % 9)
+            theta = angle + math.tau * k / (teeth * 2)
+            points.append((c + math.cos(theta) * radius, c + math.sin(theta) * radius))
+        gd.line(points + [points[0]], fill=(*glow_rgb, 190), width=20, joint="curve")
+        gd.ellipse([c-outer, c-outer, c+outer, c+outer], outline=(*glow_rgb, 105), width=15)
+        d.polygon(points, outline=(*main_rgb, 255), width=5)
+        d.ellipse([c-inner, c-inner, c+inner, c+inner], outline=(*core_rgb, 255), width=5)
+        for k in range(5 + hero_index % 5):
+            theta = angle + math.tau * k / (5 + hero_index % 5)
+            r0, r1 = inner + 10, outer - 8
+            line = [(c + math.cos(theta) * r0, c + math.sin(theta) * r0),
+                    (c + math.cos(theta) * r1, c + math.sin(theta) * r1)]
+            gd.line(line, fill=(*glow_rgb, 180), width=10)
+            d.line(line, fill=(*core_rgb, 220), width=3)
+    elif shape == "bolt":
+        length = 84 + (variant % 9) * 5
+        jag = 18 + (variant % 7) * 3
+        path = []
+        for k in range(7):
+            along = -length + k * length / 3.0
+            across = (0 if k in (0, 6) else (-1 if k % 2 else 1) * jag)
+            xx = along * math.cos(angle) - across * math.sin(angle)
+            yy = along * math.sin(angle) + across * math.cos(angle)
+            path.append((c + xx, c + yy))
+        gd.line(path, fill=(*glow_rgb, 220), width=28, joint="curve")
+        d.line(path, fill=(*core_rgb, 255), width=10, joint="curve")
+        d.line(path, fill=(*main_rgb, 255), width=5, joint="curve")
+        for k in range(3 + variant % 4):
+            theta = angle + math.pi * (0.55 + 0.25 * k)
+            r = inner + (k * 13)
+            x0, y0 = c + math.cos(theta) * r, c + math.sin(theta) * r
+            x1, y1 = c + math.cos(theta) * (r + 18), c + math.sin(theta) * (r + 18)
+            gd.line([(x0,y0),(x1,y1)], fill=(*glow_rgb, 170), width=10)
+            d.line([(x0,y0),(x1,y1)], fill=(*main_rgb, 255), width=4)
+    elif shape == "shield":
+        w = 74 + (variant % 7) * 4
+        h = 95 + (variant % 8) * 3
+        local = [(-w, -h*0.62), (0, -h), (w, -h*0.62), (w*0.78, h*0.15),
+                 (0, h), (-w*0.78, h*0.15)]
+        points = [(c + x*math.cos(angle) - y*math.sin(angle),
+                   c + x*math.sin(angle) + y*math.cos(angle)) for x,y in local]
+        gd.line(points + [points[0]], fill=(*glow_rgb, 205), width=22, joint="curve")
+        d.polygon(points, outline=(*main_rgb, 255), width=6)
+        inner_pts = []
+        for x,y in local:
+            xx, yy = x*0.55, y*0.56
+            inner_pts.append((c + xx*math.cos(angle) - yy*math.sin(angle),
+                              c + xx*math.sin(angle) + yy*math.cos(angle)))
+        d.polygon(inner_pts, outline=(*core_rgb, 255), width=4)
+        d.line([points[1], points[4]], fill=(*core_rgb, 230), width=4)
+        for k in range(3 + hero_index % 4):
+            theta = angle + math.tau * k / (3 + hero_index % 4)
+            x, y = c + math.cos(theta) * (outer - 10), c + math.sin(theta) * (outer - 10)
+            r = 5 + (variant % 4)
+            d.polygon([(x,y-r),(x+r,y),(x,y+r),(x-r,y)], fill=(*core_rgb,255))
+    else:  # portal / ultimate
+        count = 8 + (variant % 7)
+        gd.ellipse([c-outer-8,c-outer-8,c+outer+8,c+outer+8], outline=(*glow_rgb,175), width=22)
+        d.ellipse([c-outer,c-outer,c+outer,c+outer], outline=(*main_rgb,255), width=8)
+        d.ellipse([c-inner-8,c-inner-8,c+inner+8,c+inner+8], outline=(*core_rgb,255), width=5)
+        d.ellipse([c-inner*0.55,c-inner*0.55,c+inner*0.55,c+inner*0.55], outline=(*main_rgb,255), width=4)
+        for k in range(count):
+            theta = angle + math.tau * k / count
+            r0 = inner + 10
+            r1 = outer - (7 if k % 2 else 0)
+            a = (c + math.cos(theta) * r0, c + math.sin(theta) * r0)
+            b = (c + math.cos(theta) * r1, c + math.sin(theta) * r1)
+            gd.line([a,b], fill=(*glow_rgb,185), width=11)
+            d.line([a,b], fill=(*main_rgb,255), width=4)
+            x,y = b
+            dot = 4 + (variant % 4)
+            d.ellipse([x-dot,y-dot,x+dot,y+dot], fill=(*core_rgb,255))
+
+    # A hero-specific orbiting rune cadence differentiates the sixteen kits beyond hue.
+    rune_count = 3 + (hero_index % 6)
+    rune_radius = 48 + (variant % 5) * 5
+    for k in range(rune_count):
+        theta = angle + math.tau * k / rune_count
+        x = c + math.cos(theta) * rune_radius
+        y = c + math.sin(theta) * rune_radius
+        r = 5 + ((hero_index + k) % 4)
+        d.polygon([(x,y-r*1.4),(x+r,y),(x,y+r*1.4),(x-r,y)], outline=(*core_rgb,220), width=2)
+
+    glow = glow.filter(ImageFilter.GaussianBlur(12))
+    img = Image.alpha_composite(glow, img)
+    img = img.resize((128,128), Image.Resampling.LANCZOS)
+    # Keep the outer additive edge near black for clean fades on older renderers.
+    px = img.load()
+    for y in range(128):
+        for x in range(128):
+            dist = math.hypot(x - 63.5, y - 63.5)
+            if dist > 60:
+                fade = max(0.0, min(1.0, (66.0 - dist) / 6.0))
+                r,g,b,a = px[x,y]
+                px[x,y] = (int(r*fade), int(g*fade), int(b*fade), a)
+    return encode_blp1_truecolor(img)
+
+
+def _fmt_v3(v: Tuple[float, float, float]) -> str:
+    return f"{{ {v[0]:.3f}, {v[1]:.3f}, {v[2]:.3f} }}"
+
+
+def _make_vfx_geoset(
+    vertices: List[Tuple[float, float, float]],
+    normals: List[Tuple[float, float, float]],
+    uvs: List[Tuple[float, float]],
+    faces: List[int],
+    min_extent: Tuple[float, float, float],
+    max_extent: Tuple[float, float, float],
+    radius: float,
+) -> str:
+    if len(vertices) != len(normals) or len(vertices) != len(uvs) or len(faces) % 3:
+        raise ValueError("invalid custom VFX geoset topology")
+    vertex_lines = ",\n".join(f"        {_fmt_v3(v)}" for v in vertices)
+    normal_lines = ",\n".join(f"        {_fmt_v3(n)}" for n in normals)
+    uv_lines = ",\n".join(f"        {{ {uv[0]:.5f}, {uv[1]:.5f} }}" for uv in uvs)
+    face_line = ", ".join(str(i) for i in faces)
+    groups = ", ".join("0" for _ in vertices)
+    return f"""Geoset {{
+    Vertices {len(vertices)} {{
+{vertex_lines},
+    }}
+    Normals {len(normals)} {{
+{normal_lines},
+    }}
+    TVertices {len(uvs)} {{
+{uv_lines},
+    }}
+    VertexGroup {{
+        {groups},
+    }}
+    Faces 1 {len(faces)} {{
+        Triangles {{
+            {{ {face_line} }},
+        }}
+    }}
+    Groups 1 1 {{
+        Matrices {{ 0 }},
+    }}
+    MinimumExtent {{ {_fmt_v3(min_extent)[2:-2]} }},
+    MaximumExtent {{ {_fmt_v3(max_extent)[2:-2]} }},
+    BoundsRadius {radius:.3f},
+    MaterialID 0,
+    SelectionGroup 0,
+}}"""
+
+
+def _rotate_xy(x: float, y: float, angle: float) -> Tuple[float, float]:
+    return (x * math.cos(angle) - y * math.sin(angle), x * math.sin(angle) + y * math.cos(angle))
+
+
+def _generate_vfx_mdl(
+    model_name: str,
+    tex_path: str,
+    shape: str = "sigil",
+    variation: int = 0,
+) -> str:
+    """Generate a version-800 additive MDL with shape-specific, varied 3D geometry."""
+    if shape not in ("sigil", "burst", "bolt", "shield", "portal"):
+        raise ValueError(f"unsupported VFX geometry: {shape}")
+    hero_index = variation // 4
+    phase = math.radians((hero_index * 17 + variation * 13) % 360)
+    outer = 112.0 + (variation % 13) * 4.0
+    inner = outer * (0.42 + (variation % 5) * 0.035)
+    geo0_vertices: List[Tuple[float, float, float]] = []
+    geo0_uvs: List[Tuple[float, float]] = []
+    geo0_faces: List[int] = []
+    if shape in ("burst", "sigil"):
+        n = 7 + (variation % 8)
+        geo0_vertices.append((0.0, 0.0, 8.0))
+        geo0_uvs.append((0.5,0.5))
+        boundary = []
+        for k in range(n * 2):
+            radius = outer if k % 2 == 0 else inner
+            theta = phase + math.tau * k / (n * 2)
+            boundary.append((math.cos(theta)*radius, math.sin(theta)*radius, 8.0))
+        geo0_vertices.extend(boundary)
+        for x,y,_ in boundary:
+            u = max(0.0, min(1.0, 0.5 + x/(2*outer)))
+            v = max(0.0, min(1.0, 0.5 + y/(2*outer)))
+            geo0_uvs.append((u, v))
+        for k in range(len(boundary)):
+            geo0_faces.extend((0, 1+k, 1+((k+1)%len(boundary))))
+    elif shape == "bolt":
+        length = outer * (1.30 + (variation % 7) * 0.07)
+        width = 18.0 + (variation % 9) * 4.0
+        local = [(-length,-width),(-length*0.45,-width*0.58),(length*0.72,-width*0.44),(length,width),
+                 (length*0.25,width*0.52),(-length*0.62,width*0.42)]
+        points = [_rotate_xy(x,y,phase) for x,y in local]
+        geo0_vertices = [(0.0,0.0,8.0)] + [(x,y,8.0) for x,y in points]
+        geo0_uvs = [(0.5,0.5)] + [(max(0.0,min(1.0,0.5+x/(2*length))),max(0.0,min(1.0,0.5+y/(2*length)))) for x,y in points]
+        for k in range(len(points)):
+            geo0_faces.extend((0,1+k,1+((k+1)%len(points))))
+    elif shape == "shield":
+        w = outer * (0.70 + (variation % 5) * 0.04)
+        h = outer * (0.92 + (variation % 7) * 0.055)
+        local = [(-w,-h*0.58),(0.0,-h),(w,-h*0.58),(w*0.72,h*0.16),(0.0,h),(-w*0.72,h*0.16)]
+        points = [_rotate_xy(x,y,phase*0.35) for x,y in local]
+        geo0_vertices = [(0.0,0.0,8.0)] + [(x,y,8.0) for x,y in points]
+        geo0_uvs = [(0.5,0.5)] + [(max(0.0,min(1.0,0.5+x/(2*w))),max(0.0,min(1.0,0.5+y/(2*h)))) for x,y in points]
+        for k in range(len(points)):
+            geo0_faces.extend((0,1+k,1+((k+1)%len(points))))
+    else:  # portal: a real annulus, not a flat square with a new hue
+        n = 8 + (variation % 7)
+        rot = phase * 0.5
+        for radius in (outer, inner):
+            for k in range(n):
+                theta = rot + math.tau*k/n
+                x, y = math.cos(theta)*radius, math.sin(theta)*radius
+                geo0_vertices.append((x,y,8.0))
+                geo0_uvs.append((0.5+x/(2*outer),0.5+y/(2*outer)))
+        for k in range(n):
+            nxt = (k+1)%n
+            geo0_faces.extend((k,nxt,n+nxt,k,n+nxt,n+k))
+
+    # Geoset 1 is a 3D beam, shield wall, or portal ring according to the skill slot.
+    geo1_vertices: List[Tuple[float, float, float]] = []
+    geo1_uvs: List[Tuple[float, float]] = []
+    geo1_faces: List[int] = []
+    geo1_normal = (0.0,-1.0,0.0)
+    height = 154.0 + (variation % 17) * 8.0
+    if shape in ("burst", "sigil", "bolt"):
+        planes = 3 if shape in ("burst", "sigil") else 2
+        for plane in range(planes):
+            theta = phase + math.pi*plane/planes
+            half = (28.0 + (variation % 11)*2.1) if shape != "bolt" else (12.0 + (variation % 9)*1.7)
+            h = height if shape != "bolt" else height * (0.62 + (variation % 5)*0.04)
+            dx,dy = -math.sin(theta), math.cos(theta)
+            cx,cy = math.cos(theta)*12.0, math.sin(theta)*12.0
+            local_verts = [
+                (cx-dx*half,cy-dy*half,12.0), (cx+dx*half,cy+dy*half,12.0),
+                (cx+dx*half*0.42,cy+dy*half*0.42,h), (cx-dx*half*0.42,cy-dy*half*0.42,h),
+            ]
+            base = len(geo1_vertices)
+            geo1_vertices.extend(local_verts)
+            geo1_uvs.extend(((0,0),(1,0),(1,1),(0,1)))
+            geo1_faces.extend((base,base+1,base+2,base,base+2,base+3))
+    elif shape == "shield":
+        n = 6
+        for plane in range(2):
+            theta = phase*0.35 + math.pi*plane/2
+            half_w = outer*0.55
+            half_h = height*0.48
+            local = [(-half_w,-half_h*0.58),(0,-half_h),(half_w,-half_h*0.58),
+                     (half_w*0.72,half_h*0.16),(0,half_h),(-half_w*0.72,half_h*0.16)]
+            base = len(geo1_vertices)
+            geo1_vertices.append((math.cos(theta)*10.0,math.sin(theta)*10.0,height*0.52))
+            geo1_uvs.append((0.5,0.5))
+            for x,z in local:
+                geo1_vertices.append((x*math.cos(theta),x*math.sin(theta),height*0.52+z))
+                u = max(0.0, min(1.0, 0.5 + x/(2*half_w)))
+                v = max(0.0, min(1.0, 0.5 + z/(2*half_h)))
+                geo1_uvs.append((u, v))
+            for k in range(n):
+                geo1_faces.extend((base,base+1+k,base+1+((k+1)%n)))
+    else:
+        n = 8 + (variation % 7)
+        outer_r = 50.0 + (variation % 11)*4.0
+        inner_r = outer_r*(0.58 + (variation % 5)*0.035)
+        for plane in range(2):
+            theta0 = phase*0.5 + math.pi*plane/2
+            base = len(geo1_vertices)
+            for radius in (outer_r,inner_r):
+                for k in range(n):
+                    a = math.tau*k/n
+                    horizontal = math.sin(a)*radius
+                    z = height*0.55 + math.cos(a)*radius
+                    geo1_vertices.append((math.cos(theta0)*horizontal,math.sin(theta0)*horizontal,z))
+                    geo1_uvs.append((0.5+math.sin(a)*0.46,0.5+math.cos(a)*0.46))
+            for k in range(n):
+                nxt=(k+1)%n
+                geo1_faces.extend((base+k,base+nxt,base+n+nxt,base+k,base+n+nxt,base+n+k))
+
+    # Normals are planar; additive two-sided layers make every silhouette visible from either side.
+    geo0_normals = [(0.0,0.0,1.0)] * len(geo0_vertices)
+    geo1_normals = [geo1_normal] * len(geo1_vertices)
+    extent_xy = max(outer * 1.8, 300.0 if shape == "bolt" else outer * 1.4)
+    max_z = max(height + 20.0, 250.0)
+    min0 = (-extent_xy,-extent_xy,0.0)
+    max0 = (extent_xy,extent_xy,12.0)
+    min1 = (-extent_xy,-extent_xy,0.0)
+    max1 = (extent_xy,extent_xy,max_z)
+    model_extent = max(extent_xy,max_z)
+    geoset0 = _make_vfx_geoset(geo0_vertices,geo0_normals,geo0_uvs,geo0_faces,min0,max0,model_extent)
+    geoset1 = _make_vfx_geoset(geo1_vertices,geo1_normals,geo1_uvs,geo1_faces,min1,max1,model_extent)
     return f"""Version {{
     FormatVersion 800,
 }}
@@ -703,30 +1036,30 @@ Model "{model_name}" {{
     NumGeosetAnims 2,
     NumBones 2,
     BlendTime 150,
-    MinimumExtent {{ -160, -160, 0 }},
-    MaximumExtent {{ 160, 160, 220 }},
-    BoundsRadius 220,
+    MinimumExtent {{ {-extent_xy:.3f}, {-extent_xy:.3f}, 0 }},
+    MaximumExtent {{ {extent_xy:.3f}, {extent_xy:.3f}, {max_z:.3f} }},
+    BoundsRadius {model_extent:.3f},
 }}
 Sequences 3 {{
     Anim "Birth" {{
         Interval {{ 0, 450 }},
         NonLooping,
-        MinimumExtent {{ -160, -160, 0 }},
-        MaximumExtent {{ 160, 160, 220 }},
-        BoundsRadius 220,
+        MinimumExtent {{ {-extent_xy:.3f}, {-extent_xy:.3f}, 0 }},
+        MaximumExtent {{ {extent_xy:.3f}, {extent_xy:.3f}, {max_z:.3f} }},
+        BoundsRadius {model_extent:.3f},
     }}
     Anim "Stand" {{
         Interval {{ 500, 1500 }},
-        MinimumExtent {{ -160, -160, 0 }},
-        MaximumExtent {{ 160, 160, 220 }},
-        BoundsRadius 220,
+        MinimumExtent {{ {-extent_xy:.3f}, {-extent_xy:.3f}, 0 }},
+        MaximumExtent {{ {extent_xy:.3f}, {extent_xy:.3f}, {max_z:.3f} }},
+        BoundsRadius {model_extent:.3f},
     }}
     Anim "Death" {{
         Interval {{ 1600, 2200 }},
         NonLooping,
-        MinimumExtent {{ -160, -160, 0 }},
-        MaximumExtent {{ 160, 160, 220 }},
-        BoundsRadius 220,
+        MinimumExtent {{ {-extent_xy:.3f}, {-extent_xy:.3f}, 0 }},
+        MaximumExtent {{ {extent_xy:.3f}, {extent_xy:.3f}, {max_z:.3f} }},
+        BoundsRadius {model_extent:.3f},
     }}
 }}
 Textures 1 {{
@@ -744,78 +1077,8 @@ Materials 1 {{
         }}
     }}
 }}
-Geoset {{
-    Vertices 4 {{
-        {{ -128, -128, 8 }},
-        {{ 128, -128, 8 }},
-        {{ 128, 128, 8 }},
-        {{ -128, 128, 8 }},
-    }}
-    Normals 4 {{
-        {{ 0, 0, 1 }},
-        {{ 0, 0, 1 }},
-        {{ 0, 0, 1 }},
-        {{ 0, 0, 1 }},
-    }}
-    TVertices 4 {{
-        {{ 0, 0 }},
-        {{ 1, 0 }},
-        {{ 1, 1 }},
-        {{ 0, 1 }},
-    }}
-    VertexGroup {{
-        0, 0, 0, 0,
-    }}
-    Faces 1 6 {{
-        Triangles {{
-            {{ 0, 1, 2, 0, 2, 3 }},
-        }}
-    }}
-    Groups 1 1 {{
-        Matrices {{ 0 }},
-    }}
-    MinimumExtent {{ -128, -128, 8 }},
-    MaximumExtent {{ 128, 128, 8 }},
-    BoundsRadius 182,
-    MaterialID 0,
-    SelectionGroup 0,
-}}
-Geoset {{
-    Vertices 8 {{
-        {{ -85, 0, 14 }},
-        {{ 85, 0, 14 }},
-        {{ 85, 0, 190 }},
-        {{ -85, 0, 190 }},
-        {{ 0, -85, 14 }},
-        {{ 0, 85, 14 }},
-        {{ 0, 85, 190 }},
-        {{ 0, -85, 190 }},
-    }}
-    Normals 8 {{
-        {{ 0, 1, 0 }}, {{ 0, 1, 0 }}, {{ 0, 1, 0 }}, {{ 0, 1, 0 }},
-        {{ 1, 0, 0 }}, {{ 1, 0, 0 }}, {{ 1, 0, 0 }}, {{ 1, 0, 0 }},
-    }}
-    TVertices 8 {{
-        {{ 0, 0 }}, {{ 1, 0 }}, {{ 1, 1 }}, {{ 0, 1 }},
-        {{ 0, 0 }}, {{ 1, 0 }}, {{ 1, 1 }}, {{ 0, 1 }},
-    }}
-    VertexGroup {{
-        0, 0, 0, 0, 0, 0, 0, 0,
-    }}
-    Faces 1 12 {{
-        Triangles {{
-            {{ 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7 }},
-        }}
-    }}
-    Groups 1 1 {{
-        Matrices {{ 1 }},
-    }}
-    MinimumExtent {{ -85, -85, 14 }},
-    MaximumExtent {{ 85, 85, 190 }},
-    BoundsRadius 205,
-    MaterialID 0,
-    SelectionGroup 0,
-}}
+{geoset0}
+{geoset1}
 GeosetAnim {{
     Alpha 5 {{
         Linear,
@@ -878,7 +1141,6 @@ PivotPoints 2 {{
 }}
 """
 
-
 def compile_vfx_mdx_models(mdl_map: Dict[str, str]) -> Dict[str, bytes]:
     out: Dict[str, bytes] = {}
     with tempfile.TemporaryDirectory() as tmp:
@@ -928,7 +1190,7 @@ def build_war3map_preview_tga() -> bytes:
 
 
 def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
-    """Build `{mpq_archive_path: binary_bytes}` for the v6 custom asset bundle."""
+    """Build `{mpq_archive_path: binary_bytes}` for the v7 custom asset bundle."""
     files: Dict[str, bytes] = {}
 
     # 1. Lobby map preview and patch-safe custom cursor atlases.
@@ -947,7 +1209,7 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
     hero_blps, hero_samples = build_hero_portrait_assets()
     files.update(hero_blps)
 
-    # 4. Additive faction sigils and their six compiled, roundtrip-verified MDX effects.
+    # 4. Additive faction sigils plus 64 distinct skill-specific spell models.
     sigil_defs = [
         ("WM_Sigil_Abyssal", (18, 205, 245),  (210, 255, 255), 8, "WM_FX_Abyssal.mdx"),
         ("WM_Sigil_Fel",     (58, 250, 128),  (220, 255, 195), 6, "WM_FX_FelGlaive.mdx"),
@@ -961,6 +1223,21 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
         tex_path = f"Textures\\{sig_name}.blp"
         files[tex_path] = build_sigil_texture(c_main, c_core, spikes=spk)
         mdl_specs[mdx_name] = _generate_vfx_mdl(mdx_name[:-4], tex_path)
+
+    spell_geometry_signatures = set()
+    for ability_index in range(64):
+        suffix = f"{ability_index:02d}"
+        mdx_name = f"WM_Skill_{suffix}.mdx"
+        tex_path = f"Textures\\WM_Skill_{suffix}.blp"
+        shape = SPELL_FX_SHAPES[ability_index % 4]
+        files[tex_path] = build_spell_vfx_texture(ability_index)
+        mdl_text = _generate_vfx_mdl(mdx_name[:-4], tex_path, shape=shape, variation=ability_index)
+        geo_start = mdl_text.index("Geoset {")
+        geo_end = mdl_text.index("GeosetAnim", geo_start)
+        spell_geometry_signatures.add(mdl_text[geo_start:geo_end])
+        mdl_specs[mdx_name] = mdl_text
+    if len(spell_geometry_signatures) != 64:
+        raise AssertionError(f"skill VFX geometry is not unique ({len(spell_geometry_signatures)}/64)")
     files.update(compile_vfx_mdx_models(mdl_specs))
 
     # 5. The web preview showcases the custom portrait work, not licensed stock icons.
@@ -972,4 +1249,4 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
 if __name__ == "__main__":
     bundle = generate_all_custom_assets()
     total = sum(len(v) for v in bundle.values())
-    print(f"Generated {len(bundle)} custom v6 assets ({total:,} bytes raw)")
+    print(f"Generated {len(bundle)} custom v7 assets ({total:,} bytes raw)")

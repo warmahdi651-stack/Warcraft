@@ -366,6 +366,178 @@ function WM_OnUltWaveTick takes nothing returns nothing
     set owner = null
 endfunction
 
+function WM_GetUniqueSkillVFXIndex takes integer abil returns integer
+    if abil == 'A000' then
+        return 0
+    elseif abil == 'A001' then
+        return 1
+    elseif abil == 'A002' then
+        return 2
+    elseif abil == 'A003' then
+        return 3
+    elseif abil == 'A004' then
+        return 4
+    elseif abil == 'A005' then
+        return 5
+    elseif abil == 'A006' then
+        return 6
+    elseif abil == 'A007' then
+        return 7
+    elseif abil == 'A008' then
+        return 8
+    elseif abil == 'A009' then
+        return 9
+    elseif abil == 'A010' then
+        return 10
+    elseif abil == 'A011' then
+        return 11
+    elseif abil == 'A012' then
+        return 12
+    elseif abil == 'A013' then
+        return 13
+    elseif abil == 'A014' then
+        return 14
+    elseif abil == 'A015' then
+        return 15
+    elseif abil == 'A016' then
+        return 16
+    elseif abil == 'A017' then
+        return 17
+    elseif abil == 'A018' then
+        return 18
+    elseif abil == 'A019' then
+        return 19
+    elseif abil == 'A020' then
+        return 20
+    elseif abil == 'A021' then
+        return 21
+    elseif abil == 'A022' then
+        return 22
+    elseif abil == 'A023' then
+        return 23
+    elseif abil == 'A024' then
+        return 24
+    elseif abil == 'A025' then
+        return 25
+    elseif abil == 'A026' then
+        return 26
+    elseif abil == 'A027' then
+        return 27
+    elseif abil == 'A028' then
+        return 28
+    elseif abil == 'A029' then
+        return 29
+    elseif abil == 'A030' then
+        return 30
+    elseif abil == 'A031' then
+        return 31
+    elseif abil == 'A032' then
+        return 32
+    elseif abil == 'A033' then
+        return 33
+    elseif abil == 'A034' then
+        return 34
+    elseif abil == 'A035' then
+        return 35
+    elseif abil == 'A036' then
+        return 36
+    elseif abil == 'A037' then
+        return 37
+    elseif abil == 'A038' then
+        return 38
+    elseif abil == 'A039' then
+        return 39
+    elseif abil == 'A040' then
+        return 40
+    elseif abil == 'A041' then
+        return 41
+    elseif abil == 'A042' then
+        return 42
+    elseif abil == 'A043' then
+        return 43
+    elseif abil == 'A044' then
+        return 44
+    elseif abil == 'A045' then
+        return 45
+    elseif abil == 'A046' then
+        return 46
+    elseif abil == 'A047' then
+        return 47
+    elseif abil == 'A048' then
+        return 48
+    elseif abil == 'A049' then
+        return 49
+    elseif abil == 'A050' then
+        return 50
+    elseif abil == 'A051' then
+        return 51
+    elseif abil == 'A052' then
+        return 52
+    elseif abil == 'A053' then
+        return 53
+    elseif abil == 'A054' then
+        return 54
+    elseif abil == 'A055' then
+        return 55
+    elseif abil == 'A056' then
+        return 56
+    elseif abil == 'A057' then
+        return 57
+    elseif abil == 'A058' then
+        return 58
+    elseif abil == 'A059' then
+        return 59
+    elseif abil == 'A060' then
+        return 60
+    elseif abil == 'A061' then
+        return 61
+    elseif abil == 'A062' then
+        return 62
+    elseif abil == 'A063' then
+        return 63
+    endif
+    return -1
+endfunction
+
+function WM_GetUniqueSkillVFXPath takes integer abil returns string
+    local integer skillIndex = WM_GetUniqueSkillVFXIndex(abil)
+    local string suffix = ""
+    if skillIndex < 0 or skillIndex >= 64 then
+        return ""
+    endif
+    set suffix = I2S(skillIndex)
+    if skillIndex < 10 then
+        set suffix = "0" + suffix
+    endif
+    return "WM_Skill_" + suffix + ".mdx"
+endfunction
+
+function WM_EmitUniqueSkillVFX takes unit caster, integer abil, real tx, real ty returns nothing
+    local integer skillIndex = WM_GetUniqueSkillVFXIndex(abil)
+    local integer skillSlot = 0
+    local string effectPath = ""
+    local unit target = null
+    local real fxX = tx
+    local real fxY = ty
+    if skillIndex < 0 then
+        return
+    endif
+    set skillSlot = ModuloInteger(skillIndex, 4)
+    set effectPath = WM_GetUniqueSkillVFXPath(abil)
+    set target = GetSpellTargetUnit()
+    if skillSlot == 2 or abil == 'A007' or abil == 'A031' or abil == 'A043' then
+        set fxX = GetUnitX(caster)
+        set fxY = GetUnitY(caster)
+    elseif target != null then
+        set fxX = GetUnitX(target)
+        set fxY = GetUnitY(target)
+    endif
+    if effectPath != "" then
+        call DestroyEffect(AddSpecialEffect(effectPath, fxX, fxY))
+    endif
+    set target = null
+    set caster = null
+endfunction
 function WM_OnCustomHeroSpellEffect takes nothing returns boolean
     local integer abil = GetSpellAbilityId()
     local unit caster = null
@@ -404,6 +576,7 @@ function WM_OnCustomHeroSpellEffect takes nothing returns boolean
     set cy = GetUnitY(caster)
     set tx = GetSpellTargetX()
     set ty = GetSpellTargetY()
+    call WM_EmitUniqueSkillVFX(caster, abil, tx, ty)
     set dmg = 42.0 + 34.0 * I2R(lvl) + WM_HeroPrimaryBonus(caster)
 
     // ---- Q: 16 distinct point-target signatures ----

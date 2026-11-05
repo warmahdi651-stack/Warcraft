@@ -40,10 +40,10 @@ def build_archive_manifest() -> dict:
         "archiveBytes": MAP_FILE.stat().st_size,
         "entries": entries,
         "checks": [
-            "Stage 1: HM3W header + PurePython MPQ v1 archive (97 files)",
+            "Stage 1: HM3W header + PurePython MPQ v1 archive (225 files)",
             "Stage 2: TFT v25 — 192x192 Sunken-Astral terrain + 5,961 placed trees within the World Editor limit",
-            "Stage 3a: JASS2 static typecheck vs 1.27b Common.j + Blizzard.j (110 functions, 0 errors)",
-            "Stage 3b: JASS2 static typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (110 functions, 0 errors)",
+            "Stage 3a: Generated JASS2 static typecheck vs 1.27b Common.j + Blizzard.j (custom AI and spell engine)",
+            "Stage 3b: Generated JASS2 static typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (custom AI and spell engine)",
             "Stage 4 & 5: 181 preplaced units, 15 strings, 45 minimap icons and 256x256 BLP1 minimap synchronized",
             "Stage 6: All 8 mirrored player starts, mines and town-hall zones are buildable",
             "Stage 7: Zero collision footprints across 181 units and the 5,920 harvestable trees",
@@ -51,10 +51,10 @@ def build_archive_manifest() -> dict:
             "Stage 9: 200u creep-camp acquisition and Tavern/base safe-zones verified",
             "Stage 10: Exact 8-way D4 terrain, pathing and forest symmetry",
             "Stage 11: 8 playable empires, 16 heroes, 64 skills; object tables and command-card collisions verified",
-            "Stage 12: All 4 imported race AI scripts typechecked against Common.j + common.ai (0 errors)",
+            "Stage 12: Race-AI scripts typechecked; native AI for classic races + authoritative JASS controller for custom factions",
             "Stage 13: 31 combat units + 16 heroes; ladder DPS/EHP/cost and 55-point stat audits",
-            "Stage 14: 66 BLP1s (20 icon-only portrait files), native effect-matched skill art and 6 MDX VFX",
-            "Stage 15: TFT 1.26-era API compatibility proxy, worker-build fallback, item use and AI safeguards",
+            "Stage 14: 130 BLP1s (20 palette-only portrait icons), native skill art, 64 unique skill MDX effects + 6 faction sigils",
+            "Stage 15: TFT 1.26-era API compatibility proxy, explicit workers, sequential construction/training and AI safeguards",
         ],
     }
 
@@ -63,7 +63,7 @@ ARCHIVE_MANIFEST_CACHE = build_archive_manifest()
 
 
 class MapPreviewHandler(BaseHTTPRequestHandler):
-    server_version = "CrownOfWarMahdiPreview/5.0"
+    server_version = "CrownOfWarMahdiPreview/7.0"
 
     def log_message(self, fmt: str, *args: object) -> None:
         sys.stdout.write("[HTTP] " + (fmt % args) + "\n")

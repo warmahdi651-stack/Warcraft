@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-v6 Master Expansion Module for `(8) Crown of WarMahdi`:
+v7 Master Expansion Module for `(8) Crown of WarMahdi`:
   - Two complete, tournament-balanced Custom Playable Empires with race-specific
     Build mechanics, faction-appropriate models, and model-matched native icons:
       7. Voidborn Legion (`v001..v019`, Heroes `V001..V004`, Upgrades `R000..R001`)
@@ -1258,7 +1258,7 @@ def serialize_war3map_skin() -> bytes:
         "ARMOR_SMALL=Aegis: |cff6ee7b7Agile Guard|r",
         "ARMOR_NONE=Aegis: |cffc084fcAstral Shroud|r",
         "UPPER_BUTTON_QUEST_TIP=|cffffcc00WarMahdi Codex & Guide|r (|cffffcc00F9|r)",
-        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v6 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681-100 Supply:|r 40% Gold Income",
+        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v7 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681-100 Supply:|r 40% Gold Income",
         "",
     ]
     return "\r\n".join(lines).encode("utf-8")
@@ -1284,7 +1284,7 @@ def _build_custom_faction_ai(
 ) -> str:
     return f"""//============================================================================
 //  {title_comment}
-//  Tournament Melee AI for `(8) Crown of WarMahdi` v6
+//  Tournament Melee AI data for `(8) Crown of WarMahdi` v7
 //============================================================================
 globals
     integer CF_WORKER    = '{worker}'

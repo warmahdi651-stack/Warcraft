@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Custom Playable Races, Object Modifications & Pro-Level Melee AI Generator
-for `(8) Crown of WarMahdi` v6 (Warcraft III TFT 1.26a/1.27b & Reforged).
+for `(8) Crown of WarMahdi` v7 (Warcraft III TFT 1.26a/1.27b & Reforged).
 
 Implements four ladder-bounded custom empires alongside the 4 classic Warcraft III races:
   5. Abyssal Tideborn / Naga (`RACE_NAGA = 5`, now includes Illidan Stormrage)
@@ -9,7 +9,7 @@ Implements four ladder-bounded custom empires alongside the 4 classic Warcraft I
   7. Voidborn Legion
   8. Runeforged Bastion
 
-Key v6 Engineering, Art & Balance Guarantees:
+Retained Engineering, Art & Balance Guarantees:
   - Every unit, caster, siege engine, flying unit, hero, tower, and upgrade is
     placed in its authentic, dedicated production building with clean 4x3 button
     coordinates and Tier-1 / Tier-2 / Tier-3 tech gating (zero misplaced units!).
@@ -286,6 +286,9 @@ def build_unit_modifications() -> Tuple[
         #   Row 1: (0,1) nnad | (1,1) n003 | (2,1) nntg
         #   Row 2: (0,2) nnsa | (1,2) n005
         ("nmpe", NULL_ID, [
+            ("urac", VT_STR, "naga"),
+            ("utyp", VT_STR, "Peon"),
+            ("uabi", VT_STR, "Ahar,Ahrp,Aneu,Aihn"),
             ("ubui", VT_STR, "nntt,nnfm,nnsg,n004,nnad,n003,nntg,nnsa,n005"),
             ("ugol", VT_INT, 75),
             ("ulum", VT_INT, 0),
@@ -690,6 +693,7 @@ def build_unit_modifications() -> Tuple[
         ("nhew", NULL_ID, [
             ("unam", VT_STR, "Silvermoon Worker"),
             ("urac", VT_STR, "human"),
+            ("utyp", VT_STR, "Peon"),
             ("ubui", VT_STR, "h001,nefm,h007,h011,h010,h004,h005,negt,nheb,h008,h009"),
             ("uabi", VT_STR, "Ahar,Ahrp,Aneu,Aihn"),
             ("upgr", VT_STR, "Rhpm"),
@@ -2799,8 +2803,8 @@ endfunction
 def generate_custom_races_jass() -> Tuple[str, str]:
     """
     Returns `(globals_block, functions_block)` to embed into `war3map.j`
-    (v6: 8 Playable Empires, Host-first AI Difficulty, smoother picker, 16 exclusive
-    Heroes with 64 redesigned skills and native effect-matched buttons, RPG UI/cursor skins, Live Multiboard
-    HUD, imported race AIs plus JASS worker-build fallback and tactical micro).
+    (v7: 8 Playable Empires, Host-first AI Difficulty, 16 exclusive Heroes with 64
+    level-gated skills and individual MDX spell effects, RPG UI/cursor skins, Live Multiboard
+    HUD, native standard-race AI and an authoritative sequential JASS custom-faction controller).
     """
     return generate_custom_gameplay_jass()

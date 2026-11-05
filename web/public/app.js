@@ -861,6 +861,21 @@
     const data = await res.json();
     state.data = data;
 
+    const numberFa = (value) => Number(value || 0).toLocaleString("fa-IR");
+    const manifestButton = document.getElementById("btnOpenManifest");
+    if (manifestButton) {
+      manifestButton.textContent = `${numberFa(data.stats.archiveFiles)} فایل MPQ • ${numberFa(data.stats.blpFiles)} بافت BLP1 • ${numberFa(data.stats.customVfxModels)} مدل MDX • ۱۵ آزمون`;
+    }
+    const sizeBytes = Number(data.fileSizeBytes || 0);
+    const sizeDisplay = document.getElementById("mapSizeDisplay");
+    const bytesDisplay = document.getElementById("mapBytesDisplay");
+    if (sizeDisplay && sizeBytes > 0) {
+      sizeDisplay.textContent = `${(sizeBytes / (1024 * 1024)).toLocaleString("fa-IR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} مگابایت`;
+    }
+    if (bytesDisplay && sizeBytes > 0) {
+      bytesDisplay.textContent = `${numberFa(sizeBytes)} bytes`;
+    }
+
     document.getElementById("stPlayers").textContent = `${data.stats.playableRaces || 6} Races`;
     document.getElementById("stSize").textContent = `${data.dimensions.tilesW}×${data.dimensions.tilesH}`;
     document.getElementById("stMines").textContent = data.stats.goldMines;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>(8) Crown of WarMahdi v6 — ۸ امپراتوری، ۱۶ هیرو و ۶۴ اسکیل بازطراحی‌شده</title>
+  <title>(8) Crown of WarMahdi v7 — ۸ امپراتوری، ۱۶ هیرو و ۶۴ اسکیل بازطراحی‌شده</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -11,17 +11,17 @@
     <div class="brand-group">
       <div class="crest-badge" aria-hidden="true">👑</div>
       <div>
-        <div class="eyebrow">WARCRAFT III TFT 1.26a / 1.27b &amp; REFORGED • 8-EMPIRE SUNKEN-ASTRAL ALTERED MELEE v6</div>
-        <h1>(8) Crown of WarMahdi v6 <span class="sub-fa">| ۸ نژاد (۴ امپراتوری جدید) • ۱۶ هیرو با ۶۴ اسکیلِ کاملاً متفاوت • آیکون‌های هم‌خوان با مهارت، پرتره‌های قهرمان و مدل‌های نژادی درست</span></h1>
+        <div class="eyebrow">WARCRAFT III TFT 1.26a / 1.27b &amp; REFORGED • 8-EMPIRE SUNKEN-ASTRAL ALTERED MELEE v7</div>
+        <h1>(8) Crown of WarMahdi v7 <span class="sub-fa">| ۸ نژاد (۴ امپراتوری جدید) • ۱۶ هیرو با ۶۴ اسکیل اختصاصی • ۶۴ جلوهٔ MDX متفاوت • آیکون‌های هم‌خوان و مدل‌های نژادی درست</span></h1>
       </div>
     </div>
 
     <div class="topbar-actions">
-      <span class="verified-pill" title="MPQ + JASS2 1.27b & Reforged + native icon/model references + icon-only paletted BLP + 15 static checks + 4 AI scripts">
+      <span class="verified-pill" title="MPQ + JASS2 1.27b & Reforged + native icon/model references + icon-only paletted BLP + 15 static checks + 64 unique skill VFX models">
         ✓ ۱۵/۱۵ بررسی استاتیک، ۶۴ اسکیل یکتا و بررسی آبجکت‌ها
       </span>
       <button id="btnOpenManifest" class="btn-secondary" type="button">
-        ۹۷ فایل MPQ • ۶۶ بافت BLP1 • ۶ مدل MDX • ۱۵ آزمون
+        ۲۲۵ فایل MPQ • ۱۳۰ بافت BLP1 • ۷۰ مدل MDX • ۱۵ آزمون
       </button>
     </div>
   </header>
@@ -32,8 +32,8 @@
       <div class="dl-title-row">
         <img src="./crown_artwork.png" alt="Crown of WarMahdi Custom Lobby Artwork" style="width:76px;height:76px;border-radius:12px;border:2px solid #f59e0b;box-shadow:0 0 18px rgba(245,158,11,0.45);object-fit:cover;flex-shrink:0;" />
         <div>
-          <h2>دانلود مستقیم نسخه v6: <code dir="ltr">(8)CrownOfWarMahdi.w3x</code></h2>
-          <p>حجم: <strong>۱٫۰۴ مگابایت</strong> (<code>1,089,566 bytes</code>) • <strong>۴ امپراتوری با مدل‌های نژادی مناسب، ۱۶ قهرمان و ۶۴ مهارت با بازشدن صحیح (اسکیل‌های عادی در ۱/۳/۵ و آلتیمیت در ۶)، بازگشت Mana Burn و Phoenix و Resurrection، ۱۰ جفت پرتره و AI تاکتیکی‌تر</strong></p>
+          <h2>دانلود مستقیم نسخه v7: <code dir="ltr">(8)CrownOfWarMahdi.w3x</code></h2>
+          <p>حجم: <strong id="mapSizeDisplay">— مگابایت</strong> (<code id="mapBytesDisplay">— bytes</code>) • <strong>۴ امپراتوری با مدل‌های نژادی مناسب، ۱۶ قهرمان و ۶۴ مهارت با بازشدن صحیح (اسکیل‌های عادی در ۱/۳/۵ و آلتیمیت در ۶)، بازگشت Mana Burn و Phoenix و Resurrection، ۱۰ جفت پرتره و AI تاکتیکی‌تر</strong></p>
         </div>
       </div>
     </div>
@@ -59,7 +59,7 @@
   </section>
 
   <main class="workspace-grid">
-    <!-- Right Panel (RTL start): v6 Menus, Hero Kits, Race Builds & Map Stats -->
+    <!-- Right Panel (RTL start): v7 Menus, Hero Kits, Race Builds & Map Stats -->
     <aside class="panel controls-panel">
       <section class="card">
         <h2 class="card-title">منوی جدید سختی AI (برای هاست) + انتخاب روان ۸ امپراتوری</h2>
@@ -81,17 +81,28 @@
       </section>
 
       <section class="card">
+        <h2 class="card-title">استراتژی‌های مستقل AI برای هر امپراتوری</h2>
+        <ul class="lobby-guide-list">
+          <li><strong style="color:#fbbf24">Sunfury:</strong> Altar زودهنگام و Archers سریع، سپس swordsman، caster، siege و هوایی.</li>
+          <li><strong style="color:#c084fc">Voidborn:</strong> Rift Gate و ranged pressure پیش از Altar دیرتر و ارتقای سریع Tier.</li>
+          <li><strong style="color:#22d3ee">Abyssal:</strong> Coral Bed، Altar و Spawning Grounds برای فشار زودهنگام Naga.</li>
+          <li><strong style="color:#f97316">Runeforged:</strong> Altar زودهنگام و Thunder Arquebusier، با سرمایه‌گذاری کنترل‌شده روی tech.</li>
+        </ul>
+        <p class="hint-text">AI نژادهای کلاسیک از melee AI خود بازی استفاده می‌کند؛ برای چهار نژاد سفارشی، کنترلر JASS یگانه با صف ساخت، cooldown آموزش، تشخیص صریح کارگر و پیشرفت مستقل مهارت هیرو فعال است.</p>
+      </section>
+
+      <section class="card">
         <h2 class="card-title">کاور مپ + هنر بلیزاردِ هم‌خوان با مهارت + ۱۰ جفت پرتره اختصاصی</h2>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <img src="./custom_icons_preview.png" alt="ده پرتره اختصاصی قهرمانان ناگا، الف، انسان و ویدبورن" style="width:100%;border-radius:8px;border:1px solid rgba(148,163,184,0.28);" />
           <p class="hint-text" style="margin:0;">
-            ۶۴ مهارت Q/W/E/R آیکون بلیزاردِ متناسب دارند؛ اسکیل‌های عادی در سطح‌های ۱، ۳ و ۵ و آلتیمیت‌ها از سطح ۶ در دسترس‌اند. Mana Burn، Phoenix و Resurrection نیز با اثر و آیکون اصیل بازگشته‌اند؛ ۱۰ قهرمان پرتره اختصاصی دارند. نقشه شامل ۶۶ فایل BLP1 (فقط جفت پرتره‌ها پالت‌دار)، چهار اطلس نشانگر، کاور لابی و ۶ مدل VFX است.
+            ۶۴ مهارت Q/W/E/R آیکون بلیزاردِ متناسب و مدل MDX اختصاصی دارند؛ شکل‌های انفجاری، صاعقه، سپر و درگاه در هر کیت هندسه و تم قهرمان جداگانه دارند. اسکیل‌های عادی در سطح‌های ۱، ۳ و ۵ و آلتیمیت‌ها از سطح ۶ در دسترس‌اند. Mana Burn، Phoenix و Resurrection نیز بازگشته‌اند؛ ۱۰ قهرمان پرتره اختصاصی دارند. نقشه شامل ۱۳۰ فایل BLP1 (فقط جفت پرتره‌ها پالت‌دار)، چهار اطلس نشانگر، ۶ نشان نژادی و ۶۴ جلوهٔ مهارت است.
           </p>
         </div>
       </section>
 
       <section class="card">
-        <h2 class="card-title">آمار کلی نقشه (Map Overview v6)</h2>
+        <h2 class="card-title">آمار کلی نقشه (Map Overview v7)</h2>
         <div class="stats-grid" id="statsGrid">
           <div class="stat-box">
             <span class="stat-val" id="stPlayers">8 Races</span>
@@ -188,14 +199,14 @@
 
       <div class="canvas-footer">
         <span>🖱 با اسکرول ماوس زوم کنید، با کشیدن جابه‌جا شوید و روی هر معدن، کمپ کریپ، فروشگاه یا مقر کلیک کنید.</span>
-        <span dir="ltr">(8) Crown of WarMahdi v6 • 1.26a / 1.27b / Reforged</span>
+        <span dir="ltr">(8) Crown of WarMahdi v7 • 1.26a / 1.27b / Reforged</span>
       </div>
     </section>
 
     <!-- Left Panel (RTL end): 8-Empire Techtree & Custom Skills Explorer + Selected Object Inspector -->
     <aside class="panel inspector-panel">
       <section class="card">
-        <h2 class="card-title">۸ امپراتوری • ۱۶ هیرو • ۶۴ اسکیل یکتا</h2>
+        <h2 class="card-title">۸ امپراتوری • ۱۶ هیرو • ۶۴ اسکیل و ۶۴ جلوهٔ سه‌بعدی یکتا</h2>
         <div class="race-tabs" id="raceTabs" style="flex-wrap:wrap;">
           <button type="button" class="race-tab active" data-race="abyssal">🌊 Abyssal</button>
           <button type="button" class="race-tab" data-race="sunfury">☀️ Sunfury</button>
