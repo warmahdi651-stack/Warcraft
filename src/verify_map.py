@@ -1052,11 +1052,13 @@ def run_verification(w3x_path: Path) -> None:
         else:
             assert nid[0].islower(), f"Custom non-Hero {nid} (parent {oid}) MUST start with lowercase!"
 
-    # Independent JS parser cross-check via mdx-m3-viewer (all 6 custom .mdx models and BLP1 assets).
+    # Independent JS parser cross-check via mdx-m3-viewer for effect, building MDX and BLP1 assets.
     imp_expected = struct.unpack_from("<II", files["war3map.imp"], 0)[1]
     blp_paths_json = json.dumps([name for name in files if name.lower().endswith(".blp")])
     custom_mdx_paths = [name for name in files if name.lower().endswith(".mdx") and (name.startswith("WM_FX_") or name.startswith("WM_Skill_"))]
     mdx_paths_json = json.dumps(custom_mdx_paths)
+    building_mdx_paths = [name for name in files if name.startswith("WM_Build_Naga_") and name.lower().endswith(".mdx")]
+    building_mdx_paths_json = json.dumps(building_mdx_paths)
     mdx_dir = Path("/tmp/wc3ref/node_modules/mdx-m3-viewer")
     if mdx_dir.exists():
         js_check = subprocess.run(
@@ -1086,6 +1088,13 @@ def run_verification(w3x_path: Path) -> None:
                     const mdl = new MdxModel();
                     mdl.load(m.get(fx).bytes());
                     if (mdl.version !== 800 || mdl.sequences.length < 2 || mdl.geosets.length !== 2) process.exit(2);
+                }}
+                const buildingMdxPaths = {building_mdx_paths_json};
+                if (buildingMdxPaths.length !== 3) process.exit(7);
+                for (const building of buildingMdxPaths) {{
+                    const mdl = new MdxModel();
+                    mdl.load(m.get(building).bytes());
+                    if (mdl.version !== 800 || mdl.sequences.length !== 3 || mdl.geosets.length !== 1) process.exit(8);
                 }}
                 const icon = new BlpImage();
                 icon.load(m.get("ReplaceableTextures\\\\CommandButtons\\\\BTN_WM_Portrait_Hvsh.blp").bytes());
@@ -1232,6 +1241,14 @@ def run_verification(w3x_path: Path) -> None:
             "nntg": (r"buildings\naga\TidalGuardian\TidalGuardian", r"ReplaceableTextures\CommandButtons\BTNTidalGuardian.blp"),
             "nntt": (r"buildings\naga\TempleofTides\TempleofTides", r"ReplaceableTextures\CommandButtons\BTNTempleOfTides.blp"),
         }
+        native_naga_worker_builds = {
+            rawcode.strip().lower()
+            for rawcode in native_func_fields.get("nmpe", {}).get("builds", "").split(",")
+            if rawcode.strip()
+        }
+        assert native_naga_worker_builds == set(naga_native_buildings), (
+            f"Native Naga worker build list changed: {sorted(native_naga_worker_builds)}"
+        )
         for native_id, (model_path, button_path) in naga_native_buildings.items():
             assert native_id in native_unit_ui, f"Native Naga building {native_id} missing from unitui.slk"
             assert str(native_unit_ui[native_id].get("file", "")).lower() == model_path.lower(), (
@@ -1256,15 +1273,28 @@ def run_verification(w3x_path: Path) -> None:
             str(row.get("file", "")).replace("/", "\\").lower()
             for row in native_unit_ui.values() if row.get("file")
         }
+        generated_naga_building_models = {
+            "n003": "WM_Build_Naga_TidalTreasury.mdx",
+            "n004": "WM_Build_Naga_CoralForge.mdx",
+            "n005": "WM_Build_Naga_BehemothPool.mdx",
+        }
         for custom_id, model_path in custom_model_paths.items():
-            model_key = model_path.replace("/", "\\").removesuffix(".mdl").lower()
-            assert model_key in native_model_paths, (
-                f"Custom object {custom_id} references non-native/unverified model {model_path}"
-            )
+            model_key = model_path.replace("/", "\\").removesuffix(".mdl").removesuffix(".mdx").lower()
+            if custom_id in generated_naga_building_models:
+                expected_model = generated_naga_building_models[custom_id]
+                assert model_path.lower() == expected_model.lower(), (
+                    f"Naga building {custom_id} must use its unique generated model {expected_model}"
+                )
+                assert model_path in files, f"Missing generated building MDX {model_path} in MPQ"
+            else:
+                assert model_key in native_model_paths, (
+                    f"Custom object {custom_id} references non-native/unverified model {model_path}"
+                )
+
         representative_models = {
-            "h007": r"buildings\other\ElvenVillageBuilding3\ElvenVillageBuilding3.mdl",
-            "h008": r"buildings\other\ElvenVillageBuilding4\ElvenVillageBuilding4.mdl",
-            "h009": r"buildings\other\DragonRoost\DragonRoost.mdl",
+            "h007": r"buildings\human\HumanBarracks\HumanBarracks.mdl",
+            "h008": r"buildings\human\Workshop\Workshop.mdl",
+            "h009": r"buildings\human\GryphonAviary\GryphonAviary.mdl",
             "v001": r"buildings\undead\Necropolis\Necropolis.mdl",
             "v010": r"units\creeps\VoidWalker\VoidWalker.mdl",
             "t001": r"buildings\other\AmmoDump\AmmoDump.mdl",
@@ -1276,19 +1306,100 @@ def run_verification(w3x_path: Path) -> None:
                 f"Faction model override for {custom_id} was removed or changed"
             )
 
-        for custom_id, native_id in (("n003", "nnsa"), ("n004", "nnad"), ("n005", "nnsg")):
-            expected_model, expected_button = naga_native_buildings[native_id]
-            actual_model = custom_u_by_id.get(custom_id, {}).get("umdl", "").removesuffix(".mdl")
+        for custom_id, expected_model in generated_naga_building_models.items():
+            actual_model = custom_u_by_id.get(custom_id, {}).get("umdl", "")
+            expected_button = {
+                "n003": r"ReplaceableTextures\CommandButtons\BTNShrineOfAszhara.blp",
+                "n004": r"ReplaceableTextures\CommandButtons\BTNAltarOfDepths.blp",
+                "n005": r"ReplaceableTextures\CommandButtons\BTNSpawningGrounds.blp",
+            }[custom_id]
+            texture_path = f"Textures\\{expected_model.removesuffix('.mdx')}.blp"
+            assert actual_model.lower() == expected_model.lower(), f"Wrong role-specific Naga building model on {custom_id}"
+            assert expected_model in files and texture_path in files, f"Missing Naga building MDX/texture pair for {custom_id}"
             actual_button = custom_u_by_id.get(custom_id, {}).get("uico", "")
-            assert actual_model.lower() == expected_model.lower(), f"{custom_id} is not using native Naga model {expected_model}.mdl"
-            assert actual_button.lower() == expected_button.lower(), f"{custom_id} is not using matched native Naga button {expected_button}"
+            assert actual_button.lower() == expected_button.lower(), f"Naga building button no longer matches its construction role: {custom_id}"
 
-        for custom_id, native_id in (("h001", "htow"), ("h002", "hkee"), ("h003", "hcas"), ("h004", "halt"), ("h010", "hbla")):
+        sunfury_native_building_parents = (
+            ("h001", "htow"), ("h002", "hkee"), ("h003", "hcas"),
+            ("h004", "halt"), ("h005", "hvlt"), ("h007", "hbar"),
+            ("h008", "harm"), ("h009", "hgra"), ("h010", "hbla"), ("h011", "hlum"),
+        )
+        for custom_id, native_id in sunfury_native_building_parents:
             expected_model = str(native_unit_ui[native_id].get("file", ""))
             actual_model = custom_u_by_id.get(custom_id, {}).get("umdl", "").removesuffix(".mdl")
             assert actual_model.lower() == expected_model.lower(), (
-                f"{custom_id} does not retain its native Human model {expected_model}.mdl"
+                f"Sunfury building {custom_id} must use its role-matched native Human model {expected_model}.mdl"
             )
+
+        null_model_rawcode = bytes(4).decode("latin1")
+        custom_parent_by_id = {
+            nid: oid for oid, nid, _mods in w3u_cust if nid != null_model_rawcode
+        }
+
+        def building_model_key(rawcode: str) -> str:
+            model = custom_u_by_id.get(rawcode, {}).get("umdl", "")
+            if not model:
+                parent_id = custom_parent_by_id.get(rawcode, rawcode)
+                native_row = native_unit_ui.get(parent_id)
+                assert native_row and native_row.get("file"), f"No native model metadata for building {rawcode}/{parent_id}"
+                model = str(native_row["file"])
+            return model.replace("/", "\\").removesuffix(".mdl").removesuffix(".mdx").lower()
+
+        native_classic_workers = {
+            "Human": ("hpea", ("hkee", "hcas")),
+            "Orc": ("opeo", ("ostr", "ofrt")),
+            "Undead": ("uaco", ("unp1", "unp2", "uzg1", "uzg2")),
+            "Night Elf": ("ewsp", ("etoa", "etoe")),
+        }
+        native_tier_families = {
+            "Human": {frozenset(("htow", "hkee", "hcas"))},
+            "Orc": {frozenset(("ogre", "ostr", "ofrt"))},
+            "Undead": {
+                frozenset(("unpl", "unp1", "unp2")),
+                frozenset(("uzig", "uzg1", "uzg2")),
+            },
+            "Night Elf": {frozenset(("etol", "etoa", "etoe"))},
+        }
+        for race_name, (worker_id, tier_ids) in native_classic_workers.items():
+            native_ids = [
+                rawcode.strip().lower()
+                for rawcode in native_func_fields.get(worker_id, {}).get("builds", "").split(",")
+                if rawcode.strip()
+            ]
+            if race_name == "Orc":
+                # `orbr` is the button-only fortified-burrow upgrade alias; it has no unitui model row.
+                native_ids = [rawcode for rawcode in native_ids if rawcode != "orbr"]
+            native_ids.extend(tier_ids)
+            by_model: Dict[str, List[str]] = {}
+            for rawcode in native_ids:
+                by_model.setdefault(building_model_key(rawcode), []).append(rawcode)
+            native_duplicates = {frozenset(ids) for ids in by_model.values() if len(ids) > 1}
+            assert native_duplicates == native_tier_families[race_name], (
+                f"Unexpected duplicate native building models in {race_name}: "
+                f"{[(key, ids) for key, ids in by_model.items() if len(ids) > 1]}"
+            )
+
+        faction_building_ids = {
+            "Abyssal Tideborn": ("nntt", "n001", "n002", "nnfm", "nnsg", "n004", "nnad", "n003", "nntg", "nnsa", "n005"),
+            "Sunfury Imperium": ("h001", "h002", "h003", "nefm", "h007", "h011", "h010", "h004", "h005", "negt", "nheb", "h008", "h009"),
+            "Voidborn Legion": ("v001", "v002", "v003", "v004", "v005", "v006", "v007", "v008", "v009", "v018", "v019"),
+            "Runeforged Bastion": ("t001", "t002", "t003", "t004", "t005", "t006", "t007", "t008", "t009", "t018", "t019"),
+        }
+        intentional_tier_families = {
+            frozenset(("nntt", "n001", "n002")),
+            frozenset(("h001", "h002", "h003")),
+        }
+        for faction_name, building_ids in faction_building_ids.items():
+            by_model: Dict[str, List[str]] = {}
+            for rawcode in building_ids:
+                model_key = building_model_key(rawcode)
+                by_model.setdefault(model_key, []).append(rawcode)
+            duplicates = [frozenset(ids) for ids in by_model.values() if len(ids) > 1]
+            assert all(group in intentional_tier_families for group in duplicates), (
+                f"Duplicate building model assignments in {faction_name}: "
+                f"{[(key, ids) for key, ids in by_model.items() if len(ids) > 1]}"
+            )
+        assert len({building_model_key(x) for x in ("n003", "n004", "n005")}) == 3, "Custom Naga role models must be unique"
 
         # Native art paths are external game assets: validate their metadata, rather
         # than incorrectly requiring Blizzard's icons to be imported into the map.
@@ -1692,7 +1803,7 @@ def run_verification(w3x_path: Path) -> None:
     print("[PASS] Stage 13: All-31-Unit, 16-Hero/64-Skill, 8-Spawn-Branch, Ladder DPS/EHP/Cost/Role Audit Passed")
 
     # ------------------------------------------------------------------
-    # STAGE 14: Lobby Art, Native Skill Buttons, Hero Portraits, UI & VFX
+    # STAGE 14: Native Building Models, Lobby Art, Skill Buttons, Portraits, UI & VFX
     # ------------------------------------------------------------------
     tga = files["war3mapPreview.tga"]
     assert tga[2] == 2 and struct.unpack_from("<HHB", tga, 12) == (256, 256, 24), "Invalid 256x256 24-bit war3mapPreview.tga!"
@@ -1714,8 +1825,28 @@ def run_verification(w3x_path: Path) -> None:
     mdx_files = {name: data for name, data in files.items() if name.lower().endswith(".mdx") and (name.startswith("WM_FX_") or name.startswith("WM_Skill_"))}
     skill_mdx_files = {name: data for name, data in mdx_files.items() if name.startswith("WM_Skill_")}
     faction_mdx_files = {name: data for name, data in mdx_files.items() if name.startswith("WM_FX_")}
-    assert len(blp_files) == 130, f"Expected 130 current v7 portrait/UI/VFX/minimap BLPs, got {len(blp_files)}"
-    assert len(mdx_files) == 70 and len(faction_mdx_files) == 6, f"Expected 6 faction + 64 skill MDX models, got {len(mdx_files)} total"
+    building_mdx_files = {name: data for name, data in files.items() if name.startswith("WM_Build_Naga_") and name.lower().endswith(".mdx")}
+    assert len(blp_files) == 133, f"Expected 133 current portrait/UI/VFX/building/minimap BLPs, got {len(blp_files)}"
+    assert len(mdx_files) == 70 and len(faction_mdx_files) == 6, f"Expected 6 faction + 64 skill MDX effects, got {len(mdx_files)} total"
+    expected_naga_building_mdx = {"WM_Build_Naga_TidalTreasury.mdx", "WM_Build_Naga_CoralForge.mdx", "WM_Build_Naga_BehemothPool.mdx"}
+    expected_naga_building_blp = {f"Textures\\{name.removesuffix('.mdx')}.blp" for name in expected_naga_building_mdx}
+    assert set(building_mdx_files) == expected_naga_building_mdx, "Unique Naga building MDX models are incomplete or misnamed"
+    assert expected_naga_building_blp.issubset(blp_files), "A generated Naga building texture is missing"
+    imp_data = files["war3map.imp"]
+    imp_version, imp_count = struct.unpack_from("<II", imp_data, 0)
+    assert imp_version == 1, f"Unexpected war3map.imp version {imp_version}"
+    imp_paths: Set[str] = set()
+    imp_pos = 8
+    for _ in range(imp_count):
+        imp_pos += 1  # import flags
+        imp_end = imp_data.index(bytes(1), imp_pos)
+        imp_paths.add(imp_data[imp_pos:imp_end].decode("latin1").replace("/", chr(92)).lower())
+        imp_pos = imp_end + 1
+    assert imp_pos == len(imp_data), f"war3map.imp has trailing data at {imp_pos}/{len(imp_data)}"
+    expected_building_imports = {path.replace("/", chr(92)).lower() for path in expected_naga_building_mdx | expected_naga_building_blp}
+    assert expected_building_imports.issubset(imp_paths), (
+        f"Naga building models/textures are missing import-table entries: {sorted(expected_building_imports - imp_paths)}"
+    )
     expected_skill_mdx = {f"WM_Skill_{i:02d}.mdx" for i in range(64)}
     expected_skill_blp = {f"Textures\\WM_Skill_{i:02d}.blp" for i in range(64)}
     assert set(skill_mdx_files) == expected_skill_mdx, "The 64 skill-specific MDX models are incomplete or misnamed"
@@ -1727,9 +1858,14 @@ def run_verification(w3x_path: Path) -> None:
     skill_index_pairs = [(int(raw), int(index)) for raw, index in re.findall(r"(?:if|elseif) abil == 'A([0-9]{3})' then\s+return ([0-9]+)", skill_index_src)]
     for name, data in skill_mdx_files.items():
         assert data[:4] == b"MDLX" and data[4:8] == b"VERS" and struct.unpack_from("<I", data, 12)[0] == 800, f"Invalid skill MDX: {name}"
+    for name, data in building_mdx_files.items():
+        assert data[:4] == b"MDLX" and data[4:8] == b"VERS" and struct.unpack_from("<I", data, 12)[0] == 800, f"Invalid Naga building MDX: {name}"
     for name in expected_skill_blp:
         content, _alpha, width, height, _typ, _mips = struct.unpack_from("<6I", blp_files[name], 4)
         assert content == 0 and (width, height) == (128, 128), f"Skill VFX texture must be true-color 128x128: {name}"
+    for name in expected_naga_building_blp:
+        content, _alpha, width, height, _typ, _mips = struct.unpack_from("<6I", blp_files[name], 4)
+        assert content == 0 and (width, height) == (256, 256), f"Naga building texture must be true-color 256x256: {name}"
 
     portrait_rawcodes = ("Hvsh", "N004", "N001", "N002", "Hkal", "Hvwd", "Hlgr", "Huth", "V001", "V002")
     portrait_blp_paths: Set[str] = set()
@@ -1757,7 +1893,7 @@ def run_verification(w3x_path: Path) -> None:
     for race_cursor in ("Human", "Orc", "Undead", "NightElf"):
         name = f"UI\\Cursor\\{race_cursor}Cursor.blp"
         assert name in files and struct.unpack_from("<II", files[name], 12)[0:2] == (256, 128), f"Missing or invalid custom cursor atlas: {name}"
-    print(f"[PASS] Stage 14: Lobby TGA + native faction/skill art + 10 portrait pairs + icon-only palette BLPs + {len(blp_files)} BLP1s + 6 faction/64 skill MDX models")
+    print(f"[PASS] Stage 14: Native race/building references + 10 portrait pairs + icon-only palette BLPs + {len(blp_files)} BLP1s + 6 faction/64 skill MDX effects + 3 unique Naga building MDXs")
 
     # ------------------------------------------------------------------
     # STAGE 15: TFT 1.26-era API Compatibility & AI Startup/Fallback Coverage

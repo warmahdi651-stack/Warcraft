@@ -188,13 +188,13 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utub", VT_STR, "Void forge and Lumber return point. Researches Void Blades (+1/+2/+3 Attack) and Astral Plating (+1/+2/+3 Armor)."),
         ]),
 
-        # Altar: Altar of the Void (`v007` — Floating Arcane Book of Summoning Pedestal! `urev=1` ONLY HERE!)
+        # Altar: Altar of the Void (`v007` — native Undead Altar of Darkness; `urev=1` ONLY HERE!)
         ("uaod", "v007", [
             ("unam", VT_STR, "Altar of the Void"),
             ("urac", VT_STR, "undead"),
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
-            ("umdl", VT_STR, "buildings\\other\\BookOfSummoning\\BookOfSummoning.mdl"),
+            ("umdl", VT_STR, "buildings\\undead\\AltarOfDarkness\\AltarOfDarkness.mdl"),
             ("usnd", VT_STR, "AltarOfDarkness"),
             ("usca", VT_REAL, 1.05),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 120), ("uclb", VT_INT, 255),
@@ -231,7 +231,7 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("urac", VT_STR, "undead"),
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
-            ("umdl", VT_STR, "buildings\\other\\DalaranGuardTower\\DalaranGuardTower.mdl"),
+            ("umdl", VT_STR, "buildings\\undead\\Ziggurat\\Ziggurat.mdl"),
             ("usnd", VT_STR, "ElvenGuardTower"),
             ("uclr", VT_INT, 190), ("uclg", VT_INT, 115), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 135), ("ulum", VT_INT, 80), ("ubld", VT_INT, 45),
@@ -272,7 +272,7 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("urac", VT_STR, "undead"),
             ("utyp", VT_STR, "undead,mechanical"),
             ("upar", VT_STR, ""), ("upap", VT_STR, "unbuildable"),
-            ("umdl", VT_STR, "buildings\\other\\DragonBuildingBlack\\DragonBuildingBlack.mdl"),
+            ("umdl", VT_STR, "buildings\\undead\\BoneYard\\BoneYard.mdl"),
             ("usnd", VT_STR, "DragonRoost"),
             ("usca", VT_REAL, 0.85),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 105), ("uclb", VT_INT, 255),
@@ -606,13 +606,13 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("utub", VT_STR, "Titan gear-forge and Lumber drop-off. Researches Runic Weapons (+1/+2/+3 Attack) and Titan Plating (+1/+2/+3 Armor)."),
         ]),
 
-        # Altar: Altar of the Titans (`t007` — Towering Titan Rune Obelisk! `urev=1` ONLY HERE!)
+        # Altar: Altar of the Titans (`t007` — native Orc Altar of Storms model, color-tinted for Runeforged; `urev=1` ONLY HERE!)
         ("oalt", "t007", [
             ("unam", VT_STR, "Altar of the Titans"),
             ("urac", VT_STR, "orc"),
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
-            ("umdl", VT_STR, "buildings\\other\\BridgeObelisk\\BridgeObelisk.mdl"),
+            ("umdl", VT_STR, "buildings\\orc\\AltarofStorms\\AltarofStorms.mdl"),
             ("usnd", VT_STR, "AltarOfKings"),
             ("usca", VT_REAL, 1.12),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
@@ -630,7 +630,7 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("urac", VT_STR, "orc"),
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
-            ("umdl", VT_STR, "buildings\\other\\Merchant\\Merchant.mdl"),
+            ("umdl", VT_STR, "buildings\\orc\\VoodooLounge\\VoodooLounge.mdl"),
             ("usnd", VT_STR, "ArcaneVault"),
             ("usca", VT_REAL, 0.88),
             ("uclr", VT_INT, 195), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
@@ -650,7 +650,7 @@ def build_voidborn_and_runeforged_units() -> List[Tuple[str, str, List[ModEntry]
             ("urac", VT_STR, "orc"),
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
-            ("umdl", VT_STR, "buildings\\other\\TowerDefenseTower\\TowerDefenseTower.mdl"),
+            ("umdl", VT_STR, "buildings\\orc\\WatchTower\\WatchTower.mdl"),
             ("usnd", VT_STR, "ArcaneTower"),
             ("uclr", VT_INT, 185), ("uclg", VT_INT, 235), ("uclb", VT_INT, 255),
             ("ugol", VT_INT, 135), ("ulum", VT_INT, 80), ("ubld", VT_INT, 45),

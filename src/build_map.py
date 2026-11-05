@@ -51,7 +51,7 @@ MAP_DESCRIPTION = (
     "4 Classic Races + 4 Custom Empires: |cff22d3eeAbyssal Tideborn (with Illidan)|r, |cfffbbf24Sunfury Imperium|r, "
     "|cfff97316Voidborn Legion|r & |cff38bdf8Runeforged Bastion|r! "
     "Features 16 heroes and 64 native-art skills; core ranks unlock at levels 1/3/5 and ultimates at level 6. "
-    "Restored signature Mana Burn, Phoenix and Resurrection skills, faction-matched buildings, and distinct custom-race AI openings. "
+    "Restored signature Mana Burn, Phoenix and Resurrection skills, race-matched role-distinct buildings (including three unique Naga shop/forge/pool models), and distinct custom-race AI openings. "
     "Includes 64 skill-specific, geometrically varied spell MDX effects plus six faction sigils, custom cursor/RPG UI, and the preserved Sunken-Astral terrain."
 )
 
@@ -1710,8 +1710,9 @@ def export_web_metadata(
             "customHeroes": 16,
             "customAssets": custom_assets_count,
             "archiveFiles": custom_assets_count + 25,
-            "blpFiles": 130,
+            "blpFiles": 133,
             "customVfxModels": 70,
+            "customBuildingModels": 3,
             "goldMines": sum(1 for u in units if u.uid == "ngol"),
             "totalGoldOnMap": sum(u.gold for u in units if u.uid == "ngol"),
             "neutralBuildings": sum(1 for u in units if u.player == 15 and u.uid != "ngol"),
@@ -1903,7 +1904,7 @@ def build_all(repo_root: Path) -> Path:
     misc_bytes = serialize_war3map_misc()
     skin_bytes = serialize_war3map_skin()
 
-    print("[4.5/6] Generating portrait pairs, cursor atlases, RPG UI, six faction sigils and 64 skill-specific MDX effects...")
+    print("[4.5/6] Generating portrait pairs, cursor atlases, RPG UI, 70 VFX MDXs, and 3 role-specific Naga building MDXs...")
     custom_assets_map = generate_all_custom_assets()
     imp_bytes = serialize_imp(list(custom_assets_map.keys()))
 

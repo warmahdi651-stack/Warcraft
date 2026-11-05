@@ -864,7 +864,9 @@
     const numberFa = (value) => Number(value || 0).toLocaleString("fa-IR");
     const manifestButton = document.getElementById("btnOpenManifest");
     if (manifestButton) {
-      manifestButton.textContent = `${numberFa(data.stats.archiveFiles)} فایل MPQ • ${numberFa(data.stats.blpFiles)} بافت BLP1 • ${numberFa(data.stats.customVfxModels)} مدل MDX • ۱۵ آزمون`;
+      const buildingModels = Number(data.stats.customBuildingModels || 0);
+      const allModels = Number(data.stats.customVfxModels || 0) + buildingModels;
+      manifestButton.textContent = `${numberFa(data.stats.archiveFiles)} فایل MPQ • ${numberFa(data.stats.blpFiles)} بافت BLP1 • ${numberFa(allModels)} مدل MDX (${numberFa(buildingModels)} ساختمان) • ۱۵ آزمون`;
     }
     const sizeBytes = Number(data.fileSizeBytes || 0);
     const sizeDisplay = document.getElementById("mapSizeDisplay");

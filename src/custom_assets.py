@@ -21,6 +21,7 @@ procedurally drawn geometric icons are imported for those gameplay objects.
 from __future__ import annotations
 
 import math
+import re
 import struct
 import subprocess
 import tempfile
@@ -890,6 +891,334 @@ def _make_vfx_geoset(
 }}"""
 
 
+# Three Naga-only structures were formerly assigned the same Shrine/Altar/Spawning
+# Grounds models already used by nnsa/nnad/nnsg. These bespoke, low-poly buildings
+# keep the Warcraft III 1.26-compatible v800 MDX format while giving each role its own
+# silhouette and true-color texture.
+NAGA_BUILDING_MODEL_DEFS = (
+    ("WM_Build_Naga_TidalTreasury.mdx", "treasury"),
+    ("WM_Build_Naga_CoralForge.mdx", "forge"),
+    ("WM_Build_Naga_BehemothPool.mdx", "pool"),
+)
+
+NAGA_BUILDING_PALETTES = {
+    "treasury": ((13, 63, 86), (23, 116, 133), (87, 203, 198), (229, 205, 137), (216, 250, 233)),
+    "forge": ((27, 43, 65), (93, 83, 93), (178, 103, 79), (246, 164, 74), (174, 237, 227)),
+    "pool": ((7, 44, 78), (16, 92, 126), (33, 168, 177), (122, 213, 209), (227, 246, 222)),
+}
+
+
+def build_naga_building_texture(kind: str) -> bytes:
+    """Create a 256-square opaque, true-color BLP atlas for a custom Naga building."""
+    if kind not in NAGA_BUILDING_PALETTES:
+        raise ValueError(f"unknown Naga building theme: {kind}")
+    deep, mid, bright, trim, pearl = NAGA_BUILDING_PALETTES[kind]
+    image = Image.new("RGBA", (256, 256), (0, 0, 0, 255))
+    pixels = image.load()
+    for y in range(256):
+        t = y / 255.0
+        if t < 0.58:
+            a, b, u = deep, mid, t / 0.58
+        else:
+            a, b, u = mid, bright, (t - 0.58) / 0.42
+        for x in range(256):
+            grain = ((x * 13 + y * 7 + (x * y) % 19) % 9) - 4
+            pixels[x, y] = tuple(max(0, min(255, int(a[c] * (1.0 - u) + b[c] * u) + grain)) for c in range(3)) + (255,)
+
+    draw = ImageDraw.Draw(image)
+    # Hand-cut block courses and thin pearl-inlaid seams read clearly at game zoom.
+    for y in (30, 64, 98, 132, 166, 200, 234):
+        draw.line((0, y, 255, y), fill=(*trim, 245), width=3)
+    for row, y in enumerate((15, 49, 83, 117, 151, 185, 219, 247)):
+        offset = 16 if row % 2 else 0
+        for x in range(offset, 256, 32):
+            draw.line((x, y - 11, x, y + 11), fill=(*deep, 245), width=3)
+
+    if kind == "treasury":
+        # Shell-scaled walls, arch windows, and a pearl-and-coral merchant crest.
+        for x in range(18, 256, 32):
+            draw.arc((x - 15, 42, x + 15, 83), 195, 345, fill=(*pearl, 230), width=3)
+            draw.line((x, 54, x, 79), fill=(*trim, 230), width=2)
+        for x in (44, 92, 140, 188, 236):
+            draw.rounded_rectangle((x - 9, 112, x + 9, 158), radius=8, fill=(*deep, 255), outline=(*pearl, 245), width=3)
+        draw.ellipse((82, 177, 174, 241), fill=(*mid, 255), outline=(*trim, 255), width=5)
+        draw.ellipse((110, 194, 146, 230), fill=(*pearl, 255), outline=(*bright, 255), width=3)
+        draw.arc((87, 182, 169, 240), 205, 335, fill=(*pearl, 255), width=4)
+    elif kind == "forge":
+        # Dark coral plates around a hot inner crucible; the orange accent is forge heat.
+        for x in (18, 58, 98, 138, 178, 218):
+            draw.polygon(((x, 28), (x + 13, 48), (x + 8, 79), (x - 5, 63)), fill=(*bright, 255), outline=(*trim, 255))
+        draw.rectangle((40, 105, 216, 225), fill=(*deep, 255), outline=(*trim, 255), width=5)
+        draw.rounded_rectangle((86, 132, 170, 221), radius=16, fill=(*bright, 255), outline=(*pearl, 255), width=4)
+        draw.polygon(((107, 194), (119, 151), (128, 174), (141, 144), (153, 194)), fill=(*trim, 255), outline=(*pearl, 255))
+        draw.line((54, 117, 202, 117), fill=(*pearl, 255), width=4)
+        for x in (62, 194):
+            draw.ellipse((x - 8, 82, x + 8, 98), fill=(*trim, 255), outline=(*pearl, 255), width=2)
+    else:  # pool
+        # Concentric tide rings, hatchery scales, and four bright reef markers.
+        for r, color, width in ((102, pearl, 4), (76, bright, 5), (44, trim, 4)):
+            draw.ellipse((128 - r, 128 - r, 128 + r, 128 + r), outline=(*color, 255), width=width)
+        draw.ellipse((108, 108, 148, 148), fill=(*deep, 255), outline=(*pearl, 255), width=4)
+        draw.arc((20, 18, 236, 236), 190, 350, fill=(*pearl, 230), width=5)
+        for x, y in ((128, 28), (228, 128), (128, 228), (28, 128)):
+            draw.polygon(((x, y - 18), (x + 9, y), (x, y + 18), (x - 9, y)), fill=(*bright, 255), outline=(*trim, 255))
+            draw.ellipse((x - 4, y - 4, x + 4, y + 4), fill=(*pearl, 255))
+
+    image = image.filter(ImageFilter.GaussianBlur(0.35))
+    return encode_blp1_truecolor(image)
+
+
+def _building_add_triangle(
+    mesh: Dict[str, list],
+    a: Tuple[float, float, float],
+    b: Tuple[float, float, float],
+    c: Tuple[float, float, float],
+    uv_a: Tuple[float, float],
+    uv_b: Tuple[float, float],
+    uv_c: Tuple[float, float],
+) -> None:
+    """Append one flat-shaded triangle; duplicate vertices keep normals/UVs precise."""
+    ab = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    ac = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+    normal = (
+        ab[1] * ac[2] - ab[2] * ac[1],
+        ab[2] * ac[0] - ab[0] * ac[2],
+        ab[0] * ac[1] - ab[1] * ac[0],
+    )
+    length = math.sqrt(sum(v * v for v in normal)) or 1.0
+    normal = tuple(v / length for v in normal)
+    base = len(mesh["vertices"])
+    mesh["vertices"].extend((a, b, c))
+    mesh["normals"].extend((normal, normal, normal))
+    mesh["uvs"].extend((uv_a, uv_b, uv_c))
+    mesh["faces"].extend((base, base + 1, base + 2))
+
+
+def _building_add_quad(
+    mesh: Dict[str, list],
+    a: Tuple[float, float, float],
+    b: Tuple[float, float, float],
+    c: Tuple[float, float, float],
+    d: Tuple[float, float, float],
+    uv_a: Tuple[float, float] = (0.0, 0.0),
+    uv_b: Tuple[float, float] = (1.0, 0.0),
+    uv_c: Tuple[float, float] = (1.0, 1.0),
+    uv_d: Tuple[float, float] = (0.0, 1.0),
+) -> None:
+    _building_add_triangle(mesh, a, b, c, uv_a, uv_b, uv_c)
+    _building_add_triangle(mesh, a, c, d, uv_a, uv_c, uv_d)
+
+
+def _building_add_frustum(
+    mesh: Dict[str, list],
+    cx: float,
+    cy: float,
+    z0: float,
+    z1: float,
+    r0: float,
+    r1: float,
+    sides: int = 12,
+    phase: float = 0.0,
+) -> None:
+    """Add a closed, UV-mapped polygonal tower, ring, or cone to the building mesh."""
+    ring0 = []
+    ring1 = []
+    for k in range(sides):
+        angle = phase + math.tau * k / sides
+        ring0.append((cx + math.cos(angle) * r0, cy + math.sin(angle) * r0, z0))
+        ring1.append((cx + math.cos(angle) * r1, cy + math.sin(angle) * r1, z1))
+    for k in range(sides):
+        nxt = (k + 1) % sides
+        u0, u1 = k / sides, (k + 1) / sides
+        a, b = ring0[k], ring0[nxt]
+        if r1 < 0.01:
+            apex = (cx, cy, z1)
+            _building_add_triangle(mesh, a, b, apex, (u0, 0.0), (u1, 0.0), ((u0 + u1) * 0.5, 1.0))
+        else:
+            d, c = ring1[k], ring1[nxt]
+            _building_add_quad(mesh, a, b, c, d, (u0, 0.0), (u1, 0.0), (u1, 1.0), (u0, 1.0))
+    # Close horizontal caps so each tower is a watertight solid, not a two-sided sheet.
+    bottom_center = (cx, cy, z0)
+    for k in range(sides):
+        nxt = (k + 1) % sides
+        p0, p1 = ring0[k], ring0[nxt]
+        uv0 = (0.5 + (p0[0] - cx) / (2.0 * r0), 0.5 + (p0[1] - cy) / (2.0 * r0))
+        uv1 = (0.5 + (p1[0] - cx) / (2.0 * r0), 0.5 + (p1[1] - cy) / (2.0 * r0))
+        _building_add_triangle(mesh, bottom_center, p1, p0, (0.5, 0.5), uv1, uv0)
+    if r1 > 0.01:
+        top_center = (cx, cy, z1)
+        for k in range(sides):
+            nxt = (k + 1) % sides
+            p0, p1 = ring1[k], ring1[nxt]
+            uv0 = (0.5 + (p0[0] - cx) / (2.0 * r1), 0.5 + (p0[1] - cy) / (2.0 * r1))
+            uv1 = (0.5 + (p1[0] - cx) / (2.0 * r1), 0.5 + (p1[1] - cy) / (2.0 * r1))
+            _building_add_triangle(mesh, top_center, p0, p1, (0.5, 0.5), uv0, uv1)
+
+
+def _building_add_octahedron(
+    mesh: Dict[str, list], cx: float, cy: float, z: float, radius: float, height: float
+) -> None:
+    top = (cx, cy, z + height)
+    bottom = (cx, cy, z - height)
+    points = [
+        (cx + radius, cy, z), (cx, cy + radius, z),
+        (cx - radius, cy, z), (cx, cy - radius, z),
+    ]
+    uvs = [(1.0, 0.5), (0.5, 1.0), (0.0, 0.5), (0.5, 0.0)]
+    for k in range(4):
+        nxt = (k + 1) % 4
+        _building_add_triangle(mesh, top, points[k], points[nxt], (0.5, 1.0), uvs[k], uvs[nxt])
+        _building_add_triangle(mesh, bottom, points[nxt], points[k], (0.5, 0.0), uvs[nxt], uvs[k])
+
+
+def _naga_building_mesh(kind: str) -> Dict[str, list]:
+    mesh: Dict[str, list] = {"vertices": [], "normals": [], "uvs": [], "faces": []}
+    if kind == "treasury":
+        # Low market platform + scallop-roofed central hall + four pearl sentinels.
+        _building_add_frustum(mesh, 0, 0, 0, 28, 158, 150, 16)
+        _building_add_frustum(mesh, 0, 0, 28, 112, 126, 116, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 102, 120, 140, 132, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 118, 218, 132, 18, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 205, 292, 38, 0, 8, math.pi / 8)
+        for x in (-92, 92):
+            for y in (-92, 92):
+                _building_add_frustum(mesh, x, y, 20, 138, 24, 20, 8, math.pi / 8)
+                _building_add_frustum(mesh, x, y, 132, 205, 30, 0, 8, math.pi / 8)
+        _building_add_octahedron(mesh, 0, 0, 300, 27, 34)
+    elif kind == "forge":
+        # Broad anvil foundation, furnace chamber, rising flue, and four venting coral fins.
+        _building_add_frustum(mesh, 0, 0, 0, 30, 164, 154, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 30, 122, 132, 116, 10, math.pi / 10)
+        _building_add_frustum(mesh, 0, 0, 116, 178, 102, 68, 10, math.pi / 10)
+        _building_add_frustum(mesh, 0, 0, 170, 275, 66, 28, 8, math.pi / 8)
+        _building_add_frustum(mesh, 0, 0, 267, 300, 34, 0, 8)
+        for x, y, angle in ((-105, 0, 0), (105, 0, math.pi / 2), (0, -105, 0), (0, 105, math.pi / 2)):
+            _building_add_frustum(mesh, x, y, 18, 142, 26, 22, 8, angle)
+            _building_add_frustum(mesh, x, y, 136, 198, 32, 0, 8, angle)
+        _building_add_frustum(mesh, 0, -112, 26, 76, 62, 45, 6, math.pi / 6)
+        _building_add_octahedron(mesh, 0, 0, 305, 23, 28)
+    elif kind == "pool":
+        # A wide, tiered hatchery basin with a recessed water plate and four dorsal fins.
+        _building_add_frustum(mesh, 0, 0, 0, 24, 180, 168, 16)
+        _building_add_frustum(mesh, 0, 0, 22, 82, 164, 122, 16, math.pi / 16)
+        _building_add_frustum(mesh, 0, 0, 76, 90, 139, 134, 16, math.pi / 16)
+        _building_add_frustum(mesh, 0, 0, 82, 88, 112, 112, 16, math.pi / 16)
+        for x, y, phase in ((0, -128, 0), (128, 0, math.pi / 2), (0, 128, 0), (-128, 0, math.pi / 2)):
+            _building_add_frustum(mesh, x, y, 18, 132, 30, 22, 8, phase)
+            _building_add_frustum(mesh, x, y, 126, 215, 36, 0, 8, phase)
+        for x, y in ((-62, -62), (62, -62), (-62, 62), (62, 62)):
+            _building_add_octahedron(mesh, x, y, 88, 13, 19)
+    else:
+        raise ValueError(f"unknown Naga building mesh: {kind}")
+    return mesh
+
+
+def _generate_naga_building_mdl(model_filename: str, texture_path: str, kind: str) -> str:
+    """Create an opaque, animated, one-geoset version-800 Warcraft III building."""
+    mesh = _naga_building_mesh(kind)
+    vertices = mesh["vertices"]
+    extent = max(max(abs(v[0]), abs(v[1])) for v in vertices)
+    max_z = max(v[2] for v in vertices)
+    min_z = min(v[2] for v in vertices)
+    min_extent = (-extent, -extent, min_z)
+    max_extent = (extent, extent, max_z)
+    bounds = math.sqrt(2.0 * extent * extent + max_z * max_z)
+    geoset = _make_vfx_geoset(
+        vertices, mesh["normals"], mesh["uvs"], mesh["faces"],
+        min_extent, max_extent, bounds,
+    )
+    model_name = model_filename.rsplit(".", 1)[0]
+    seq_extent = f"MinimumExtent {{ {_fmt_v3(min_extent)[2:-2]} }},\n        MaximumExtent {{ {_fmt_v3(max_extent)[2:-2]} }},\n        BoundsRadius {bounds:.3f},"
+    return f"""Version {{
+    FormatVersion 800,
+}}
+Model "{model_name}" {{
+    NumGeosets 1,
+    NumGeosetAnims 1,
+    NumBones 1,
+    BlendTime 150,
+    {seq_extent}
+}}
+Sequences 3 {{
+    Anim "Birth" {{
+        Interval {{ 0, 800 }},
+        NonLooping,
+        {seq_extent}
+    }}
+    Anim "Stand" {{
+        Interval {{ 1000, 1800 }},
+        {seq_extent}
+    }}
+    Anim "Death" {{
+        Interval {{ 2000, 2800 }},
+        NonLooping,
+        {seq_extent}
+    }}
+}}
+Textures 1 {{
+    Bitmap {{
+        Image "{texture_path}",
+    }}
+}}
+Materials 1 {{
+    Material {{
+        Layer {{
+            FilterMode None,
+            TwoSided,
+            static TextureID 0,
+        }}
+    }}
+}}
+{geoset}
+GeosetAnim {{
+    Alpha 6 {{
+        Linear,
+        0: 0,
+        400: 0.3,
+        800: 1,
+        1000: 1,
+        2000: 1,
+        2800: 0,
+    }}
+    GeosetId 0,
+}}
+Bone "NagaBuildingRoot" {{
+    ObjectId 0,
+    GeosetId 0,
+    GeosetAnimId 0,
+    Scaling 6 {{
+        Linear,
+        0: {{ 0.85, 0.85, 0.85 }},
+        400: {{ 0.94, 0.94, 0.94 }},
+        800: {{ 1, 1, 1 }},
+        1000: {{ 1, 1, 1 }},
+        2000: {{ 1, 1, 1 }},
+        2800: {{ 0.75, 0.75, 0.75 }},
+    }}
+}}
+PivotPoints 1 {{
+    {{ 0, 0, 0 }},
+}}
+"""
+
+
+def build_naga_building_model_specs() -> Tuple[Dict[str, str], Dict[str, bytes]]:
+    """Return three distinct custom MDL specs and matching true-color BLP1 textures."""
+    mdl_specs: Dict[str, str] = {}
+    textures: Dict[str, bytes] = {}
+    for model_name, kind in NAGA_BUILDING_MODEL_DEFS:
+        texture_path = f"Textures\\{model_name.removesuffix('.mdx')}.blp"
+        mdl_specs[model_name] = _generate_naga_building_mdl(model_name, texture_path, kind)
+        textures[texture_path] = build_naga_building_texture(kind)
+    geometry_signatures = {
+        name: re.search(r"Geoset \{.*?\n\}", text, re.DOTALL).group(0)
+        for name, text in mdl_specs.items()
+    }
+    if len(set(geometry_signatures.values())) != len(NAGA_BUILDING_MODEL_DEFS):
+        raise AssertionError("Naga building models must have distinct geometric meshes")
+    return mdl_specs, textures
+
+
 def _rotate_xy(x: float, y: float, angle: float) -> Tuple[float, float]:
     return (x * math.cos(angle) - y * math.sin(angle), x * math.sin(angle) + y * math.cos(angle))
 
@@ -1141,7 +1470,7 @@ PivotPoints 2 {{
 }}
 """
 
-def compile_vfx_mdx_models(mdl_map: Dict[str, str]) -> Dict[str, bytes]:
+def compile_vfx_mdx_models(mdl_map: Dict[str, str], expected_geosets: int = 2) -> Dict[str, bytes]:
     out: Dict[str, bytes] = {}
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
@@ -1160,7 +1489,7 @@ def compile_vfx_mdx_models(mdl_map: Dict[str, str]) -> Dict[str, bytes]:
                 const buf = Buffer.from(m.saveMdx());
                 const check = new Model();
                 check.loadMdx(buf);
-                if (check.version !== 800 || check.sequences.length !== 3 || check.geosets.length !== 2) {{
+                if (check.version !== 800 || check.sequences.length !== 3 || check.geosets.length !== {expected_geosets}) {{
                     throw new Error("MDX roundtrip check failed for {mpq_name}");
                 }}
                 fs.writeFileSync({str(out_p)!r}, buf);
@@ -1239,6 +1568,11 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
     if len(spell_geometry_signatures) != 64:
         raise AssertionError(f"skill VFX geometry is not unique ({len(spell_geometry_signatures)}/64)")
     files.update(compile_vfx_mdx_models(mdl_specs))
+
+    # 4.5. Naga role-specific buildings replace the old duplicate Shrine/Altar/Spawning models.
+    building_mdl_specs, building_textures = build_naga_building_model_specs()
+    files.update(building_textures)
+    files.update(compile_vfx_mdx_models(building_mdl_specs, expected_geosets=1))
 
     # 5. The web preview showcases the custom portrait work, not licensed stock icons.
     if save_web_sheet:

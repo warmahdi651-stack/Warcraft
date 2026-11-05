@@ -40,7 +40,7 @@ def build_archive_manifest() -> dict:
         "archiveBytes": MAP_FILE.stat().st_size,
         "entries": entries,
         "checks": [
-            "Stage 1: HM3W header + PurePython MPQ v1 archive (225 files)",
+            "Stage 1: HM3W header + PurePython MPQ v1 archive (231 files)",
             "Stage 2: TFT v25 — 192x192 Sunken-Astral terrain + 5,961 placed trees within the World Editor limit",
             "Stage 3a: Generated JASS2 static typecheck vs 1.27b Common.j + Blizzard.j (custom AI and spell engine)",
             "Stage 3b: Generated JASS2 static typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (custom AI and spell engine)",
@@ -53,7 +53,7 @@ def build_archive_manifest() -> dict:
             "Stage 11: 8 playable empires, 16 heroes, 64 skills; object tables and command-card collisions verified",
             "Stage 12: Race-AI scripts typechecked; native AI for classic races + authoritative JASS controller for custom factions",
             "Stage 13: 31 combat units + 16 heroes; ladder DPS/EHP/cost and 55-point stat audits",
-            "Stage 14: 130 BLP1s (20 palette-only portrait icons), native skill art, 64 unique skill MDX effects + 6 faction sigils",
+            "Stage 14: 133 BLP1s (20 palette-only portrait icons), 64 unique skill MDX effects + 6 faction sigils + 3 unique Naga building MDXs; race/role model duplicates checked",
             "Stage 15: TFT 1.26-era API compatibility proxy, explicit workers, sequential construction/training and AI safeguards",
         ],
     }

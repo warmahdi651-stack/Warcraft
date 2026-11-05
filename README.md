@@ -24,11 +24,17 @@ Install into `Warcraft III/Maps/FrozenThrone/` for classic clients or `Documents
 
 These are strategy inspirations adapted to each custom tech tree. They are not literal standard-race order strings or guarantees of tournament-level decision-making.
 
+## Building model pass
+
+- **Naga:** the original `nnfm`, `nntg`, `nntt`, `nnsg`, `nnsa`, and `nnad` structures keep their verified campaign-native models. The added Tidal Treasury (`n003`), Coral Forge (`n004`), and Abyssal Behemoth Pool (`n005`) now have three distinct version-800 MDX models and matching true-color textures, rather than reusing the Shrine of Ashjara, Altar of Depths, and Spawning Grounds models already used by other build-menu entries.
+- **Sunfury:** Altar, Arcane Vault, Barracks, Workshop, Gryphon Aviary, Blacksmith, and Lumbermill are aligned to their role-matched native Human building models. **Voidborn** uses its Undead Altar, Ziggurat tower, and Bone Yard models; **Runeforged** uses Orc Altar of Storms, Voodoo Lounge, and Watch Tower models.
+- Static checks resolve model assignments for the four audited custom-faction building sets against object data/native metadata and cross-check the classic Human, Orc, Undead, Night Elf, and Naga worker build lists. They reject duplicate models between distinct roles; reuse is allowed only in Blizzard’s native tier chains (Human/Orc/Undead/Night Elf halls and Undead Ziggurat) and the Naga/Sunfury hall tiers.
+
 ## Hero skills and spell visuals
 
 - Preserves **16 heroes and 64 exclusive skills**. Core ranks remain learnable at levels 1/3/5; ultimates remain level-gated to 6. Existing selected signature skills, including Mana Burn, Phoenix, and Resurrection, are retained.
-- Adds **64 separate skill-specific MDX effects and 64 true-color textures**. Each ability dispatches to its own model; the assets vary by geometric form (burst, bolt, shield, portal), proportions, rune pattern, and hero theme—not hue alone. Six faction-sigil models remain for other gameplay effects (**70 custom MDX models total**).
-- Palette-encoded BLP remains restricted to command-button portrait icons. Skill VFX textures use true-color BLP.
+- Adds **64 separate skill-specific MDX effects and 64 true-color textures**. Each ability dispatches to its own model; the assets vary by geometric form (burst, bolt, shield, portal), proportions, rune pattern, and hero theme—not hue alone. Six faction-sigil models remain for other gameplay effects (**70 VFX MDX models**; 73 MDX files including the three Naga building models).
+- Palette-encoded BLP remains restricted to command-button portrait icons. Skill VFX and building textures use true-color BLP.
 
 ## Build and verification
 

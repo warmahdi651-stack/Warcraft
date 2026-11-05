@@ -123,12 +123,14 @@ OBJECT_ICON_OVERRIDES = {
     "t019": _stock_button("BTNGoblinShipyard"),
 }
 
-# Keep custom Naga structures in their race-native model family. Sunfury town
-# tiers use the native Human Town Hall model and its inherited tier-up animations.
+# Original Naga structures retain their verified race-native models. Three added Naga
+# economy/forge/pool buildings use unique custom MDX assets instead of reusing the
+# Shrine, Altar, and Spawning Grounds already present in the same build menu. Sunfury
+# hall tiers retain the native Human Town Hall model and inherited upgrade animations.
 OBJECT_MODEL_OVERRIDES = {
-    "n003": r"buildings\naga\ShrineOfAshjara\ShrineOfAshjara.mdl",
-    "n004": r"buildings\naga\AltarOfDepths\AltarOfDepths.mdl",
-    "n005": r"buildings\naga\SpawningGrounds\SpawningGrounds.mdl",
+    "n003": r"WM_Build_Naga_TidalTreasury.mdx",
+    "n004": r"WM_Build_Naga_CoralForge.mdx",
+    "n005": r"WM_Build_Naga_BehemothPool.mdx",
     "h001": r"buildings\human\TownHall\TownHall.mdl",
     "h002": r"buildings\human\TownHall\TownHall.mdl",
     "h003": r"buildings\human\TownHall\TownHall.mdl",
@@ -1340,14 +1342,14 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Upgrade to Abyssal Citadel (Tier 3) to unlock Naga Royal Guards, Master Sirens, Orb of the Abyss, a 3rd Naga Hero, and Tier-3 Razorspine upgrades."),
         ]),
 
-        # n003: Tidal Treasury (Naga racial shop; native Shrine of Ashjara model/button).
+        # n003: Tidal Treasury (Naga racial shop; unique merchant-shell model, no Shrine duplicate).
         ("hvlt", "n003", [
             ("unam", VT_STR, "Tidal Treasury"),
             ("urac", VT_STR, "naga"),
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("ureq", VT_STR, "nnad"),
-            ("umdl", VT_STR, r"buildings\other\MagicVault\MagicVault.mdl"),
+            ("umdl", VT_STR, r"WM_Build_Naga_TidalTreasury.mdx"),
             ("usca", VT_REAL, 0.92),
             ("uclr", VT_INT, 115),
             ("uclg", VT_INT, 235),
@@ -1367,14 +1369,14 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Creates an abyssal shop stocked with Scroll of Regeneration, Lesser Clarity, Scroll of Tidal Surge, Potions, Town Portal, Staff of Sanctuary, and Orb of the Abyss."),
         ]),
 
-        # n004: Coral Forge (Naga armory; native Altar of Depths model/button).
+        # n004: Coral Forge (Naga armory; unique forge model, no Altar of Depths duplicate).
         ("hbla", "n004", [
             ("unam", VT_STR, "Coral Forge"),
             ("urac", VT_STR, "naga"),
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("ureq", VT_STR, "nntt"),
-            ("umdl", VT_STR, r"buildings\other\FountainOfPower\FountainOfPower.mdl"),
+            ("umdl", VT_STR, r"WM_Build_Naga_CoralForge.mdx"),
             ("usca", VT_REAL, 0.88),
             ("uclr", VT_INT, 130),
             ("uclg", VT_INT, 235),
@@ -1396,14 +1398,14 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Abyssal coral armory where Coral, Chitinous, and Razorspine Blades and Scales are forged. Unlocks Dragon Turtles."),
         ]),
 
-        # n005: Abyssal Behemoth Pool (Naga production building; native Spawning Grounds model/button).
+        # n005: Abyssal Behemoth Pool (Naga production building; unique hatchery basin model).
         ("nnsg", "n005", [
             ("unam", VT_STR, "Abyssal Behemoth Pool"),
             ("urac", VT_STR, "naga"),
             ("utyp", VT_STR, "mechanical"),
             ("upap", VT_STR, "unbuildable"),
             ("ureq", VT_STR, "n001,n004"),
-            ("umdl", VT_STR, r"buildings\other\DragonBuildingBlue\DragonBuildingBlue.mdl"),
+            ("umdl", VT_STR, r"WM_Build_Naga_BehemothPool.mdx"),
             ("usca", VT_REAL, 0.92),
             ("uclr", VT_INT, 145),
             ("uclg", VT_INT, 225),
@@ -1428,7 +1430,7 @@ def build_unit_modifications() -> Tuple[
         ("hbla", "h010", [
             ("unam", VT_STR, "Sunfury Forge of the Sunwell"),
             ("urac", VT_STR, "human"),
-            ("umdl", VT_STR, r"buildings\other\FountainOfPower\FountainOfPower.mdl"),
+            ("umdl", VT_STR, r"buildings\human\Blacksmith\Blacksmith.mdl"),
             ("usca", VT_REAL, 0.92),
             ("uclr", VT_INT, 255), ("uclg", VT_INT, 210), ("uclb", VT_INT, 145),
             ("ugol", VT_INT, 140), ("ulum", VT_INT, 60), ("ubld", VT_INT, 55),
@@ -1443,7 +1445,7 @@ def build_unit_modifications() -> Tuple[
         ("hlum", "h011", [
             ("unam", VT_STR, "Sunspire Lumber Conservatory"),
             ("urac", VT_STR, "human"),
-            ("umdl", VT_STR, r"buildings\other\ElvenVillageBuilding0\ElvenVillageBuilding0.mdl"),
+            ("umdl", VT_STR, r"buildings\human\HumanLumbermill\HumanLumbermill.mdl"),
             ("usca", VT_REAL, 0.98),
             ("uclr", VT_INT, 255), ("uclg", VT_INT, 225), ("uclb", VT_INT, 165),
             ("ugol", VT_INT, 120), ("ulum", VT_INT, 60), ("ubld", VT_INT, 60),
@@ -1456,7 +1458,7 @@ def build_unit_modifications() -> Tuple[
 
         ("htow", "h001", [
             ("unam", VT_STR, "Silvermoon Sanctum"),
-            ("umdl", VT_STR, r"buildings\other\ArcaneObservatory\ArcaneObservatory.mdl"),
+            ("umdl", VT_STR, r"buildings\human\TownHall\TownHall.mdl"),
             ("usca", VT_REAL, 0.92),
             ("uclr", VT_INT, 255),
             ("uclg", VT_INT, 235),
@@ -1474,7 +1476,7 @@ def build_unit_modifications() -> Tuple[
 
         ("hkee", "h002", [
             ("unam", VT_STR, "Sunwell Keep"),
-            ("umdl", VT_STR, r"buildings\other\ArcaneObservatory\ArcaneObservatory.mdl"),
+            ("umdl", VT_STR, r"buildings\human\TownHall\TownHall.mdl"),
             ("usca", VT_REAL, 1.06),
             ("uclr", VT_INT, 255),
             ("uclg", VT_INT, 220),
@@ -1492,7 +1494,7 @@ def build_unit_modifications() -> Tuple[
 
         ("hcas", "h003", [
             ("unam", VT_STR, "Silvermoon Citadel"),
-            ("umdl", VT_STR, r"buildings\other\ArcaneObservatory\ArcaneObservatory.mdl"),
+            ("umdl", VT_STR, r"buildings\human\TownHall\TownHall.mdl"),
             ("usca", VT_REAL, 1.20),
             ("uclr", VT_INT, 255),
             ("uclg", VT_INT, 195),
@@ -1526,7 +1528,7 @@ def build_unit_modifications() -> Tuple[
 
         ("hvlt", "h005", [
             ("unam", VT_STR, "Sunwell Reliquary"),
-            ("umdl", VT_STR, r"buildings\other\MagicVault\MagicVault.mdl"),
+            ("umdl", VT_STR, r"buildings\human\ArcaneVault\ArcaneVault.mdl"),
             ("usca", VT_REAL, 0.92),
             ("uclr", VT_INT, 255),
             ("uclg", VT_INT, 215),
@@ -1570,10 +1572,10 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Long-range High Elven mechanical siege engine. Hurls giant sun-runed bolts to demolish enemy towers and fortifications from afar."),
         ]),
 
-        # h007: Sunspire Barracks (Slot `(1,0)` — Quel'Thalas building model and native barracks button).
+        # h007: Sunspire Barracks (Slot `(1,0)` — native Human Barracks model/button).
         ("hbar", "h007", [
             ("unam", VT_STR, "Sunspire Barracks"),
-            ("umdl", VT_STR, r"buildings\other\ElvenVillageBuilding3\ElvenVillageBuilding3.mdl"),
+            ("umdl", VT_STR, r"buildings\human\HumanBarracks\HumanBarracks.mdl"),
             ("usca", VT_REAL, 1.35),
             ("uclr", VT_INT, 255),
             ("uclg", VT_INT, 225),
@@ -1592,11 +1594,11 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Primary Quel'Thalas troop bastion. Trains High Elven Swordsmen, High Elven Archers, and Alliance Captains (Tier 3). Also researches Defend and Veteran War Training."),
         ]),
 
-        # h008: Sunfury Artificer Hall (Slot `(3,1)` — faction model and stock workshop button).
+        # h008: Sunfury Artificer Hall (Slot `(3,1)` — native Human Workshop model/button).
         ("harm", "h008", [
             ("unam", VT_STR, "Sunfury Artificer Hall"),
             ("ureq", VT_STR, "h002,h010"),
-            ("umdl", VT_STR, r"buildings\other\ElvenVillageBuilding4\ElvenVillageBuilding4.mdl"),
+            ("umdl", VT_STR, r"buildings\human\Workshop\Workshop.mdl"),
             ("uclr", VT_INT, 255),
             ("uclg", VT_INT, 210),
             ("uclb", VT_INT, 135),
@@ -1614,11 +1616,11 @@ def build_unit_modifications() -> Tuple[
             ("utub", VT_STR, "Sun-forged war-machine hall. Produces Flying Machines, Silvermoon Ballistas, and Blood Elf Lieutenants (Tier 3). Also researches Flying Machine Bombs."),
         ]),
 
-        # h009: Dragonhawk Sky-Roost (Slot `(1,2)` — native Dragon Roost model and stock aviary button).
+        # h009: Dragonhawk Sky-Roost (Slot `(1,2)` — native Human Gryphon Aviary model/button).
         ("hgra", "h009", [
             ("unam", VT_STR, "Dragonhawk Sky-Roost"),
             ("ureq", VT_STR, "h002,h011"),
-            ("umdl", VT_STR, r"buildings\other\DragonRoost\DragonRoost.mdl"),
+            ("umdl", VT_STR, r"buildings\human\GryphonAviary\GryphonAviary.mdl"),
             ("usca", VT_REAL, 0.90),
             ("uclr", VT_INT, 255),
             ("uclg", VT_INT, 220),
