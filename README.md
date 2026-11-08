@@ -36,6 +36,14 @@ These are strategy inspirations adapted to each custom tech tree. They are not l
 - Adds **64 separate skill-specific MDX effects and 64 true-color textures**. Each ability dispatches to its own model; the assets vary by geometric form (burst, bolt, shield, portal), proportions, rune pattern, and hero theme—not hue alone. Six faction-sigil models remain for other gameplay effects (**70 VFX MDX models**; 73 MDX files including the three Naga building models).
 - Palette-encoded BLP remains restricted to command-button portrait icons. Skill VFX and building textures use true-color BLP.
 
+## Melee fairness and objective pass
+
+- **Exact neutral-object symmetry:** creep members and their item carriers now mirror with the terrain across all eight D4 transforms. Reflected camps preserve left/right member placement instead of silently shifting unique units or drops to the wrong side; diagonal camps use reflection-safe formations.
+- **Creep economy audit:** the packed `.w3x` is checked against its 36 previewed camps, actual neutral unit rosters, reference unit levels, and exact drop codes/chances. The seven camp budgets remain 6, 13, 13, 12, 10, 21, and 23 levels; all 36 groups must match their stated tier and loot.
+- **Lobby-aware Crown Shrine:** capture and gold rewards now follow Warcraft's actual lobby alliances, so 4v4, 2v2, and FFA no longer inherit an arbitrary player-slot split. An uncontested holder's active allies receive +3 gold per 2-second tick (only the captor in FFA); enemy presence stops the gold reward. The HUD shows the current controller, and the web description now matches the implemented reward/healing behavior.
+- **Equal race-pick economy:** Random Custom no longer grants +50 starting gold, eliminating an exploitable bonus when players reopen the race picker during its allowed switch window.
+- The verifier now has **16 static/binary stages**, including neutral-object D4 symmetry, camp rosters/loot/level budgets, shrine-alliance behavior, and race-choice economy. It still does not simulate a live Warcraft III match.
+
 ## Build and verification
 
 ```bash

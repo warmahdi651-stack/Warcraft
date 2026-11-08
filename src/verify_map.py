@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-15-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v7.
+16-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v7.
 Checks the MPQ, TFT v25, JASS2 APIs (TFT-era proxy, 1.27b and Reforged), all 64 hero abilities and skill-specific VFX,
 16 unique hero kits, 8 empire spawn/build definitions, four AI scripts and the JASS AI fallback,
-object/card/rally flags, native icon/model references, portrait/UI BLP1s/MDXs, pathing, creep safety and D4 symmetry.
+object/card/rally flags, native icon/model references, portrait/UI BLP1s/MDXs, pathing, creep safety, D4 objective/camp symmetry, loot tiers and lobby-economy fairness.
 It cannot replace launching the map in an actual Warcraft III client.
 """
 
@@ -1950,8 +1950,128 @@ def run_verification(w3x_path: Path) -> None:
         assert "Ahar" in str(worker_mods.get("uabi", "")), f"Empire {faction_id} worker {worker_id} is missing its explicit Harvest ability"
     print(f"[PASS] Stage 15: Legacy JASS API Proxy ({legacy_fn_count} functions) + Native Standard AI + Authoritative Custom JASS AI + Sequential Economy/Tech/Army Guards")
 
+    # ------------------------------------------------------------------
+    # STAGE 16: Melee Fairness — Symmetric Objectives, Balanced Camp Loot & Lobby Teams
+    # ------------------------------------------------------------------
+    neutral_units = [u for u in parsed_units if int(u["player"]) in (12, 15)]
+    neutral_profiles = collections.defaultdict(collections.Counter)
+    for u in neutral_units:
+        profile = (
+            str(u["uid"]), int(u["player"]), int(u["gold"]), round(float(u["acq"]), 1),
+            tuple(sorted((str(iid), int(chance)) for iid, chance in u["drops"])),
+        )
+        neutral_profiles[profile][(round(float(u["x"]), 1), round(float(u["y"]), 1))] += 1
+
+    def d4_world_images(wx: float, wy: float) -> Tuple[Tuple[float, float], ...]:
+        return (
+            (wx, wy), (-wx, wy), (wx, -wy), (-wx, -wy),
+            (wy, wx), (-wy, wx), (wy, -wx), (-wy, -wx),
+        )
+
+    for profile, positions in neutral_profiles.items():
+        for (wx, wy), multiplicity in positions.items():
+            for sx, sy in d4_world_images(wx, wy):
+                image = (round(sx, 1), round(sy, 1))
+                assert positions[image] == multiplicity, (
+                    f"Neutral object/camp member is not D4-symmetric: {profile} at ({wx},{wy}) "
+                    f"maps to {image} with multiplicity {positions[image]} instead of {multiplicity}"
+                )
+    assert len(neutral_units) == 173, f"Expected 136 creeps + 37 neutral buildings, got {len(neutral_units)}"
+
+    start_positions = {(round(float(u["x"]), 1), round(float(u["y"]), 1)) for u in slocs}
+    for u in slocs:
+        for sx, sy in d4_world_images(float(u["x"]), float(u["y"])):
+            assert (round(sx, 1), round(sy, 1)) in start_positions, (
+                f"Player start ({u['x']},{u['y']}) is missing its D4 image ({sx},{sy})"
+            )
+
+    camp_specs = {
+        "Gnoll Outpost (Lvl 6)": ("green", 8, 6, [("YiI1", 100)]),
+        "Ogre Expansion Guard (Lvl 13)": ("orange", 8, 13, [("YiI3", 100), ("YjI2", 100)]),
+        "Merchant Guard (Lvl 13)": ("orange", 4, 13, [("YiI2", 100), ("YjI2", 100)]),
+        "Laboratory Troll Guard (Lvl 12)": ("orange", 4, 12, [("YjI3", 100)]),
+        "Mercenary Golem Guard (Lvl 10)": ("orange", 4, 10, [("YiI3", 100)]),
+        "Ancient Granite Boss (Lvl 21)": ("red", 4, 21, [("YiI5", 100), ("YjI4", 100)]),
+        "Red Dragon Sanctum (Lvl 23)": ("red", 4, 23, [("YiI5", 100), ("texp", 100), ("YjI4", 100)]),
+    }
+    metadata_path = Path(__file__).resolve().parent.parent / "web" / "public" / "map_data.json"
+    map_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    camp_metadata = map_metadata.get("camps", [])
+    assert len(camp_metadata) == 36, f"Expected 36 camp summaries in preview metadata, got {len(camp_metadata)}"
+    creeps = [u for u in parsed_units if int(u["player"]) == 12]
+    assigned_creep_indices = set()
+    camp_counts = collections.Counter()
+    level_camps_checked = 0
+    for camp in camp_metadata:
+        name = str(camp["name"])
+        assert name in camp_specs, f"Unexpected creep camp tier/name {name!r}"
+        expected_tier, _expected_count, expected_level, expected_drops = camp_specs[name]
+        assert camp["tier"] == expected_tier, f"Incorrect tier label for {name}: {camp['tier']}"
+        camp_counts[name] += 1
+        cx, cy = float(camp["x"]), float(camp["y"])
+        member_indices = [
+            i for i, u in enumerate(creeps)
+            if math.hypot(float(u["x"]) - cx, float(u["y"]) - cy) <= 400.0
+        ]
+        assert len(member_indices) == len(camp["units"]), (
+            f"Camp {name} at ({cx},{cy}) has {len(member_indices)} packed creeps, "
+            f"but preview metadata lists {len(camp['units'])}"
+        )
+        assert not (assigned_creep_indices & set(member_indices)), f"Overlapping camp groups near ({cx},{cy})"
+        assigned_creep_indices.update(member_indices)
+        members = [creeps[i] for i in member_indices]
+        actual_ids = sorted(str(u["uid"]) for u in members)
+        assert actual_ids == sorted(str(uid) for uid in camp["units"]), (
+            f"Packed camp unit roster differs from preview metadata for {name}: {actual_ids} != {camp['units']}"
+        )
+        actual_drops = collections.Counter(
+            (str(iid), int(chance)) for u in members for iid, chance in u["drops"]
+        )
+        assert actual_drops == collections.Counter(expected_drops), (
+            f"Incorrect packed item-drop tier for {name}: {actual_drops} != {collections.Counter(expected_drops)}"
+        )
+        if slk_ubal:
+            for uid in actual_ids:
+                assert uid in slk_ubal and "level" in slk_ubal[uid], f"No reference unit level for camp member {uid}"
+            actual_level = sum(int(float(slk_ubal[uid]["level"])) for uid in actual_ids)
+            assert actual_level == expected_level, (
+                f"Camp {name} is labeled Lvl {expected_level}, but reference unit levels sum to {actual_level}"
+            )
+            level_camps_checked += 1
+    assert len(assigned_creep_indices) == len(creeps) == 136, (
+        f"Camp summaries account for {len(assigned_creep_indices)} of {len(creeps)} packed creeps"
+    )
+    assert camp_counts == collections.Counter({name: spec[1] for name, spec in camp_specs.items()}), (
+        f"Creep camp count/tier distribution mismatch: {camp_counts}"
+    )
+
+    shrine_tick = jass_src.split("function WM_OnHUDAndShrineTick", 1)[1].split("endfunction", 1)[0]
+    shrine_refresh = jass_src.split("function WM_RefreshMultiboard", 1)[1].split("endfunction", 1)[0]
+    race_choice = jass_src.split("function WM_OnRaceDialogClick", 1)[1].split("endfunction", 1)[0]
+    assert "IsPlayerAlly(owner, captor)" in shrine_tick and "IsPlayerAlly(Player(pid), captor)" in shrine_tick, (
+        "Crown Shrine capture/rewards must follow actual lobby alliances"
+    )
+    assert "pid < 4" not in shrine_tick and "pid >= 4" not in shrine_tick, (
+        "Crown Shrine must not split players into hard-coded four-slot teams"
+    )
+    assert "GetPlayerName(Player(shrinePid))" in shrine_refresh and "West Pact" not in shrine_refresh, (
+        "Crown Shrine HUD must identify its live controller rather than fixed map halves"
+    )
+    assert "SetPlayerState" not in race_choice and "PLAYER_STATE_RESOURCE_GOLD" not in race_choice, (
+        "Race selection (including Random Custom) must not create bonus starting gold"
+    )
+    assert "+50g" not in jass_src, "Stale Random Custom +50g label remains in the in-game menu"
+    assert "GetPlayerState(Player(pid), PLAYER_STATE_RESOURCE_GOLD) + 3" in shrine_tick, (
+        "Crown Shrine's documented +3 gold per 2-second hold tick is missing"
+    )
+    print(
+        f"[PASS] Stage 16: Melee Fairness ({len(neutral_units)} neutral objects D4-symmetric; "
+        f"36 camps with exact drop tiers and {level_camps_checked} reference-checked level budgets; "
+        "alliance-aware shrine + zero race-pick gold bonus)"
+    )
+
     print("======================================================================")
-    print("  ALL 15 VERIFICATION STAGES PASSED; no static errors or known object/UI/AI-startup defects.")
+    print("  ALL 16 VERIFICATION STAGES PASSED; static/binary checks found no known object/UI/AI-startup/fairness defects.")
     print("======================================================================")
 
 

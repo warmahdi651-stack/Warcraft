@@ -55,6 +55,7 @@ def build_archive_manifest() -> dict:
             "Stage 13: 31 combat units + 16 heroes; ladder DPS/EHP/cost and 55-point stat audits",
             "Stage 14: 133 BLP1s (20 palette-only portrait icons), 64 unique skill MDX effects + 6 faction sigils + 3 unique Naga building MDXs; race/role model duplicates checked",
             "Stage 15: TFT 1.26-era API compatibility proxy, explicit workers, sequential construction/training and AI safeguards",
+            "Stage 16: D4-symmetric neutral objectives/camp members, exact 36-camp rosters/loot tiers, alliance-aware shrine rewards and equal race-pick economy",
         ],
     }
 
@@ -63,7 +64,7 @@ ARCHIVE_MANIFEST_CACHE = build_archive_manifest()
 
 
 class MapPreviewHandler(BaseHTTPRequestHandler):
-    server_version = "CrownOfWarMahdiPreview/7.0"
+    server_version = "CrownOfWarMahdiPreview/7.1"
 
     def log_message(self, fmt: str, *args: object) -> None:
         sys.stdout.write("[HTTP] " + (fmt % args) + "\n")

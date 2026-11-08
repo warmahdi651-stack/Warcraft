@@ -51,7 +51,7 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     boolean udg_RacePhaseStarted = false
     boolean udg_AllowChatSwitch = true
     integer udg_MatchSeconds = 0
-    integer udg_ShrineOwnerTeam = -1
+    integer udg_ShrineControllerPid = -1
 
     dialog udg_HostAIDialog = null
     button udg_BtnDiff1 = null
@@ -517,6 +517,7 @@ function WM_RefreshMultiboard takes nothing returns nothing
     local integer secs = udg_MatchSeconds - (mins * 60)
     local string secStr = I2S(secs)
     local string shrineTxt = "|cff94a3b8Unclaimed|r"
+    local integer shrinePid = udg_ShrineControllerPid
     local integer heroLvl = 0
     local unit u = null
 
@@ -529,12 +530,10 @@ function WM_RefreshMultiboard takes nothing returns nothing
 
     call MultiboardSetTitleText(udg_CrownBoard, "|cffffd700★ CROWN OF WARMAHDI|r  |cff38bdf8[" + I2S(mins) + ":" + secStr + "]|r")
 
-    // Row 0: AI Difficulty + Shrine Status
-    if udg_ShrineOwnerTeam == 0 then
-        set shrineTxt = "|cff38bdf8West Pact|r"
-    elseif udg_ShrineOwnerTeam == 1 then
-        set shrineTxt = "|cfff43f5eEast Pact|r"
-    elseif udg_ShrineOwnerTeam == 99 then
+    // Row 0: AI Difficulty + Shrine Status (actual lobby alliances, not fixed player-index teams)
+    if shrinePid >= 0 and shrinePid < 8 then
+        set shrineTxt = "|cff38bdf8" + GetPlayerName(Player(shrinePid)) + "|r"
+    elseif shrinePid == 99 then
         set shrineTxt = "|cfffbbf24Contested!|r"
     endif
 
@@ -643,14 +642,15 @@ endfunction
 function WM_OnHUDAndShrineTick takes nothing returns nothing
     local unit u = null
     local player owner = null
+    local player captor = null
     local integer pid = 0
-    local boolean westHere = false
-    local boolean eastHere = false
-    local integer bonusTeam = -1
+    local integer captorPid = -1
+    local boolean contested = false
 
     set udg_MatchSeconds = udg_MatchSeconds + 2
 
-    // Central Crown Shrine `(0, 0)` control check (`radius = 650`)
+    // Central Crown Shrine `(0, 0)` control check (`radius = 650`). Resolve ownership
+    // from the lobby's real alliances so 4v4, 2v2, and FFA all behave correctly.
     call GroupClear(udg_TempGroupA)
     call GroupEnumUnitsInRange(udg_TempGroupA, 0.0, 0.0, 650.0, null)
     loop
@@ -660,42 +660,36 @@ function WM_OnHUDAndShrineTick takes nothing returns nothing
         if GetWidgetLife(u) > 0.405 and not IsUnitType(u, UNIT_TYPE_STRUCTURE) then
             set owner = GetOwningPlayer(u)
             set pid = GetPlayerId(owner)
-            if pid >= 0 and pid < 4 then
-                set westHere = true
+            if pid >= 0 and pid < 8 and GetPlayerSlotState(owner) == PLAYER_SLOT_STATE_PLAYING then
                 call SetWidgetLife(u, GetWidgetLife(u) + 6.0)
-            elseif pid >= 4 and pid < 8 then
-                set eastHere = true
-                call SetWidgetLife(u, GetWidgetLife(u) + 6.0)
+                if captor == null then
+                    set captor = owner
+                    set captorPid = pid
+                elseif pid != captorPid and not IsPlayerAlly(owner, captor) then
+                    set contested = true
+                elseif IsPlayerAlly(owner, captor) and pid < captorPid then
+                    set captor = owner
+                    set captorPid = pid
+                endif
             endif
         endif
     endloop
 
-    if westHere and eastHere then
-        set udg_ShrineOwnerTeam = 99
-    elseif westHere then
-        set udg_ShrineOwnerTeam = 0
-        set bonusTeam = 0
-    elseif eastHere then
-        set udg_ShrineOwnerTeam = 1
-        set bonusTeam = 1
+    if contested then
+        set udg_ShrineControllerPid = 99
+    elseif captor != null then
+        set udg_ShrineControllerPid = captorPid
     else
-        set udg_ShrineOwnerTeam = -1
+        set udg_ShrineControllerPid = -1
     endif
 
-    if bonusTeam == 0 then
+    // A held shrine grants +3 gold every 2 seconds to the controlling player's
+    // actual allies. In FFA this naturally rewards only the captor.
+    if captor != null and not contested then
         set pid = 0
         loop
-            exitwhen pid >= 4
-            if GetPlayerSlotState(Player(pid)) == PLAYER_SLOT_STATE_PLAYING then
-                call SetPlayerState(Player(pid), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(pid), PLAYER_STATE_RESOURCE_GOLD) + 3)
-            endif
-            set pid = pid + 1
-        endloop
-    elseif bonusTeam == 1 then
-        set pid = 4
-        loop
             exitwhen pid >= 8
-            if GetPlayerSlotState(Player(pid)) == PLAYER_SLOT_STATE_PLAYING then
+            if GetPlayerSlotState(Player(pid)) == PLAYER_SLOT_STATE_PLAYING and (Player(pid) == captor or IsPlayerAlly(Player(pid), captor)) then
                 call SetPlayerState(Player(pid), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(pid), PLAYER_STATE_RESOURCE_GOLD) + 3)
             endif
             set pid = pid + 1
@@ -705,6 +699,7 @@ function WM_OnHUDAndShrineTick takes nothing returns nothing
     call WM_RefreshMultiboard()
     set u = null
     set owner = null
+    set captor = null
 endfunction
 
 function WM_OnUnitDeathTrackKills takes nothing returns boolean
@@ -2147,7 +2142,7 @@ function WM_LaunchRaceSelectionPhase takes nothing returns nothing
                 set udg_BtnPickSolar[i]  = DialogAddButton(udg_RaceDialog[i], "|cfffbbf24[2] Sunfury Imperium|r  |cff94a3b8(Solar Phoenix)|r", '2')
                 set udg_BtnPickVoid[i]   = DialogAddButton(udg_RaceDialog[i], "|cffc084fc[3] Voidborn Legion|r  |cfff43f5e[NEW]|r", '3')
                 set udg_BtnPickRunic[i]  = DialogAddButton(udg_RaceDialog[i], "|cfff97316[4] Runeforged Bastion|r  |cfff43f5e[NEW]|r", '4')
-                set udg_BtnPickRandom[i] = DialogAddButton(udg_RaceDialog[i], "|cff4ade80[R] Random Custom Empire|r  |cffffd700(+50g)|r", 'R')
+                set udg_BtnPickRandom[i] = DialogAddButton(udg_RaceDialog[i], "|cff4ade80[R] Random Custom Empire|r", 'R')
                 set udg_BtnPickRandomAll[i] = DialogAddButton(udg_RaceDialog[i], "|cffffd166[A] Random Any of 8 Races|r", 'A')
                 set udg_BtnKeepClassic[i] = DialogAddButton(udg_RaceDialog[i], "|cffe2e8f0[K] Keep Lobby Race|r", 'K')
                 call DialogDisplay(p, udg_RaceDialog[i], true)
@@ -2253,7 +2248,6 @@ function WM_OnRaceDialogClick takes nothing returns boolean
         set chosen = 8
     elseif b == udg_BtnPickRandom[pid] then
         set chosen = GetRandomInt(5, 8)
-        call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) + 50)
     elseif b == udg_BtnPickRandomAll[pid] then
         set chosen = GetRandomInt(1, 8)
     else

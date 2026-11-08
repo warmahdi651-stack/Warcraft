@@ -188,6 +188,11 @@ def d4_transforms(x: float, y: float) -> List[Tuple[float, float]]:
     ]
 
 
+# Determinant of each transform returned by d4_transforms, in the same order.
+# Camp side-offset orientation must flip under reflections or member placements drift out of symmetry.
+D4_DETERMINANTS = (-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0)
+
+
 def d4_canonical(x: float, y: float) -> Tuple[float, float]:
     """Maps any (x, y) into the fundamental wedge 0 <= u <= v."""
     ax, ay = abs(x), abs(y)
@@ -515,6 +520,7 @@ def generate_units_and_camps(terrain_heights: List[List[float]]) -> Tuple[List[P
         center: Tuple[float, float],
         look_target: Tuple[float, float],
         members: List[Tuple[str, float, float, List[ItemDropSpec]]],
+        handedness: float = 1.0,
     ) -> None:
         """
         members: list of (uid, forward_offset, right_offset, drops) relative to camp facing direction.
@@ -526,7 +532,9 @@ def generate_units_and_camps(terrain_heights: List[List[float]]) -> Tuple[List[P
         dx, dy = look_target[0] - cx, look_target[1] - cy
         norm = math.hypot(dx, dy) or 1.0
         fx, fy = dx / norm, dy / norm
-        rx, ry = fy, -fx  # right vector
+        # The sign is the determinant of the D4 transform. Reflections reverse handedness;
+        # without this, asymmetric camp members/items shift to the wrong side of mirrored starts.
+        rx, ry = handedness * fy, -handedness * fx
         facing_deg = (math.degrees(math.atan2(fy, fx)) + 360.0) % 360.0
 
         unit_ids = []
@@ -560,7 +568,7 @@ def generate_units_and_camps(terrain_heights: List[List[float]]) -> Tuple[List[P
     DROP_TOME_XP = ItemDropSpec("texp", "'texp'", "Tome of Experience")
 
     # (A) 8 Green Gnoll Outposts (Orbit of (6400, 9600), recessed off flank junction (5760, 8064))
-    for center, target in zip(GREEN_GNOLL_CENTERS, d4_transforms(5760.0, 8064.0)):
+    for transform_id, (center, target) in enumerate(zip(GREEN_GNOLL_CENTERS, d4_transforms(5760.0, 8064.0))):
         spawn_camp_group(
             "green",
             "Gnoll Outpost (Lvl 6)",
@@ -572,10 +580,11 @@ def generate_units_and_camps(terrain_heights: List[List[float]]) -> Tuple[List[P
                 ("ngno", 55.0, 0.0, []),
                 ("ngno", 20.0, +110.0, []),
             ],
+            handedness=D4_DETERMINANTS[transform_id],
         )
 
     # (B) 8 Orange Natural Expansion Ogre Magi Camps (Orbit in front of (2304, 6272))
-    for mine_pt, hub_pt in zip(NATURAL_MINES, d4_transforms(2816.0, 6528.0)):
+    for transform_id, (mine_pt, hub_pt) in enumerate(zip(NATURAL_MINES, d4_transforms(2816.0, 6528.0))):
         vx, vy = hub_pt[0] - mine_pt[0], hub_pt[1] - mine_pt[1]
         vn = math.hypot(vx, vy)
         cx, cy = mine_pt[0] + vx / vn * 340.0, mine_pt[1] + vy / vn * 340.0
@@ -590,6 +599,7 @@ def generate_units_and_camps(terrain_heights: List[List[float]]) -> Tuple[List[P
                 ("nogr", +65.0, -95.0, []),
                 ("nogr", +65.0, +95.0, []),
             ],
+            handedness=D4_DETERMINANTS[transform_id],
         )
 
     # (C) 4 Orange Goblin Merchant Camps (350 units inward from recessed (0, +-8704), (+-8704, 0))
@@ -620,8 +630,10 @@ def generate_units_and_camps(terrain_heights: List[List[float]]) -> Tuple[List[P
             (cx, cy),
             (0.0, 0.0),
             [
-                ("nftb", -30.0, -55.0, [DROP_CHRG_3]),
-                ("nfsh", -30.0, +55.0, []),
+                # The diagonal center is fixed by a D4 reflection, so place its two
+                # different troll types on the forward axis instead of swapping sides.
+                ("nftb", -75.0, 0.0, [DROP_CHRG_3]),
+                ("nfsh", +75.0, 0.0, []),
                 ("nftr", +60.0, -105.0, []),
                 ("nftr", +60.0, +105.0, []),
             ],
@@ -669,8 +681,10 @@ def generate_units_and_camps(terrain_heights: List[List[float]]) -> Tuple[List[P
             (cx, cy),
             (fx * 2.0, fy * 2.0),
             [
-                ("nrwm", -40.0, -60.0, [DROP_PERM_5, DROP_TOME_XP]),
-                ("nogl", -40.0, +60.0, [DROP_CHRG_4]),
+                # The diagonal island is fixed by a D4 reflection: keep each unique
+                # drop-carrying guard on-axis and mirror the two identical dark knights.
+                ("nrwm", -60.0, 0.0, [DROP_PERM_5, DROP_TOME_XP]),
+                ("nogl", +60.0, 0.0, [DROP_CHRG_4]),
                 ("nrdk", +65.0, -115.0, []),
                 ("nrdk", +65.0, +115.0, []),
             ],
