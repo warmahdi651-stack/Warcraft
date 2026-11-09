@@ -88,16 +88,31 @@ function WM_ApplyUltRingEffect takes unit caster, real cx, real cy, real innerRa
     set owner = null
 endfunction
 
-function WM_SpawnUltLineFX takes string fxPath, real cx, real cy, real angle, real halfLength, integer nodes returns nothing
+function WM_SpawnUltLineFX takes string fxPath, real cx, real cy, real angle, real halfLength, integer nodes, integer slot, integer lane returns nothing
     local integer k = 0
+    local integer fxIndex = 0
     local real along = 0.0
     if nodes < 2 then
         return
     endif
     loop
-        exitwhen k >= nodes
+        exitwhen k >= nodes or k >= 7
         set along = -1.0 + 2.0 * I2R(k) / I2R(nodes - 1)
-        call DestroyEffect(AddSpecialEffect(fxPath, WM_ClampMapCoord(cx + Cos(angle) * halfLength * along), WM_ClampMapCoord(cy + Sin(angle) * halfLength * along)))
+        set fxIndex = slot * 21 + lane * 7 + k
+        set udg_UltLaserFX[fxIndex] = AddSpecialEffect(fxPath, WM_ClampMapCoord(cx + Cos(angle) * halfLength * along), WM_ClampMapCoord(cy + Sin(angle) * halfLength * along))
+        set k = k + 1
+    endloop
+endfunction
+
+function WM_ClearUltLaserFX takes integer slot returns nothing
+    local integer k = 0
+    local integer fxIndex = slot * 21
+    loop
+        exitwhen k >= 21
+        if udg_UltLaserFX[fxIndex + k] != null then
+            call DestroyEffect(udg_UltLaserFX[fxIndex + k])
+            set udg_UltLaserFX[fxIndex + k] = null
+        endif
         set k = k + 1
     endloop
 endfunction
@@ -142,9 +157,16 @@ function WM_ApplyLineEffect takes unit caster, real sx, real sy, real tx, real t
 endfunction
 
 function WM_SpawnTimedUnit takes player owner, integer rawcode, real x, real y, real duration returns nothing
-    local unit summoned = CreateUnit(owner, rawcode, WM_ClampMapCoord(x), WM_ClampMapCoord(y), GetRandomReal(0.0, 360.0))
-    if summoned != null then
-        call UnitApplyTimedLife(summoned, 'BTLF', duration)
+    local unit summoned = null
+    local boolean groundPath = true
+    if rawcode == 'hphx' or rawcode == 't015' then
+        set groundPath = false
+    endif
+    if WM_FindSafeUnitPoint(null, WM_ClampMapCoord(x), WM_ClampMapCoord(y), 72.0, groundPath, 240.0) then
+        set summoned = CreateUnit(owner, rawcode, udg_SafePointX, udg_SafePointY, GetRandomReal(0.0, 360.0))
+        if summoned != null then
+            call UnitApplyTimedLife(summoned, 'BTLF', duration)
+        endif
     endif
     set summoned = null
     set owner = null
@@ -214,10 +236,12 @@ function WM_EnqueueUltPulse takes unit caster, integer abilId, real tx, real ty,
         return
     endif
 
+    call WM_ClearUltLaserFX(idx)
     set udg_UltCaster[idx] = caster
     set udg_UltAbil[idx] = abilId
     set udg_UltX[idx] = tx
     set udg_UltY[idx] = ty
+    set udg_UltBaseAngle[idx] = Atan2(ty - GetUnitY(caster), tx - GetUnitX(caster))
     set udg_UltTicksLeft[idx] = pulses
     if idx >= udg_UltCount then
         set udg_UltCount = idx + 1
@@ -295,6 +319,7 @@ function WM_OnUltWaveTick takes nothing returns nothing
             if GetWidgetLife(caster) <= 0.405 then
                 set udg_UltTicksLeft[idx] = 0
                 set udg_UltCaster[idx] = null
+                call WM_ClearUltLaserFX(idx)
             elseif abil == 'A003' then
                 // Vashj: three advancing Tsunami fronts, healing friendlies behind the wave.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", tx, ty))
@@ -404,11 +429,19 @@ function WM_OnUltWaveTick takes nothing returns nothing
                     call WM_SpawnTimedUnit(owner, 't013', tx + 150.0, ty, 20.0)
                 endif
             elseif abil == 'A059' then
-                // Mimiron: a 1040u orbital laser rotates through three telegraphed lanes.
+                // Mimiron: show all 3 locked orbital lanes first, then damage them sequentially.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
-                set ang = Atan2(ty - GetUnitY(caster), tx - GetUnitX(caster)) + (I2R(pulse) - 2.0) * 0.42
-                call WM_SpawnUltLineFX("Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl", tx, ty, ang, 520.0, 7)
-                call WM_ApplyLineEffect(caster, WM_ClampMapCoord(tx - Cos(ang) * 520.0), WM_ClampMapCoord(ty - Sin(ang) * 520.0), WM_ClampMapCoord(tx + Cos(ang) * 520.0), WM_ClampMapCoord(ty + Sin(ang) * 520.0), 72.0, WM_GetUltPulseDamage(caster, 60.0))
+                if pulse == 0 then
+                    set ang = udg_UltBaseAngle[idx] - 0.42
+                    call WM_SpawnUltLineFX("Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl", tx, ty, ang, 520.0, 7, idx, 0)
+                    set ang = udg_UltBaseAngle[idx]
+                    call WM_SpawnUltLineFX("Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl", tx, ty, ang, 520.0, 7, idx, 1)
+                    set ang = udg_UltBaseAngle[idx] + 0.42
+                    call WM_SpawnUltLineFX("Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl", tx, ty, ang, 520.0, 7, idx, 2)
+                else
+                    set ang = udg_UltBaseAngle[idx] + (I2R(pulse) - 2.0) * 0.42
+                    call WM_ApplyLineEffect(caster, WM_ClampMapCoord(tx - Cos(ang) * 520.0), WM_ClampMapCoord(ty - Sin(ang) * 520.0), WM_ClampMapCoord(tx + Cos(ang) * 520.0), WM_ClampMapCoord(ty + Sin(ang) * 520.0), 72.0, WM_GetUltPulseDamage(caster, 60.0))
+                endif
             elseif abil == 'A063' then
                 // Loken: Tesla overcharge steals mana and calls two short-lived interceptors.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
@@ -423,6 +456,7 @@ function WM_OnUltWaveTick takes nothing returns nothing
             set udg_UltTicksLeft[idx] = udg_UltTicksLeft[idx] - 1
             if udg_UltTicksLeft[idx] <= 0 then
                 set udg_UltCaster[idx] = null
+                call WM_ClearUltLaserFX(idx)
             endif
         endif
         set idx = idx + 1
@@ -988,7 +1022,11 @@ function WM_OnCustomHeroSpellEffect takes nothing returns boolean
             set tx = cx
             set ty = cy
         endif
-        call WM_EnqueueUltPulse(caster, abil, tx, ty, 3)
+        if abil == 'A059' then
+            call WM_EnqueueUltPulse(caster, abil, tx, ty, 4)
+        else
+            call WM_EnqueueUltPulse(caster, abil, tx, ty, 3)
+        endif
     endif
 
     set caster = null

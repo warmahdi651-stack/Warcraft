@@ -1,14 +1,14 @@
 # `(8) Crown of WarMahdi` — v8 Warcraft III 8-Empire Altered Melee
 
-A **192×192, 8-player** Sunken-Astral map for Warcraft III TFT and Reforged. This source-backed gameplay/AI/art pass preserves the existing terrain, theme, and in-game UI.
+A **192×192, 8-player** Sunken-Astral map for classic Warcraft III TFT (1.26a/1.27b). This source-backed gameplay/AI/art pass preserves the existing terrain, theme, and in-game UI.
 
 ## Download and preview
 
 - **Map (`.w3x`):** [Download Crown of WarMahdi v8](https://raw.githubusercontent.com/warmahdi651-stack/Warcraft/arena/483b840a-warcraft/maps/%288%29CrownOfWarMahdi.w3x)
 - **Tactical map preview:** `maps/(8)CrownOfWarMahdi_Preview.png`
-- **Web preview:** `python3 web/server.py` (port 8080); includes the interactive map, archive manifest, verification summary, and download route.
+- **Web preview:** `python3 web/server.py` (port 8080); includes the interactive map, archive manifest, verification summary, and download route. Archive/BLP counts are read from the current `.w3x`, not maintained as manual constants.
 
-Install into `Warcraft III/Maps/FrozenThrone/` for classic clients or `Documents/Warcraft III/Maps/Download/` for Reforged.
+Install into `Warcraft III/Maps/FrozenThrone/` for classic TFT 1.26a/1.27b clients.
 
 ## v8 gameplay and AI pass
 
@@ -34,7 +34,8 @@ These are strategy inspirations adapted to each custom tech tree. They are not l
 
 - Preserves **16 heroes and 64 exclusive skills**. Core ranks remain learnable at levels 1/3/5; ultimates remain level-gated to 6. Existing selected signature skills, including Mana Burn, Phoenix, and Resurrection, are retained.
 - Adds **64 separate skill-specific MDX effects and 64 true-color textures**, plus 64 individually illustrated 64×64 command-button icons with matching disabled-state twins. Each ability dispatches to its own model; the assets vary by geometric form (burst, bolt, shield, portal), proportions, rune pattern, and hero theme—not hue alone. Six faction-sigil models remain for other gameplay effects (**70 VFX MDX models**; 73 MDX files including the three Naga building models).
-- Differentiates the ultimates' *play patterns*, not only their colors: Vashj's Tsunami moves through three damage/heal/push fronts; Akama's shadow dance is a tighter 300-AoE around the assassin; Mimiron's Omega Laser sweeps three 144-wide lines through the chosen point. Their ordinary skill geometry and the rest of the 16-kit roster remain independently defined.
+- Differentiates the ultimates' *play patterns*, not only their colors: Vashj's Tsunami moves through three damage/heal/push fronts; Akama's shadow dance is a tighter 300-AoE around the assassin; Mimiron's Omega Laser locks its cast-time aim, reveals all three 1040-unit lanes for 0.55 seconds, then hits those 144-wide lines sequentially. The laser markers are explicitly cleaned up after the sweep or if Mimiron dies.
+- Timed summons now search for terrain- and occupancy-safe spawn points; pull/push displacement checks unit/building clearance and only moves to a nearby safe point, otherwise leaving the unit where it is. This avoids placing summons inside obstacles or shoving units through occupied cells.
 - Palette-encoded BLP is restricted to command-button artwork: ten hero-portrait pairs and 64 custom skill BTN/DISBTN pairs (148 icons total). Skill VFX and building textures use true-color BLP.
 
 ## Melee fairness and objective pass
@@ -60,4 +61,4 @@ npm install --prefix /tmp/wc3ref mdx-m3-viewer@5.12.0
 
 Verification is static/binary; it does not launch Warcraft III.
 
-**Testing limitation:** no in-client Warcraft III test or human match has been performed for this update. The map still needs a fresh client smoke test on 1.26a/1.27b and Reforged—especially build menus, the imported button pairs, the three revised ultimate geometries, worker harvesting, custom building paths, MDX rendering, and AI orders. Static checks cannot establish live gameplay balance or visual rendering.
+**Testing limitation:** no in-client Warcraft III test or human match has been performed for this update. The map still needs a fresh client smoke test on TFT 1.26a/1.27b—especially build menus, the imported button pairs, safe summon/displacement behavior, the three revised ultimate geometries, worker harvesting, custom building paths, MDX rendering, and AI orders. Static checks cannot establish live gameplay balance or visual rendering.

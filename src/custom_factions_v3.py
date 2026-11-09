@@ -996,7 +996,7 @@ HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
     ("A056", 0, 2, "flamestrike",    "Cluster Rocket Salvo",       "Three rocket impact zones hit the target area: 0.78x AGI-scaled damage in 225 AoE and 0.36x in each flanking 150 AoE; the center pushes enemies outward."),
     ("A057", 1, 1, "chainlightning", "Railgun Gauss Snipe",        "Railgun slug pierces a 58-width line from Mimiron to the target, dealing 1.32x AGI-scaled damage to enemies along the path."),
     ("A058", 2, 0, "thunderclap",    "Deploy Pocket Auto-Turrets", "In 250 AoE, deals 0.48x AGI-scaled damage and heals allies for 48 + 16 per level. Summons two Runic Sentinels for 16 seconds."),
-    ("A059", 3, 2, "monsoon",        "Omega Orbital Laser",        "Three telegraphed, rotating 1040-unit laser lanes sweep through the cast point at ±24 degrees. Each lane is 144 units wide and scales with Mimiron's AGI and hero level."),
+    ("A059", 3, 2, "monsoon",        "Omega Orbital Laser",        "All three locked 1040-unit lanes are revealed for 0.55 sec, then strike sequentially through the cast point at ±24 degrees. Each lane is 144 units wide and scales with Mimiron's AGI and hero level."),
 
     # Hero 16: T004 — Tempest Savant Loken (`A060..A063`)
     ("A060", 0, 2, "flamestrike",    "Ionosphere Plasma Field",    "Point-targeted 280 AoE: deals INT-scaled damage and burns 20 Mana per ability level from affected enemies."),

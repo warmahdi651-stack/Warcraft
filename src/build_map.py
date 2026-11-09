@@ -3,7 +3,7 @@
 Deterministic Procedural Generator for `(8) Crown of WarMahdi` v8.
 An 8-player D4-symmetric Sunken-Astral Altered Melee map with 8 playable empires,
 64 exclusive hero skills, custom cursor/RPG UI, authoritative JASS custom-faction AI and native standard-race melee AI.
-Targets Frozen Throne 1.26a/1.27b-era APIs and Warcraft III Reforged 1.32+.
+Targets classic Warcraft III: The Frozen Throne 1.26a/1.27b-era APIs only.
 """
 
 from __future__ import annotations
@@ -1070,7 +1070,7 @@ def serialize_units_doo(units: List[PlacedUnit]) -> bytes:
 
 
 def serialize_w3i() -> bytes:
-    """Serialize war3map.w3i (Frozen Throne version 25 — compatible with 1.26a, 1.27b AND Reforged!)."""
+    """Serialize war3map.w3i (Frozen Throne version 25 for classic 1.26a/1.27b clients)."""
     def cstr(s: str) -> bytes:
         return s.encode("utf-8") + b"\x00"
 
@@ -1241,7 +1241,7 @@ def serialize_mmp(units: List[PlacedUnit]) -> bytes:
 def generate_jass_script(units: List[PlacedUnit]) -> str:
     """
     Generate 100% World-Editor-compliant JASS2 war3map.j script.
-    Verified clean of leaks and strictly compliant with both 1.26a/1.27b AND Reforged Common.j + Blizzard.j.
+    Verified leak-clean and compatible with classic TFT 1.26a/1.27b-era JASS APIs.
     """
     lines: List[str] = []
     lines.append("//===========================================================================")
@@ -1677,6 +1677,8 @@ def export_web_metadata(
     w3x_size: int,
     packer_used: str,
     custom_assets_count: int,
+    archive_files_count: int,
+    blp_files_count: int,
 ) -> None:
     """Export compact JSON telemetry for the interactive Warcraft III Map Studio web preview."""
     # Downsample 193x193 terrain & 192x192 pathing summary for instant 60fps HTML5 canvas rendering
@@ -1704,9 +1706,6 @@ def export_web_metadata(
         "w3iVersion": 25,
         "compatibility": [
             "Warcraft III: The Frozen Throne 1.26a / 1.27b (Atinad, GameRanger, LAN)",
-            "Warcraft III Classic 1.28 - 1.31",
-            "Warcraft III: Reforged 1.32 - 2.0+",
-            "Warcraft III World Editor (Classic & Reforged)",
         ],
         "dimensions": {
             "tilesW": TILES_W,
@@ -1723,8 +1722,8 @@ def export_web_metadata(
             "customSkills": 64,
             "customHeroes": 16,
             "customAssets": custom_assets_count,
-            "archiveFiles": custom_assets_count + 25,
-            "blpFiles": 261,
+            "archiveFiles": archive_files_count,
+            "blpFiles": blp_files_count,
             "customVfxModels": 70,
             "customBuildingModels": 3,
             "goldMines": sum(1 for u in units if u.uid == "ngol"),
@@ -1982,6 +1981,8 @@ def build_all(repo_root: Path) -> Path:
         w3x_size,
         packer_used,
         len(custom_assets_map),
+        len(map_files),
+        sum(1 for internal_name in map_files if internal_name.lower().endswith(".blp")),
     )
     import base64
     import hashlib

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 16-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v8.
-Checks the MPQ, TFT v25, JASS2 APIs (TFT-era proxy, 1.27b and Reforged), all 64 hero abilities and skill-specific VFX,
+Checks the MPQ, TFT v25, JASS2 APIs (1.26-era proxy and official 1.27b), all 64 hero abilities and skill-specific VFX,
 16 unique hero kits, 8 empire spawn/build definitions, four AI scripts and the JASS AI fallback,
 object/card/rally flags, native icon/model references, portrait/UI BLP1s/MDXs, pathing, creep safety, D4 objective/camp symmetry, loot tiers and lobby-economy fairness.
 It cannot replace launching the map in an actual Warcraft III client.
@@ -644,11 +644,11 @@ def run_verification(w3x_path: Path) -> None:
         print("[PASS] Stage 1: HM3W Header + MPQ v1 Container Decompression Verification")
 
     # ------------------------------------------------------------------
-    # STAGE 2: Binary Format Versions & Classic 1.26a/1.27b + Reforged Spec
+    # STAGE 2: Binary Format Versions & Classic TFT 1.26a/1.27b Spec
     # ------------------------------------------------------------------
     w3i = files["war3map.w3i"]
     w3i_ver, w3i_saves, w3i_ed = struct.unpack_from("<iii", w3i, 0)
-    assert w3i_ver == 25, f"w3i version must be 25 for 1.26a/1.27b + Reforged compatibility, got {w3i_ver}"
+    assert w3i_ver == 25, f"w3i version must be 25 for classic 1.26a/1.27b compatibility, got {w3i_ver}"
 
     w3e = files["war3map.w3e"]
     assert w3e[:4] == b"W3E!", "Invalid W3E! magic"
@@ -682,7 +682,7 @@ def run_verification(w3x_path: Path) -> None:
     print(f"[PASS] Stage 2: TFT v25 Binary Specs (192x192 terrain, {tree_cnt} trees < 6144 WE limit)")
 
     # ------------------------------------------------------------------
-    # STAGE 3: Full JASS2 Static Typechecking (1.27.1 AND 1.32.8 Reforged)
+    # STAGE 3: Full JASS2 Static Typechecking (Official TFT 1.27.1)
     # ------------------------------------------------------------------
     jass_src = files["war3map.j"].decode("utf-8")
 
@@ -694,26 +694,18 @@ def run_verification(w3x_path: Path) -> None:
         assert "set bj_lastDyingWidget = null" in body, f"Handle reference leak in {fn_name}!"
 
     ref_127 = Path("/tmp/wc3ref/w3x2lni/data/enUS-1.27.1/mpq/Scripts")
-    ref_132 = Path("/tmp/wc3ref/w3x2lni/data/zhCN-1.32.8/mpq/Scripts")
 
     if ref_127.exists():
         chk_127 = JassChecker()
         chk_127.check_file((ref_127 / "Common.j").read_text(encoding="utf-8", errors="ignore"), "1.27.1/Common.j")
         chk_127.check_file((ref_127 / "Blizzard.j").read_text(encoding="utf-8", errors="ignore"), "1.27.1/Blizzard.j")
         n_fn = chk_127.check_file(jass_src, "war3map.j")
-        print(f"[PASS] Stage 3a: JASS2 Static Typecheck vs Official Patch 1.27b Common.j + Blizzard.j ({n_fn} map functions, 0 errors)")
+        print(f"[PASS] Stage 3: JASS2 Static Typecheck vs Official TFT 1.27b Common.j + Blizzard.j ({n_fn} map functions, 0 errors)")
     else:
         chk_fb = JassChecker()
         chk_fb.check_file(FALLBACK_JASS_PRELUDE, "prelude.j")
         n_fn = chk_fb.check_file(jass_src, "war3map.j")
-        print(f"[PASS] Stage 3a: JASS2 Static Typecheck vs Built-in Prelude ({n_fn} map functions, 0 errors)")
-
-    if ref_132.exists():
-        chk_132 = JassChecker()
-        chk_132.check_file((ref_132 / "Common.j").read_text(encoding="utf-8", errors="ignore"), "1.32.8/Common.j")
-        chk_132.check_file((ref_132 / "Blizzard.j").read_text(encoding="utf-8", errors="ignore"), "1.32.8/Blizzard.j")
-        n_fn_r = chk_132.check_file(jass_src, "war3map.j")
-        print(f"[PASS] Stage 3b: JASS2 Static Typecheck vs Official Reforged 1.32.8 Common.j + Blizzard.j ({n_fn_r} map functions, 0 errors)")
+        print(f"[PASS] Stage 3: JASS2 Static Typecheck vs Built-in Prelude ({n_fn} map functions, 0 errors)")
 
     # ------------------------------------------------------------------
     # STAGE 4: Cross-File Synchronization (units.doo <-> war3map.j <-> wts <-> mmp)
@@ -1569,7 +1561,13 @@ def run_verification(w3x_path: Path) -> None:
         assert "WM_SpawnUltLineFX" in laser_branch and "WM_ApplyLineEffect(caster" in laser_branch and "520.0" in laser_branch, (
             "Mimiron's ultimate must use its telegraphed rotating laser lanes"
         )
+        assert "pulse == 0" in laser_branch and "udg_UltBaseAngle[idx]" in laser_branch, (
+            "Mimiron's three lanes must be visibly telegraphed and locked to the cast-time aim direction"
+        )
         assert "(I2R(pulse) - 2.0) * 0.42" in laser_branch, "Mimiron's three laser sweeps must rotate symmetrically around the aim line"
+        assert "call WM_EnqueueUltPulse(caster, abil, tx, ty, 4)" in jass_src, (
+            "Mimiron's laser ultimate must reserve one 0.55-second telegraph tick before its three damage lanes"
+        )
 
         # Check all 4-char rawcodes in war3map.j and all 4 .ai files
         for sname in ("war3map.j", "naga_melee.ai", "camphuman_melee.ai", "voidborn_melee.ai", "runeforged_melee.ai"):
@@ -1982,7 +1980,24 @@ def run_verification(w3x_path: Path) -> None:
         worker_mods = mod_lookup[worker_id][1]
         assert "Peon" in str(worker_mods.get("utyp", "")), f"Empire {faction_id} worker {worker_id} is missing the Peon type tag"
         assert "Ahar" in str(worker_mods.get("uabi", "")), f"Empire {faction_id} worker {worker_id} is missing its explicit Harvest ability"
-    print(f"[PASS] Stage 15: Legacy JASS API Proxy ({legacy_fn_count} functions) + Native Standard AI + Authoritative Custom JASS AI + Sequential Economy/Tech/Army Guards")
+
+    safe_point_src = jass_src.split("function WM_IsSafeUnitPoint", 1)[1].split("endfunction", 1)[0]
+    assert "IsTerrainPathable" in safe_point_src and "GroupEnumUnitsInRange" in safe_point_src, (
+        "Summon/displacement placement must test both terrain pathability and nearby unit occupancy"
+    )
+    assert "UNIT_TYPE_STRUCTURE" in safe_point_src and "UNIT_TYPE_FLYING" in safe_point_src, (
+        "Safe placement must account for building footprints and separate ground/flying collision"
+    )
+    spawn_src = jass_src.split("function WM_SpawnTimedUnit", 1)[1].split("endfunction", 1)[0]
+    assert "WM_FindSafeUnitPoint(null, WM_ClampMapCoord(x), WM_ClampMapCoord(y), 72.0, groundPath, 240.0)" in spawn_src, (
+        "Timed summons must search for an unblocked point instead of spawning inside terrain or units"
+    )
+    assert "rawcode == 'hphx' or rawcode == 't015'" in spawn_src, "Flying Phoenix/Gyro summons must use flying pathing rules"
+    pull_src = jass_src.split("function WM_PullOrPushUnit", 1)[1].split("endfunction", 1)[0]
+    assert "WM_FindSafeUnitPoint(u, nx, ny, 56.0, groundPath, 144.0)" in pull_src and "udg_SafePointX" in pull_src, (
+        "Pull/push displacement must stop or adjust when the destination collides with terrain, units, or structures"
+    )
+    print(f"[PASS] Stage 15: Classic TFT 1.26/1.27 API proxy ({legacy_fn_count} functions) + native race AI + safe summon/displacement + sequential custom-AI guards")
 
     # ------------------------------------------------------------------
     # STAGE 16: Melee Fairness — Symmetric Objectives, Balanced Camp Loot & Lobby Teams
@@ -2030,6 +2045,18 @@ def run_verification(w3x_path: Path) -> None:
     }
     metadata_path = Path(__file__).resolve().parent.parent / "web" / "public" / "map_data.json"
     map_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    map_stats = map_metadata.get("stats", {})
+    actual_blp_count = sum(1 for name in files if name.lower().endswith(".blp"))
+    assert map_stats.get("archiveFiles") == len(files), (
+        f"Preview archive-file count is stale: {map_stats.get('archiveFiles')} != {len(files)}"
+    )
+    assert map_stats.get("blpFiles") == actual_blp_count, (
+        f"Preview BLP count is stale: {map_stats.get('blpFiles')} != {actual_blp_count}"
+    )
+    compatibility = " ".join(str(item) for item in map_metadata.get("compatibility", []))
+    assert "1.26a" in compatibility and "1.27b" in compatibility and "reforged" not in compatibility.lower(), (
+        f"Map metadata must declare classic TFT 1.26a/1.27b only: {compatibility}"
+    )
     camp_metadata = map_metadata.get("camps", [])
     assert len(camp_metadata) == 36, f"Expected 36 camp summaries in preview metadata, got {len(camp_metadata)}"
     creeps = [u for u in parsed_units if int(u["player"]) == 12]

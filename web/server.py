@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import struct
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -24,6 +25,11 @@ from mpq_packer import CANONICAL_W3X_FILES, read_w3x_archive  # noqa: E402
 
 def build_archive_manifest() -> dict:
     hdr, files = read_w3x_archive(MAP_FILE)
+    blp_files = [data for name, data in files.items() if name.lower().endswith(".blp")]
+    blp1_count = sum(1 for data in blp_files if data[:4] == b"BLP1")
+    palette_blp_count = sum(
+        1 for data in blp_files if data[:4] == b"BLP1" and len(data) >= 8 and struct.unpack_from("<I", data, 4)[0] == 1
+    )
     entries = []
     seen = set()
     for name in CANONICAL_W3X_FILES:
@@ -40,10 +46,9 @@ def build_archive_manifest() -> dict:
         "archiveBytes": MAP_FILE.stat().st_size,
         "entries": entries,
         "checks": [
-            "Stage 1: HM3W header + PurePython MPQ v1 archive (359 files)",
+            f"Stage 1: HM3W header + PurePython MPQ v1 archive ({len(files)} files)",
             "Stage 2: TFT v25 — 192x192 Sunken-Astral terrain + 5,961 placed trees within the World Editor limit",
-            "Stage 3a: Generated JASS2 static typecheck vs 1.27b Common.j + Blizzard.j (custom AI and spell engine)",
-            "Stage 3b: Generated JASS2 static typecheck vs Reforged 1.32.8 Common.j + Blizzard.j (custom AI and spell engine)",
+            "Stage 3: Classic TFT JASS2 static typecheck vs 1.27b Common.j + Blizzard.j (1.26-era proxy also verified)",
             "Stage 4 & 5: 181 preplaced units, 15 strings, 45 minimap icons and 256x256 BLP1 minimap synchronized",
             "Stage 6: All 8 mirrored player starts, mines and town-hall zones are buildable",
             "Stage 7: Zero collision footprints across 181 units and the 5,920 harvestable trees",
@@ -53,7 +58,7 @@ def build_archive_manifest() -> dict:
             "Stage 11: 8 empires, 16 heroes, 64 custom icon pairs; distinct expanding-wave, close-range and laser-sweep ultimate geometries verified",
             "Stage 12: Race-AI scripts typechecked; native AI for classic races + authoritative JASS controller for custom factions",
             "Stage 13: 31 combat units + 16 heroes; ladder DPS/EHP/cost and 55-point stat audits",
-            "Stage 14: 261 BLP1s (148 palette-only portrait/skill-button icons), 64 unique skill MDX effects + 6 faction sigils + 3 unique Naga building MDXs; race/role model duplicates checked",
+            f"Stage 14: {blp1_count} BLP1s ({palette_blp_count} paletted portrait/skill-button icons), 64 unique skill MDX effects + 6 faction sigils + 3 unique Naga building MDXs; race/role model duplicates checked",
             "Stage 15: TFT 1.26-era API compatibility proxy, explicit workers, sequential construction/training and AI safeguards",
             "Stage 16: D4-symmetric neutral objectives/camp members, exact 36-camp rosters/loot tiers, alliance-aware shrine rewards and equal race-pick economy",
         ],

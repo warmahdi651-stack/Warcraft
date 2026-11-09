@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Custom Playable Races, Object Modifications & Pro-Level Melee AI Generator
-for `(8) Crown of WarMahdi` v8 (Warcraft III TFT 1.26a/1.27b & Reforged).
+for `(8) Crown of WarMahdi` v8 (classic Warcraft III TFT 1.26a/1.27b).
 
 Implements four ladder-bounded custom empires alongside the 4 classic Warcraft III races:
   5. Abyssal Tideborn / Naga (`RACE_NAGA = 5`, now includes Illidan Stormrage)
@@ -1887,7 +1887,7 @@ def generate_naga_ai_script() -> str:
     """
     return """//============================================================================
 //  Naga Empire Pro Melee AI (`naga_melee.ai`) — (8) Crown of WarMahdi
-//  Compatible with Warcraft III TFT 1.26a/1.27b & Reforged
+//  Compatible with classic Warcraft III TFT 1.26a/1.27b
 //============================================================================
 globals
     boolean naga_tier2_done = false
@@ -2307,7 +2307,7 @@ def generate_camphuman_ai_script() -> str:
     """
     return """//============================================================================
 //  Campaign Human (Silvermoon) Pro Melee AI (`camphuman_melee.ai`)
-//  Compatible with Warcraft III TFT 1.26a/1.27b & Reforged
+//  Compatible with classic Warcraft III TFT 1.26a/1.27b
 //============================================================================
 globals
     boolean ch_tier2_done = false

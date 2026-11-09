@@ -3,10 +3,9 @@
 JASS2 Gameplay, Custom 3D Spell Engine, Sleek Menus, Live Multiboard HUD,
 and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v8.
 
-Strict Classic 1.26a/1.27b + Reforged JASS2 Guarantees:
+Classic TFT 1.26a/1.27b JASS2 compatibility targets:
   - Every `local` variable is declared at the top of its `function`.
-  - Zero Reforged-only natives (`Blz*` avoided completely so TFT 1.26a/1.27b loads
-    100% cleanly without missing-native crashes!).
+  - Uses classic JASS2 natives only; no `Blz*` natives are required.
   - Zero handle leaks (`GroupClear` on reusable global groups, `DestroyEffect` on all
     one-shot VFX, local handle nulling before `return`/`endfunction`).
   - Host sees AI Difficulty Menu FIRST (`t = 0.20s`), then all Humans get the sleek
@@ -88,6 +87,8 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     real udg_NearestTreeDist = 0.0
     real udg_SearchX = 0.0
     real udg_SearchY = 0.0
+    real udg_SafePointX = 0.0
+    real udg_SafePointY = 0.0
     unit udg_ItemPickupHero = null
     item udg_ItemPickupCandidate = null
     real udg_ItemPickupDistance = 99999999.0
@@ -98,6 +99,8 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     integer array udg_UltAbil
     real array udg_UltX
     real array udg_UltY
+    real array udg_UltBaseAngle
+    effect array udg_UltLaserFX
     integer array udg_UltTicksLeft
 """
 
@@ -244,6 +247,85 @@ function WM_SpawnRingFX takes string fxPath, real cx, real cy, real radius, inte
     endloop
 endfunction
 
+function WM_IsSafeUnitPoint takes unit moving, real px, real py, real clearance, boolean groundPath returns boolean
+    local unit other = null
+    local real dx = 0.0
+    local real dy = 0.0
+    local real distSq = 0.0
+    local real minDist = 0.0
+    local real searchRadius = 0.0
+    if groundPath and IsTerrainPathable(px, py, PATHING_TYPE_WALKABILITY) then
+        set moving = null
+        return false
+    endif
+    set searchRadius = clearance + 192.0
+    call GroupClear(udg_TempGroupB)
+    call GroupEnumUnitsInRange(udg_TempGroupB, px, py, searchRadius, null)
+    loop
+        set other = FirstOfGroup(udg_TempGroupB)
+        exitwhen other == null
+        call GroupRemoveUnit(udg_TempGroupB, other)
+        if other != moving and GetUnitTypeId(other) != 0 and GetWidgetLife(other) > 0.405 then
+            if (groundPath and not IsUnitType(other, UNIT_TYPE_FLYING)) or (not groundPath and IsUnitType(other, UNIT_TYPE_FLYING)) then
+                set minDist = clearance
+                if groundPath and IsUnitType(other, UNIT_TYPE_STRUCTURE) then
+                    // Conservative 176u building radius for classic structure footprints.
+                    set minDist = clearance + 176.0
+                elseif IsUnitType(other, UNIT_TYPE_GIANT) then
+                    set minDist = clearance + 48.0
+                endif
+                set dx = GetUnitX(other) - px
+                set dy = GetUnitY(other) - py
+                set distSq = dx * dx + dy * dy
+                if distSq < minDist * minDist then
+                    set other = null
+                    set moving = null
+                    return false
+                endif
+            endif
+        endif
+    endloop
+    set other = null
+    set moving = null
+    return true
+endfunction
+
+function WM_FindSafeUnitPoint takes unit moving, real originX, real originY, real clearance, boolean groundPath, real maxRadius returns boolean
+    local integer ring = 1
+    local integer spoke = 0
+    local real distance = 0.0
+    local real angle = 0.0
+    local real px = WM_ClampMapCoord(originX)
+    local real py = WM_ClampMapCoord(originY)
+    if WM_IsSafeUnitPoint(moving, px, py, clearance, groundPath) then
+        set udg_SafePointX = px
+        set udg_SafePointY = py
+        set moving = null
+        return true
+    endif
+    loop
+        exitwhen I2R(ring) * 48.0 > maxRadius
+        set distance = I2R(ring) * 48.0
+        set spoke = 0
+        loop
+            exitwhen spoke >= 8
+            set angle = I2R(spoke) * 0.78539816339
+            set px = WM_ClampMapCoord(originX + Cos(angle) * distance)
+            set py = WM_ClampMapCoord(originY + Sin(angle) * distance)
+            if WM_IsSafeUnitPoint(moving, px, py, clearance, groundPath) then
+                set udg_SafePointX = px
+                set udg_SafePointY = py
+                set moving = null
+                return true
+            endif
+            set spoke = spoke + 1
+        endloop
+        set ring = ring + 1
+    endloop
+    set moving = null
+    return false
+endfunction
+
 function WM_PullOrPushUnit takes unit u, real cx, real cy, real deltaDist returns nothing
     local real ux = GetUnitX(u)
     local real uy = GetUnitY(u)
@@ -252,17 +334,22 @@ function WM_PullOrPushUnit takes unit u, real cx, real cy, real deltaDist return
     local real dist = SquareRoot(dx * dx + dy * dy)
     local real nx = 0.0
     local real ny = 0.0
+    local boolean groundPath = true
     if IsUnitType(u, UNIT_TYPE_GIANT) or IsUnitType(u, UNIT_TYPE_STRUCTURE) then
         return
+    endif
+    if IsUnitType(u, UNIT_TYPE_FLYING) then
+        set groundPath = false
     endif
     if dist < 12.0 then
         set dist = 12.0
     endif
     set nx = WM_ClampMapCoord(ux + (dx / dist) * deltaDist)
     set ny = WM_ClampMapCoord(uy + (dy / dist) * deltaDist)
-    if not IsTerrainPathable(nx, ny, PATHING_TYPE_WALKABILITY) then
-        call SetUnitPosition(u, nx, ny)
+    if WM_FindSafeUnitPoint(u, nx, ny, 56.0, groundPath, 144.0) then
+        call SetUnitPosition(u, udg_SafePointX, udg_SafePointY)
     endif
+    set u = null
 endfunction
 
 // ============================================================================
