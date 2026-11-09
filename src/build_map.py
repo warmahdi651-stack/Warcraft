@@ -23,6 +23,7 @@ if str(_REPO_ROOT) not in sys.path:
 from mpq_packer import build_hm3w_header, pack_w3x
 from src.custom_assets import generate_all_custom_assets
 from src.blp_codec import encode_blp1_jpeg
+from src.custom_factions_v3 import HERO_SKILL_SPECS_64
 from custom_races import (
     generate_camphuman_ai_script,
     generate_custom_races_jass,
@@ -1679,6 +1680,11 @@ def export_web_metadata(
     custom_assets_count: int,
     archive_files_count: int,
     blp_files_count: int,
+    map_strings_count: int,
+    minimap_icons_count: int,
+    skill_mdx_count: int,
+    faction_sigil_mdx_count: int,
+    building_mdx_count: int,
 ) -> None:
     """Export compact JSON telemetry for the interactive Warcraft III Map Studio web preview."""
     # Downsample 193x193 terrain & 192x192 pathing summary for instant 60fps HTML5 canvas rendering
@@ -1719,13 +1725,20 @@ def export_web_metadata(
         "stats": {
             "players": 8,
             "playableRaces": 8,
-            "customSkills": 64,
-            "customHeroes": 16,
+            "customSkills": len(HERO_SKILL_SPECS_64),
+            "customHeroes": len(HERO_SKILL_SPECS_64) // 4,
             "customAssets": custom_assets_count,
             "archiveFiles": archive_files_count,
             "blpFiles": blp_files_count,
-            "customVfxModels": 70,
-            "customBuildingModels": 3,
+            "preplacedUnits": len(units),
+            "mapDoodads": len(trees),
+            "mapStrings": map_strings_count,
+            "minimapIcons": minimap_icons_count,
+            "startLocations": sum(1 for u in units if u.uid == "sloc"),
+            "customSkillEffects": skill_mdx_count,
+            "customFactionSigils": faction_sigil_mdx_count,
+            "customVfxModels": skill_mdx_count + faction_sigil_mdx_count,
+            "customBuildingModels": building_mdx_count,
             "goldMines": sum(1 for u in units if u.uid == "ngol"),
             "totalGoldOnMap": sum(u.gold for u in units if u.uid == "ngol"),
             "neutralBuildings": sum(1 for u in units if u.player == 15 and u.uid != "ngol"),
@@ -1983,6 +1996,11 @@ def build_all(repo_root: Path) -> Path:
         len(custom_assets_map),
         len(map_files),
         sum(1 for internal_name in map_files if internal_name.lower().endswith(".blp")),
+        wts_bytes.count(b"STRING "),
+        struct.unpack_from("<I", mmp_bytes, 4)[0],
+        sum(1 for name in map_files if name.lower().endswith(".mdx") and Path(name).stem.startswith("WM_Skill_")),
+        sum(1 for name in map_files if name.lower().endswith(".mdx") and Path(name).stem.startswith("WM_FX_")),
+        sum(1 for name in map_files if name.lower().endswith(".mdx") and Path(name).stem.startswith("WM_Build_Naga_")),
     )
     import base64
     import hashlib

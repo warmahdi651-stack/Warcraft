@@ -158,11 +158,15 @@ endfunction
 
 function WM_SpawnTimedUnit takes player owner, integer rawcode, real x, real y, real duration returns nothing
     local unit summoned = null
-    local boolean groundPath = true
+    local pathingtype terrainPath = PATHING_TYPE_WALKABILITY
+    local boolean flying = false
     if rawcode == 'hphx' or rawcode == 't015' then
-        set groundPath = false
+        set terrainPath = PATHING_TYPE_FLYABILITY
+        set flying = true
+    elseif rawcode == 'nmyr' or rawcode == 'nsnp' then
+        set terrainPath = PATHING_TYPE_AMPHIBIOUSPATHING
     endif
-    if WM_FindSafeUnitPoint(null, WM_ClampMapCoord(x), WM_ClampMapCoord(y), 72.0, groundPath, 240.0) then
+    if WM_FindSafeUnitPoint(null, WM_ClampMapCoord(x), WM_ClampMapCoord(y), 72.0, terrainPath, flying, 240.0) then
         set summoned = CreateUnit(owner, rawcode, udg_SafePointX, udg_SafePointY, GetRandomReal(0.0, 360.0))
         if summoned != null then
             call UnitApplyTimedLife(summoned, 'BTLF', duration)

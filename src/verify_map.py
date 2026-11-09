@@ -1564,9 +1564,18 @@ def run_verification(w3x_path: Path) -> None:
         assert "pulse == 0" in laser_branch and "udg_UltBaseAngle[idx]" in laser_branch, (
             "Mimiron's three lanes must be visibly telegraphed and locked to the cast-time aim direction"
         )
+        assert laser_branch.count("call WM_SpawnUltLineFX(") == 3, "Mimiron's telegraph must draw all three lanes"
+        assert all(f"idx, {lane})" in laser_branch for lane in (0, 1, 2)), "Mimiron's three lane handles must occupy separate cleanup slots"
         assert "(I2R(pulse) - 2.0) * 0.42" in laser_branch, "Mimiron's three laser sweeps must rotate symmetrically around the aim line"
         assert "call WM_EnqueueUltPulse(caster, abil, tx, ty, 4)" in jass_src, (
             "Mimiron's laser ultimate must reserve one 0.55-second telegraph tick before its three damage lanes"
+        )
+        clear_laser_src = jass_src.split("function WM_ClearUltLaserFX", 1)[1].split("endfunction", 1)[0]
+        assert "exitwhen k >= 21" in clear_laser_src and "DestroyEffect" in clear_laser_src and "= null" in clear_laser_src, (
+            "Mimiron's 21 telegraph effects must be destroyed and nulled"
+        )
+        assert ult_tick_src.count("call WM_ClearUltLaserFX(idx)") >= 2, (
+            "Mimiron telegraph effects must be cleaned both on caster death and normal completion"
         )
 
         # Check all 4-char rawcodes in war3map.j and all 4 .ai files
@@ -1988,14 +1997,33 @@ def run_verification(w3x_path: Path) -> None:
     assert "UNIT_TYPE_STRUCTURE" in safe_point_src and "UNIT_TYPE_FLYING" in safe_point_src, (
         "Safe placement must account for building footprints and separate ground/flying collision"
     )
+    assert "set searchRadius = clearance + 192.0" in safe_point_src and "set minDist = clearance + 176.0" in safe_point_src, (
+        "Safe placement must conservatively query and clear classic structure footprints"
+    )
+    safe_search_src = jass_src.split("function WM_FindSafeUnitPoint", 1)[1].split("endfunction", 1)[0]
+    assert "I2R(ring) * 48.0" in safe_search_src and "spoke >= 8" in safe_search_src, (
+        "Safe placement must search deterministic rings around a blocked origin"
+    )
     spawn_src = jass_src.split("function WM_SpawnTimedUnit", 1)[1].split("endfunction", 1)[0]
-    assert "WM_FindSafeUnitPoint(null, WM_ClampMapCoord(x), WM_ClampMapCoord(y), 72.0, groundPath, 240.0)" in spawn_src, (
+    assert "WM_FindSafeUnitPoint(null, WM_ClampMapCoord(x), WM_ClampMapCoord(y), 72.0, terrainPath, flying, 240.0)" in spawn_src, (
         "Timed summons must search for an unblocked point instead of spawning inside terrain or units"
     )
-    assert "rawcode == 'hphx' or rawcode == 't015'" in spawn_src, "Flying Phoenix/Gyro summons must use flying pathing rules"
+    assert "rawcode == 'hphx' or rawcode == 't015'" in spawn_src and "PATHING_TYPE_FLYABILITY" in spawn_src, (
+        "Flying Phoenix/Gyro summons must use flying pathing rules"
+    )
+    assert "rawcode == 'nmyr' or rawcode == 'nsnp'" in spawn_src and "PATHING_TYPE_AMPHIBIOUSPATHING" in spawn_src, (
+        "Naga Myrmidon/Snap Dragon summons must use classic amphibious pathing"
+    )
+    amphib_src = jass_src.split("function WM_UsesAmphibiousPathing", 1)[1].split("endfunction", 1)[0]
+    assert all(f"'{code}'" in amphib_src for code in ("nmpe", "nnmg", "nsnp", "nmyr", "nnsw", "nhyc", "nnrg", "Hvsh", "N004", "N001", "N002")), (
+        "Custom Naga ground/amphibious units must retain amphibious pathing during displacement"
+    )
     pull_src = jass_src.split("function WM_PullOrPushUnit", 1)[1].split("endfunction", 1)[0]
-    assert "WM_FindSafeUnitPoint(u, nx, ny, 56.0, groundPath, 144.0)" in pull_src and "udg_SafePointX" in pull_src, (
+    assert "WM_FindSafeUnitPoint(u, nx, ny, 56.0, terrainPath, flying, 144.0)" in pull_src and "udg_SafePointX" in pull_src, (
         "Pull/push displacement must stop or adjust when the destination collides with terrain, units, or structures"
+    )
+    assert "WM_UsesAmphibiousPathing(u)" in pull_src and "PATHING_TYPE_FLYABILITY" in pull_src, (
+        "Pull/push must use movement-specific terrain checks for Naga amphibious units and flyers"
     )
     print(f"[PASS] Stage 15: Classic TFT 1.26/1.27 API proxy ({legacy_fn_count} functions) + native race AI + safe summon/displacement + sequential custom-AI guards")
 
@@ -2047,17 +2075,81 @@ def run_verification(w3x_path: Path) -> None:
     map_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     map_stats = map_metadata.get("stats", {})
     actual_blp_count = sum(1 for name in files if name.lower().endswith(".blp"))
+    mdx_stems = [Path(name).stem for name in files if name.lower().endswith(".mdx")]
+    actual_skill_mdx_count = sum(1 for name in mdx_stems if name.startswith("WM_Skill_"))
+    actual_sigil_mdx_count = sum(1 for name in mdx_stems if name.startswith("WM_FX_"))
+    actual_building_mdx_count = sum(1 for name in mdx_stems if name.startswith("WM_Build_Naga_"))
     assert map_stats.get("archiveFiles") == len(files), (
         f"Preview archive-file count is stale: {map_stats.get('archiveFiles')} != {len(files)}"
     )
     assert map_stats.get("blpFiles") == actual_blp_count, (
         f"Preview BLP count is stale: {map_stats.get('blpFiles')} != {actual_blp_count}"
     )
+    assert map_stats.get("customSkillEffects") == actual_skill_mdx_count, (
+        f"Preview skill-MDX count is stale: {map_stats.get('customSkillEffects')} != {actual_skill_mdx_count}"
+    )
+    assert map_stats.get("customFactionSigils") == actual_sigil_mdx_count, (
+        f"Preview faction-sigil-MDX count is stale: {map_stats.get('customFactionSigils')} != {actual_sigil_mdx_count}"
+    )
+    assert map_stats.get("customVfxModels") == actual_skill_mdx_count + actual_sigil_mdx_count, (
+        "Preview VFX model count is stale relative to the packed MDX files"
+    )
+    assert map_stats.get("customBuildingModels") == actual_building_mdx_count, (
+        f"Preview building-MDX count is stale: {map_stats.get('customBuildingModels')} != {actual_building_mdx_count}"
+    )
+    assert map_stats.get("preplacedUnits") == len(parsed_units), (
+        f"Preview preplaced-unit count is stale: {map_stats.get('preplacedUnits')} != {len(parsed_units)}"
+    )
+    assert map_stats.get("mapDoodads") == tree_cnt, (
+        f"Preview doodad count is stale: {map_stats.get('mapDoodads')} != {tree_cnt}"
+    )
+    assert map_stats.get("trees", 0) + map_stats.get("scenicDoodads", 0) == tree_cnt, (
+        "Preview tree/scenic-doodad subtotals do not match the packed doodad archive"
+    )
+    assert map_stats.get("mapStrings") == len(defined_strs), (
+        f"Preview string count is stale: {map_stats.get('mapStrings')} != {len(defined_strs)}"
+    )
+    assert map_stats.get("minimapIcons") == mmp_cnt, (
+        f"Preview minimap-icon count is stale: {map_stats.get('minimapIcons')} != {mmp_cnt}"
+    )
+    assert map_stats.get("startLocations") == len(slocs), (
+        f"Preview start-location count is stale: {map_stats.get('startLocations')} != {len(slocs)}"
+    )
     compatibility = " ".join(str(item) for item in map_metadata.get("compatibility", []))
     assert "1.26a" in compatibility and "1.27b" in compatibility and "reforged" not in compatibility.lower(), (
         f"Map metadata must declare classic TFT 1.26a/1.27b only: {compatibility}"
     )
     camp_metadata = map_metadata.get("camps", [])
+    actual_gold_mines = sum(1 for unit in parsed_units if unit["uid"] == "ngol")
+    actual_total_gold = sum(int(unit["gold"]) for unit in parsed_units if unit["uid"] == "ngol")
+    actual_neutral_buildings = sum(1 for unit in parsed_units if int(unit["player"]) == 15 and unit["uid"] != "ngol")
+    actual_creep_units = sum(1 for unit in parsed_units if int(unit["player"]) == 12)
+    null_rawcode = "\x00\x00\x00\x00"
+    actual_custom_heroes = sum(
+        1 for oid, nid, mods in w3u_orig + w3u_cust
+        if (nid if nid != null_rawcode else oid)[0].isupper() and any(fid == "uhab" for fid, _vt, _lev, _dat, _val in mods)
+    )
+    assert map_stats.get("goldMines") == actual_gold_mines, (
+        f"Preview gold-mine count is stale: {map_stats.get('goldMines')} != {actual_gold_mines}"
+    )
+    assert map_stats.get("totalGoldOnMap") == actual_total_gold, (
+        f"Preview total mine gold is stale: {map_stats.get('totalGoldOnMap')} != {actual_total_gold}"
+    )
+    assert map_stats.get("neutralBuildings") == actual_neutral_buildings, (
+        f"Preview neutral-building count is stale: {map_stats.get('neutralBuildings')} != {actual_neutral_buildings}"
+    )
+    assert map_stats.get("creepUnits") == actual_creep_units, (
+        f"Preview creep-unit count is stale: {map_stats.get('creepUnits')} != {actual_creep_units}"
+    )
+    assert map_stats.get("creepCamps") == len(camp_metadata), (
+        f"Preview creep-camp count is stale: {map_stats.get('creepCamps')} != {len(camp_metadata)}"
+    )
+    assert map_stats.get("customSkills") == len(w3a_cust), (
+        f"Preview custom-skill count is stale: {map_stats.get('customSkills')} != {len(w3a_cust)}"
+    )
+    assert map_stats.get("customHeroes") == actual_custom_heroes, (
+        f"Preview custom-hero count is stale: {map_stats.get('customHeroes')} != {actual_custom_heroes}"
+    )
     assert len(camp_metadata) == 36, f"Expected 36 camp summaries in preview metadata, got {len(camp_metadata)}"
     creeps = [u for u in parsed_units if int(u["player"]) == 12]
     assigned_creep_indices = set()

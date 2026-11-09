@@ -30,6 +30,27 @@ def build_archive_manifest() -> dict:
     palette_blp_count = sum(
         1 for data in blp_files if data[:4] == b"BLP1" and len(data) >= 8 and struct.unpack_from("<I", data, 4)[0] == 1
     )
+    metadata_path = PUBLIC_DIR / "map_data.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.is_file() else {}
+    stats = metadata.get("stats", {})
+    dimensions = metadata.get("dimensions", {})
+    unit_doo = files.get("war3mapUnits.doo", b"")
+    doodad_doo = files.get("war3map.doo", b"")
+    unit_count = struct.unpack_from("<i", unit_doo, 12)[0] if len(unit_doo) >= 16 else 0
+    doodad_count = struct.unpack_from("<I", doodad_doo, 12)[0] if len(doodad_doo) >= 16 else 0
+    wts_data = files.get("war3map.wts", b"")
+    string_count = wts_data.count(b"STRING ")
+    mmp_data = files.get("war3map.mmp", b"")
+    minimap_icon_count = struct.unpack_from("<I", mmp_data, 4)[0] if len(mmp_data) >= 8 else 0
+    minimap_blp = files.get("war3map.blp", files.get("war3mapMap.blp", b""))
+    minimap_width, minimap_height = struct.unpack_from("<2I", minimap_blp, 12) if len(minimap_blp) >= 20 else (0, 0)
+    mdx_names = [Path(name).stem for name in files if name.lower().endswith(".mdx")]
+    skill_mdx_count = sum(1 for name in mdx_names if name.startswith("WM_Skill_"))
+    sigil_mdx_count = sum(1 for name in mdx_names if name.startswith("WM_FX_"))
+    building_mdx_count = sum(1 for name in mdx_names if name.startswith("WM_Build_Naga_"))
+    ai_script_count = sum(1 for name in files if name.lower().endswith(".ai"))
+    trees_count = int(stats.get("trees", 0))
+    scenic_doodads_count = int(stats.get("scenicDoodads", 0))
     entries = []
     seen = set()
     for name in CANONICAL_W3X_FILES:
@@ -47,20 +68,20 @@ def build_archive_manifest() -> dict:
         "entries": entries,
         "checks": [
             f"Stage 1: HM3W header + PurePython MPQ v1 archive ({len(files)} files)",
-            "Stage 2: TFT v25 — 192x192 Sunken-Astral terrain + 5,961 placed trees within the World Editor limit",
-            "Stage 3: Classic TFT JASS2 static typecheck vs 1.27b Common.j + Blizzard.j (1.26-era proxy also verified)",
-            "Stage 4 & 5: 181 preplaced units, 15 strings, 45 minimap icons and 256x256 BLP1 minimap synchronized",
-            "Stage 6: All 8 mirrored player starts, mines and town-hall zones are buildable",
-            "Stage 7: Zero collision footprints across 181 units and the 5,920 harvestable trees",
-            "Stage 8: Dynamic pathing BFS — 401,756 walkable cells, all bases/mines/shops/creeps reachable",
+            f"Stage 2: TFT v25 — {dimensions.get('tilesW', 0)}x{dimensions.get('tilesH', 0)} Sunken-Astral terrain + {doodad_count:,} placed doodads ({trees_count:,} trees + {scenic_doodads_count:,} scenic)",
+            "Stage 3: Classic TFT JASS2 static typecheck vs 1.27b Common.j + Blizzard.j (1.26-era API proxy also checked)",
+            f"Stage 4 & 5: {unit_count} preplaced units, {string_count} strings, {minimap_icon_count} minimap icons and {minimap_width}x{minimap_height} BLP1 minimap synchronized",
+            f"Stage 6: {stats.get('startLocations', 0)} mirrored player starts and {stats.get('goldMines', 0)} mines; town-hall zones checked for buildability",
+            f"Stage 7: Zero collision footprints across {unit_count} units and {trees_count:,} harvestable trees",
+            f"Stage 8: Dynamic pathing BFS on {dimensions.get('tilesW', 0)}x{dimensions.get('tilesH', 0)} terrain — all bases, mines, shops and creep camps reachable",
             "Stage 9: 200u creep-camp acquisition and Tavern/base safe-zones verified",
-            "Stage 10: Exact 8-way D4 terrain, pathing and forest symmetry",
-            "Stage 11: 8 empires, 16 heroes, 64 custom icon pairs; distinct expanding-wave, close-range and laser-sweep ultimate geometries verified",
-            "Stage 12: Race-AI scripts typechecked; native AI for classic races + authoritative JASS controller for custom factions",
-            "Stage 13: 31 combat units + 16 heroes; ladder DPS/EHP/cost and 55-point stat audits",
-            f"Stage 14: {blp1_count} BLP1s ({palette_blp_count} paletted portrait/skill-button icons), 64 unique skill MDX effects + 6 faction sigils + 3 unique Naga building MDXs; race/role model duplicates checked",
+            f"Stage 10: Exact 8-way D4 terrain, pathing and forest symmetry on {dimensions.get('tilesW', 0)}x{dimensions.get('tilesH', 0)} map",
+            f"Stage 11: {stats.get('playableRaces', 0)} empires/race slots, {stats.get('customHeroes', 0)} heroes, {stats.get('customSkills', 0)} custom icon pairs; distinct ultimate geometries verified",
+            f"Stage 12: {ai_script_count} race-AI scripts typechecked; native AI for classic races + authoritative JASS controller for custom factions",
+            "Stage 13: Combat-unit and hero ladder DPS/EHP/cost and stat audits",
+            f"Stage 14: {blp1_count} BLP1s ({palette_blp_count} paletted portrait/skill-button icons), {skill_mdx_count} skill MDX effects + {sigil_mdx_count} faction sigils + {building_mdx_count} Naga building MDXs; race/role model duplicates checked",
             "Stage 15: TFT 1.26-era API compatibility proxy, explicit workers, sequential construction/training and AI safeguards",
-            "Stage 16: D4-symmetric neutral objectives/camp members, exact 36-camp rosters/loot tiers, alliance-aware shrine rewards and equal race-pick economy",
+            f"Stage 16: D4-symmetric neutral objectives; {stats.get('creepCamps', 0)} camp rosters/loot tiers, alliance-aware shrine rewards and equal race-pick economy",
         ],
     }
 

@@ -247,14 +247,14 @@ function WM_SpawnRingFX takes string fxPath, real cx, real cy, real radius, inte
     endloop
 endfunction
 
-function WM_IsSafeUnitPoint takes unit moving, real px, real py, real clearance, boolean groundPath returns boolean
+function WM_IsSafeUnitPoint takes unit moving, real px, real py, real clearance, pathingtype terrainPath, boolean flying returns boolean
     local unit other = null
     local real dx = 0.0
     local real dy = 0.0
     local real distSq = 0.0
     local real minDist = 0.0
     local real searchRadius = 0.0
-    if groundPath and IsTerrainPathable(px, py, PATHING_TYPE_WALKABILITY) then
+    if IsTerrainPathable(px, py, terrainPath) then
         set moving = null
         return false
     endif
@@ -266,9 +266,9 @@ function WM_IsSafeUnitPoint takes unit moving, real px, real py, real clearance,
         exitwhen other == null
         call GroupRemoveUnit(udg_TempGroupB, other)
         if other != moving and GetUnitTypeId(other) != 0 and GetWidgetLife(other) > 0.405 then
-            if (groundPath and not IsUnitType(other, UNIT_TYPE_FLYING)) or (not groundPath and IsUnitType(other, UNIT_TYPE_FLYING)) then
+            if (not flying and not IsUnitType(other, UNIT_TYPE_FLYING)) or (flying and IsUnitType(other, UNIT_TYPE_FLYING)) then
                 set minDist = clearance
-                if groundPath and IsUnitType(other, UNIT_TYPE_STRUCTURE) then
+                if not flying and IsUnitType(other, UNIT_TYPE_STRUCTURE) then
                     // Conservative 176u building radius for classic structure footprints.
                     set minDist = clearance + 176.0
                 elseif IsUnitType(other, UNIT_TYPE_GIANT) then
@@ -290,14 +290,14 @@ function WM_IsSafeUnitPoint takes unit moving, real px, real py, real clearance,
     return true
 endfunction
 
-function WM_FindSafeUnitPoint takes unit moving, real originX, real originY, real clearance, boolean groundPath, real maxRadius returns boolean
+function WM_FindSafeUnitPoint takes unit moving, real originX, real originY, real clearance, pathingtype terrainPath, boolean flying, real maxRadius returns boolean
     local integer ring = 1
     local integer spoke = 0
     local real distance = 0.0
     local real angle = 0.0
     local real px = WM_ClampMapCoord(originX)
     local real py = WM_ClampMapCoord(originY)
-    if WM_IsSafeUnitPoint(moving, px, py, clearance, groundPath) then
+    if WM_IsSafeUnitPoint(moving, px, py, clearance, terrainPath, flying) then
         set udg_SafePointX = px
         set udg_SafePointY = py
         set moving = null
@@ -312,7 +312,7 @@ function WM_FindSafeUnitPoint takes unit moving, real originX, real originY, rea
             set angle = I2R(spoke) * 0.78539816339
             set px = WM_ClampMapCoord(originX + Cos(angle) * distance)
             set py = WM_ClampMapCoord(originY + Sin(angle) * distance)
-            if WM_IsSafeUnitPoint(moving, px, py, clearance, groundPath) then
+            if WM_IsSafeUnitPoint(moving, px, py, clearance, terrainPath, flying) then
                 set udg_SafePointX = px
                 set udg_SafePointY = py
                 set moving = null
@@ -326,6 +326,20 @@ function WM_FindSafeUnitPoint takes unit moving, real originX, real originY, rea
     return false
 endfunction
 
+function WM_UsesAmphibiousPathing takes unit u returns boolean
+    local integer rawcode = GetUnitTypeId(u)
+    if rawcode == 'nmpe' or rawcode == 'nnmg' or rawcode == 'nsnp' or rawcode == 'nmyr' or rawcode == 'nnsw' or rawcode == 'nhyc' or rawcode == 'nnrg' or rawcode == 'nmys' or rawcode == 'nsbs' or rawcode == 'nnrs' then
+        set u = null
+        return true
+    endif
+    if rawcode == 'nnsu' or rawcode == 'Hvsh' or rawcode == 'N004' or rawcode == 'N001' or rawcode == 'N002' then
+        set u = null
+        return true
+    endif
+    set u = null
+    return false
+endfunction
+
 function WM_PullOrPushUnit takes unit u, real cx, real cy, real deltaDist returns nothing
     local real ux = GetUnitX(u)
     local real uy = GetUnitY(u)
@@ -334,19 +348,24 @@ function WM_PullOrPushUnit takes unit u, real cx, real cy, real deltaDist return
     local real dist = SquareRoot(dx * dx + dy * dy)
     local real nx = 0.0
     local real ny = 0.0
-    local boolean groundPath = true
+    local pathingtype terrainPath = PATHING_TYPE_WALKABILITY
+    local boolean flying = false
     if IsUnitType(u, UNIT_TYPE_GIANT) or IsUnitType(u, UNIT_TYPE_STRUCTURE) then
+        set u = null
         return
     endif
     if IsUnitType(u, UNIT_TYPE_FLYING) then
-        set groundPath = false
+        set terrainPath = PATHING_TYPE_FLYABILITY
+        set flying = true
+    elseif WM_UsesAmphibiousPathing(u) then
+        set terrainPath = PATHING_TYPE_AMPHIBIOUSPATHING
     endif
     if dist < 12.0 then
         set dist = 12.0
     endif
     set nx = WM_ClampMapCoord(ux + (dx / dist) * deltaDist)
     set ny = WM_ClampMapCoord(uy + (dy / dist) * deltaDist)
-    if WM_FindSafeUnitPoint(u, nx, ny, 56.0, groundPath, 144.0) then
+    if WM_FindSafeUnitPoint(u, nx, ny, 56.0, terrainPath, flying, 144.0) then
         call SetUnitPosition(u, udg_SafePointX, udg_SafePointY)
     endif
     set u = null

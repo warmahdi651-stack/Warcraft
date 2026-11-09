@@ -6,7 +6,8 @@ A **192×192, 8-player** Sunken-Astral map for classic Warcraft III TFT (1.26a/1
 
 - **Map (`.w3x`):** [Download Crown of WarMahdi v8](https://raw.githubusercontent.com/warmahdi651-stack/Warcraft/arena/483b840a-warcraft/maps/%288%29CrownOfWarMahdi.w3x)
 - **Tactical map preview:** `maps/(8)CrownOfWarMahdi_Preview.png`
-- **Web preview:** `python3 web/server.py` (port 8080); includes the interactive map, archive manifest, verification summary, and download route. Archive/BLP counts are read from the current `.w3x`, not maintained as manual constants.
+- **Web preview:** `python3 web/server.py` (port 8080); includes the interactive map, archive manifest, verification summary, and download route. Manifest counts are computed from the current archive/generated metadata and checked by the verifier.
+- **Classic client QA:** see [`CLASSIC_CLIENT_QA.md`](CLASSIC_CLIENT_QA.md) for the pending 1.26a/1.27b smoke-test, AI, spell, and match-balance checklist.
 
 Install into `Warcraft III/Maps/FrozenThrone/` for classic TFT 1.26a/1.27b clients.
 
