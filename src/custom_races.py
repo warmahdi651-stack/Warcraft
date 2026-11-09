@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Custom Playable Races, Object Modifications & Pro-Level Melee AI Generator
-for `(8) Crown of WarMahdi` v7 (Warcraft III TFT 1.26a/1.27b & Reforged).
+for `(8) Crown of WarMahdi` v8 (Warcraft III TFT 1.26a/1.27b & Reforged).
 
 Implements four ladder-bounded custom empires alongside the 4 classic Warcraft III races:
   5. Abyssal Tideborn / Naga (`RACE_NAGA = 5`, now includes Illidan Stormrage)
@@ -2805,7 +2805,7 @@ endfunction
 def generate_custom_races_jass() -> Tuple[str, str]:
     """
     Returns `(globals_block, functions_block)` to embed into `war3map.j`
-    (v7: 8 Playable Empires, Host-first AI Difficulty, 16 exclusive Heroes with 64
+    (v8: 8 Playable Empires, Host-first AI Difficulty, 16 exclusive Heroes with 64
     level-gated skills and individual MDX spell effects, RPG UI/cursor skins, Live Multiboard
     HUD, native standard-race AI and an authoritative sequential JASS custom-faction controller).
     """

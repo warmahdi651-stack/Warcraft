@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 JASS2 Gameplay, Custom 3D Spell Engine, Sleek Menus, Live Multiboard HUD,
-and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v7.
+and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v8.
 
 Strict Classic 1.26a/1.27b + Reforged JASS2 Guarantees:
   - Every `local` variable is declared at the top of its `function`.
@@ -26,7 +26,7 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     Return `(globals_jass_lines, functions_jass_code)` to embed inside `war3map.j`.
     """
     globals_jass = """
-    // ---- Crown of WarMahdi v7: 8 Empires, 16 Exclusive Heroes, 64 Skills, Dark UI & Pro AI ----
+    // ---- Crown of WarMahdi v8: 8 Empires, 16 Exclusive Heroes, 64 Skills, Dark UI & Pro AI ----
     integer array udg_PlayerFaction
     boolean array udg_PlayerChoseRace
     boolean array udg_PlayerLockedInLobby
@@ -2430,7 +2430,7 @@ function InitCustomRacesAndAI takes nothing returns nothing
 
     call WM_CreateImperialCodexQuests()
 
-    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v7 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc64 Hero-Specific Skills|r • |cfff97316Pro AI|r")
+    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v8 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc64 Hero-Specific Skills|r • |cfff97316Pro AI|r")
 
     set udg_BootTimer = CreateTimer()
     set udg_DiffTimeoutTimer = CreateTimer()

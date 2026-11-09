@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Artwork and UI asset pipeline for `(8) Crown of WarMahdi` v7.
+Artwork and UI asset pipeline for `(8) Crown of WarMahdi` v8.
 
 Generates Warcraft III binary assets while keeping gameplay art recognizable and
 patch-safe:
@@ -13,9 +13,9 @@ patch-safe:
      skill textures and version-800 MDX models, compiled and roundtrip-checked with
      `mdx-m3-viewer`.
 
-Hero/unit/building buttons inherit recognizable stock Warcraft III artwork. The 64
-custom skills use native command-button icons selected to match their effects; no
-procedurally drawn geometric icons are imported for those gameplay objects.
+Hero and building portraits keep recognizable Warcraft III artwork. All 64 custom
+hero skills use original, individually authored command-button silhouettes with
+faction-specific frames and matching disabled-state BLPs.
 """
 
 from __future__ import annotations
@@ -32,8 +32,10 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 try:
     from .blp_codec import encode_blp1_jpeg
+    from .skill_icon_art import build_disabled_skill_icon, build_skill_icon_images, save_skill_icon_galleries
 except ImportError:  # Allow `python src/custom_assets.py` as a standalone command.
     from blp_codec import encode_blp1_jpeg
+    from skill_icon_art import build_disabled_skill_icon, build_skill_icon_images, save_skill_icon_galleries
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -1519,7 +1521,7 @@ def build_war3map_preview_tga() -> bytes:
 
 
 def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
-    """Build `{mpq_archive_path: binary_bytes}` for the v7 custom asset bundle."""
+    """Build `{mpq_archive_path: binary_bytes}` for the v8 custom asset bundle."""
     files: Dict[str, bytes] = {}
 
     # 1. Lobby map preview and patch-safe custom cursor atlases.
@@ -1534,9 +1536,16 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
     files.update(infocard_blps)
     files.update(build_ui_resource_textures())
 
-    # 3. Ten full-bleed hero portraits; all remaining unit buttons use native WC3 art.
+    # 3. Ten full-bleed hero portraits; all remaining unit/building buttons keep native WC3 art.
     hero_blps, hero_samples = build_hero_portrait_assets()
     files.update(hero_blps)
+
+    # 3.5. Sixty-four original skill icons plus 64 dimmed disabled-state twins.
+    skill_icons = build_skill_icon_images()
+    for aid, icon_img in skill_icons.items():
+        files[f"ReplaceableTextures\\CommandButtons\\BTN_WM_Skill_{aid}.blp"] = encode_blp1_paletted(icon_img, alpha_bits=8)
+        disabled_img = build_disabled_skill_icon(icon_img)
+        files[f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_Skill_{aid}.blp"] = encode_blp1_paletted(disabled_img, alpha_bits=8)
 
     # 4. Additive faction sigils plus 64 distinct skill-specific spell models.
     sigil_defs = [
@@ -1574,13 +1583,14 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
     files.update(building_textures)
     files.update(compile_vfx_mdx_models(building_mdl_specs, expected_geosets=1))
 
-    # 5. The web preview showcases the custom portrait work, not licensed stock icons.
+    # 5. Browser preview sheets expose every custom portrait and skill icon.
     if save_web_sheet:
         save_hero_portrait_preview(hero_samples)
+        save_skill_icon_galleries(skill_icons)
 
     return files
 
 if __name__ == "__main__":
     bundle = generate_all_custom_assets()
     total = sum(len(v) for v in bundle.values())
-    print(f"Generated {len(bundle)} custom v7 assets ({total:,} bytes raw)")
+    print(f"Generated {len(bundle)} custom v8 assets ({total:,} bytes raw)")

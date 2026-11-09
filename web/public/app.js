@@ -866,7 +866,7 @@
     if (manifestButton) {
       const buildingModels = Number(data.stats.customBuildingModels || 0);
       const allModels = Number(data.stats.customVfxModels || 0) + buildingModels;
-      manifestButton.textContent = `${numberFa(data.stats.archiveFiles)} فایل MPQ • ${numberFa(data.stats.blpFiles)} بافت BLP1 • ${numberFa(allModels)} مدل MDX (${numberFa(buildingModels)} ساختمان) • ۱۵ آزمون`;
+      manifestButton.textContent = `${numberFa(data.stats.archiveFiles)} فایل MPQ • ${numberFa(data.stats.blpFiles)} بافت BLP1 • ${numberFa(allModels)} مدل MDX (${numberFa(buildingModels)} ساختمان) • ۱۶ آزمون`;
     }
     const sizeBytes = Number(data.fileSizeBytes || 0);
     const sizeDisplay = document.getElementById("mapSizeDisplay");

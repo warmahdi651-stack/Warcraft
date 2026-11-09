@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-16-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v7.
+16-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v8.
 Checks the MPQ, TFT v25, JASS2 APIs (TFT-era proxy, 1.27b and Reforged), all 64 hero abilities and skill-specific VFX,
 16 unique hero kits, 8 empire spawn/build definitions, four AI scripts and the JASS AI fallback,
 object/card/rally flags, native icon/model references, portrait/UI BLP1s/MDXs, pathing, creep safety, D4 objective/camp symmetry, loot tiers and lobby-economy fairness.
@@ -1038,7 +1038,7 @@ def run_verification(w3x_path: Path) -> None:
     _, w3t_orig, w3t_cust = parse_obj_table(files["war3map.w3t"], False)
     _, w3q_orig, w3q_cust = parse_obj_table(files["war3map.w3q"], True)
     _, w3a_orig, w3a_cust = parse_obj_table(files["war3map.w3a"], True)
-    assert len(w3u_orig) >= 24 and len(w3u_cust) == 65, f"Unexpected v7 w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
+    assert len(w3u_orig) >= 24 and len(w3u_cust) == 65, f"Unexpected v8 w3u counts: {len(w3u_orig)}+{len(w3u_cust)}"
     assert len(w3t_cust) == 5 and len(w3q_orig) == 6 and len(w3q_cust) == 4, (
         f"Unexpected w3t/w3q counts: w3t={len(w3t_cust)}, w3q={len(w3q_orig)}+{len(w3q_cust)}"
     )
@@ -1498,17 +1498,16 @@ def run_verification(w3x_path: Path) -> None:
                 elif fid == "aart":
                     icon_path = str(val)
                     normalized_icon = normalize_button_path(icon_path)
-                    assert normalized_icon.startswith("replaceabletextures\\commandbuttons\\btn"), (
-                        f"Skill {nid} does not use a normal Warcraft command button: {icon_path}"
+                    expected_icon = f"replaceabletextures\\commandbuttons\\btn_wm_skill_{nid.lower()}.blp"
+                    assert normalized_icon == expected_icon, (
+                        f"Skill {nid} must use its own authored BTN icon, got {icon_path}"
                     )
-                    assert "btn_wm_s" not in normalized_icon, f"Legacy generated skill art remains: {icon_path}"
-                    assert normalized_icon in native_button_art_paths, (
-                        f"Skill {nid} button is not found in native Warcraft III function metadata: {icon_path}"
-                    )
+                    assert icon_path in files, f"Missing imported custom skill icon {icon_path}"
                     disabled_path = disabled_button_path(icon_path)
                     normalized_disabled = normalize_button_path(disabled_path)
-                    assert "\\commandbuttonsdisabled\\disbtn" in normalized_disabled, (
-                        f"Invalid native disabled-button twin path for {icon_path}: {disabled_path}"
+                    imported_paths = {normalize_button_path(path) for path in files}
+                    assert normalized_disabled in imported_paths, (
+                        f"Missing custom disabled-button twin for {icon_path}: {disabled_path}"
                     )
                     seen_skill_icons.add(normalized_icon)
                 elif fid == "acat":
@@ -1535,7 +1534,7 @@ def run_verification(w3x_path: Path) -> None:
         assert len(seen_skill_icons) == 64, f"Expected 64 unique BTN skill icons, found {len(seen_skill_icons)}"
         assert len(seen_skill_fx) == 6, f"Expected 6 faction/hero 3D VFX models, found {len(seen_skill_fx)}"
         assert skill_profiles["A005"].get("anam") == "Mana Burn", "Illidan's original Mana Burn name was lost"
-        assert skill_profiles["A005"].get("aart", "").endswith("BTNManaBurn.blp"), "Mana Burn uses the wrong button art"
+        assert skill_profiles["A005"].get("aart", "").endswith("BTN_WM_Skill_A005.blp"), "Mana Burn uses the wrong authored button art"
         assert skill_level_fields["A005"].get(("Ncl6", 1)) == "manaburn", "Mana Burn order is incorrect"
         assert skill_profiles["A019"].get("anam") == "Summon Phoenix: Al'ar", "Kael's Phoenix skill was lost"
         assert skill_profiles["A031"].get("anam") == "Resurrection", "Uther's Resurrection skill was lost"
@@ -1554,6 +1553,23 @@ def run_verification(w3x_path: Path) -> None:
             "call WM_AICastCustomHeroCombo(u, weakFoe)",
         ):
             assert engine_marker in game_jass, f"Missing restored hero-skill implementation: {engine_marker}"
+
+        ult_tick_src = jass_src.split("function WM_OnUltWaveTick", 1)[1].split("endfunction", 1)[0]
+        def ult_branch(ability_id: str) -> str:
+            marker = f"elseif abil == '{ability_id}' then"
+            assert marker in ult_tick_src, f"Ultimate pulse branch missing for {ability_id}"
+            return ult_tick_src.split(marker, 1)[1].split("elseif abil", 1)[0]
+        assert "function WM_ApplyUltRingEffect" in jass_src and "WM_ApplyUltRingEffect(caster, tx, ty, innerRadius, rad" in ult_branch("A003"), (
+            "Vashj's tsunami must deal damage/heal/push along expanding ring fronts, not repeat a full-disk hit"
+        )
+        assert "WM_ApplyAreaEffect(caster, tx, ty, 300.0" in ult_branch("A043"), (
+            "Akama's self-centered ultimate must retain its close-range 300-AoE risk/reward"
+        )
+        laser_branch = ult_branch("A059")
+        assert "WM_SpawnUltLineFX" in laser_branch and "WM_ApplyLineEffect(caster" in laser_branch and "520.0" in laser_branch, (
+            "Mimiron's ultimate must use its telegraphed rotating laser lanes"
+        )
+        assert "(I2R(pulse) - 2.0) * 0.42" in laser_branch, "Mimiron's three laser sweeps must rotate symmetrically around the aim line"
 
         # Check all 4-char rawcodes in war3map.j and all 4 .ai files
         for sname in ("war3map.j", "naga_melee.ai", "camphuman_melee.ai", "voidborn_melee.ai", "runeforged_melee.ai"):
@@ -1631,7 +1647,7 @@ def run_verification(w3x_path: Path) -> None:
     print(
         f"[PASS] Stage 11: 8-Empire Object & Skill Tables Verified "
         f"(w3u={len(w3u_orig)}+{len(w3u_cust)}, w3t={len(w3t_cust)}, w3q={len(w3q_orig)}+{len(w3q_cust)}, w3a={len(w3a_cust)}, "
-        "16 ultimates gated at level 6, core skill ranks at 1/3/5, 0 hero flags, 0 card collisions)"
+        "16 ultimates gated at level 6, core skill ranks at 1/3/5, distinct ring/close-range/laser geometries, 0 hero flags, 0 card collisions)"
     )
 
     # ------------------------------------------------------------------
@@ -1819,14 +1835,14 @@ def run_verification(w3x_path: Path) -> None:
         "CommandBasicStructOrc=ReplaceableTextures\\CommandButtons\\BTNBasicStruct.blp",
         "CommandBasicStructNightElf=ReplaceableTextures\\CommandButtons\\BTNNightElfBuild.blp",
     ):
-        assert skin_key in skin_txt, f"Missing v7 UI skin mapping: {skin_key}"
+        assert skin_key in skin_txt, f"Missing v8 UI skin mapping: {skin_key}"
 
     blp_files = {name: data for name, data in files.items() if name.lower().endswith(".blp")}
     mdx_files = {name: data for name, data in files.items() if name.lower().endswith(".mdx") and (name.startswith("WM_FX_") or name.startswith("WM_Skill_"))}
     skill_mdx_files = {name: data for name, data in mdx_files.items() if name.startswith("WM_Skill_")}
     faction_mdx_files = {name: data for name, data in mdx_files.items() if name.startswith("WM_FX_")}
     building_mdx_files = {name: data for name, data in files.items() if name.startswith("WM_Build_Naga_") and name.lower().endswith(".mdx")}
-    assert len(blp_files) == 133, f"Expected 133 current portrait/UI/VFX/building/minimap BLPs, got {len(blp_files)}"
+    assert len(blp_files) == 261, f"Expected 261 portrait/skill-button/UI/VFX/building/minimap BLPs, got {len(blp_files)}"
     assert len(mdx_files) == 70 and len(faction_mdx_files) == 6, f"Expected 6 faction + 64 skill MDX effects, got {len(mdx_files)} total"
     expected_naga_building_mdx = {"WM_Build_Naga_TidalTreasury.mdx", "WM_Build_Naga_CoralForge.mdx", "WM_Build_Naga_BehemothPool.mdx"}
     expected_naga_building_blp = {f"Textures\\{name.removesuffix('.mdx')}.blp" for name in expected_naga_building_mdx}
@@ -1874,6 +1890,19 @@ def run_verification(w3x_path: Path) -> None:
         portrait_blp_paths.add(f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_Portrait_{rawcode}.blp")
     assert portrait_blp_paths.issubset(blp_files), f"Missing custom portrait BLP pairs: {sorted(portrait_blp_paths - set(blp_files))}"
 
+    skill_icon_rawcodes = {f"A{i:03d}" for i in range(64)}
+    skill_normal_blps = {
+        f"ReplaceableTextures\\CommandButtons\\BTN_WM_Skill_{rawcode}.blp" for rawcode in skill_icon_rawcodes
+    }
+    skill_disabled_blps = {
+        f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_Skill_{rawcode}.blp" for rawcode in skill_icon_rawcodes
+    }
+    skill_icon_blp_paths = skill_normal_blps | skill_disabled_blps
+    assert skill_icon_blp_paths.issubset(blp_files), (
+        f"Missing custom skill BTN/DISBTN assets: {sorted(skill_icon_blp_paths - set(blp_files))}"
+    )
+    icon_blp_paths = portrait_blp_paths | skill_icon_blp_paths
+
     palette_blp_paths: Set[str] = set()
     for name, data in blp_files.items():
         assert data[:4] == b"BLP1", f"Invalid BLP1 magic on {name}"
@@ -1881,19 +1910,24 @@ def run_verification(w3x_path: Path) -> None:
         assert content in (0, 1), f"Unknown BLP1 encoding {content} on {name}"
         assert bw > 0 and bh > 0 and (bw & (bw - 1)) == 0 and (bh & (bh - 1)) == 0, f"Invalid BLP1 dimensions on {name}: {bw}x{bh}"
         if content == 1:
-            assert name in portrait_blp_paths, f"Palette-encoded BLP is not an icon: {name}"
-            assert (bw, bh) == (64, 64), f"Custom hero portrait must be 64x64: {name}"
-            assert alpha_bits == 0, f"Portrait icon should not declare a palette alpha channel: {name}"
+            assert name in icon_blp_paths, f"Palette-encoded BLP is not a command-button icon: {name}"
+            assert (bw, bh) == (64, 64), f"Custom command-button icon must be 64x64: {name}"
+            expected_alpha_bits = 0 if name in portrait_blp_paths else 8
+            assert alpha_bits == expected_alpha_bits, f"Unexpected palette alpha depth on {name}: {alpha_bits}"
             palette_blp_paths.add(name)
         else:
-            assert name not in portrait_blp_paths, f"Custom portrait icon must remain icon-only paletted BLP: {name}"
-    assert palette_blp_paths == portrait_blp_paths, "Palette BLP use must be limited to the ten portrait BTN/DISBTN pairs"
-    assert not any("BTN_WM_S" in name or "DISBTN_WM_S" in name for name in blp_files), "Obsolete generated skill-icon assets remain in MPQ"
+            assert name not in icon_blp_paths, f"Command-button icon must remain an icon-only paletted BLP: {name}"
+    assert palette_blp_paths == icon_blp_paths, "Palette BLP use must be limited to custom portrait/skill BTN-DISBTN pairs"
+    assert len({blp_files[name] for name in skill_normal_blps}) == 64, "All 64 normal skill icons must be binary-distinct"
+    assert len({blp_files[name] for name in skill_disabled_blps}) == 64, "All 64 disabled skill icons must be binary-distinct"
+    assert all(blp_files[normal] != blp_files[disabled] for normal, disabled in zip(sorted(skill_normal_blps), sorted(skill_disabled_blps))), (
+        "Every custom skill must have a distinct normal/disabled icon pair"
+    )
 
     for race_cursor in ("Human", "Orc", "Undead", "NightElf"):
         name = f"UI\\Cursor\\{race_cursor}Cursor.blp"
         assert name in files and struct.unpack_from("<II", files[name], 12)[0:2] == (256, 128), f"Missing or invalid custom cursor atlas: {name}"
-    print(f"[PASS] Stage 14: Native race/building references + 10 portrait pairs + icon-only palette BLPs + {len(blp_files)} BLP1s + 6 faction/64 skill MDX effects + 3 unique Naga building MDXs")
+    print(f"[PASS] Stage 14: Native race/building references + 10 portrait pairs + 64 skill BTN/DISBTN pairs + {len(blp_files)} BLP1s + 6 faction/64 skill MDX effects + 3 unique Naga building MDXs")
 
     # ------------------------------------------------------------------
     # STAGE 15: TFT 1.26-era API Compatibility & AI Startup/Fallback Coverage

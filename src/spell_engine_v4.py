@@ -44,6 +44,64 @@ function WM_ApplyAreaEffect takes unit caster, real cx, real cy, real radius, re
     set owner = null
 endfunction
 
+function WM_ApplyUltRingEffect takes unit caster, real cx, real cy, real innerRadius, real outerRadius, real damage, real allyHeal, real impulse returns nothing
+    local player owner = GetOwningPlayer(caster)
+    local unit u = null
+    local real dx = 0.0
+    local real dy = 0.0
+    local real distSq = 0.0
+    local real innerSq = 0.0
+    local real outerSq = 0.0
+    if innerRadius < 0.0 then
+        set innerRadius = 0.0
+    endif
+    if innerRadius > outerRadius then
+        set innerRadius = outerRadius
+    endif
+    set innerSq = innerRadius * innerRadius
+    set outerSq = outerRadius * outerRadius
+    call GroupClear(udg_SpellGroup)
+    call GroupEnumUnitsInRange(udg_SpellGroup, cx, cy, outerRadius, null)
+    loop
+        set u = FirstOfGroup(udg_SpellGroup)
+        exitwhen u == null
+        call GroupRemoveUnit(udg_SpellGroup, u)
+        set dx = GetUnitX(u) - cx
+        set dy = GetUnitY(u) - cy
+        set distSq = dx * dx + dy * dy
+        if distSq >= innerSq and distSq <= outerSq then
+            if WM_IsValidSpellEnemy(u, owner) then
+                if damage > 0.0 then
+                    call WM_DealSpellDamage(caster, u, damage)
+                endif
+                if impulse != 0.0 then
+                    call WM_PullOrPushUnit(u, cx, cy, impulse)
+                endif
+            elseif IsUnitAlly(u, owner) and not IsUnitType(u, UNIT_TYPE_STRUCTURE) and GetWidgetLife(u) > 0.405 then
+                if allyHeal > 0.0 then
+                    call SetWidgetLife(u, GetWidgetLife(u) + allyHeal)
+                endif
+            endif
+        endif
+    endloop
+    set u = null
+    set owner = null
+endfunction
+
+function WM_SpawnUltLineFX takes string fxPath, real cx, real cy, real angle, real halfLength, integer nodes returns nothing
+    local integer k = 0
+    local real along = 0.0
+    if nodes < 2 then
+        return
+    endif
+    loop
+        exitwhen k >= nodes
+        set along = -1.0 + 2.0 * I2R(k) / I2R(nodes - 1)
+        call DestroyEffect(AddSpecialEffect(fxPath, WM_ClampMapCoord(cx + Cos(angle) * halfLength * along), WM_ClampMapCoord(cy + Sin(angle) * halfLength * along)))
+        set k = k + 1
+    endloop
+endfunction
+
 function WM_ApplyLineEffect takes unit caster, real sx, real sy, real tx, real ty, real width, real damage returns nothing
     local player owner = GetOwningPlayer(caster)
     local unit u = null
@@ -221,6 +279,8 @@ function WM_OnUltWaveTick takes nothing returns nothing
     local real tx = 0.0
     local real ty = 0.0
     local real rad = 0.0
+    local real innerRadius = 0.0
+    local real ang = 0.0
     local integer pulse = 0
     loop
         exitwhen idx >= udg_UltCount
@@ -239,7 +299,11 @@ function WM_OnUltWaveTick takes nothing returns nothing
                 // Vashj: three advancing Tsunami fronts, healing friendlies behind the wave.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Abyssal.mdx", tx, ty))
                 call WM_SpawnRingFX("Abilities\\Spells\\Other\\CrushingWave\\CrushingWaveDamage.mdl", tx, ty, rad, 10, I2R(pulse) * 0.18)
-                call WM_ApplyAreaEffect(caster, tx, ty, 390.0, WM_GetUltPulseDamage(caster, 49.0), 18.0, 0.0, 0.0, 42.0)
+                set innerRadius = 0.0
+                if pulse > 1 then
+                    set innerRadius = rad - 190.0
+                endif
+                call WM_ApplyUltRingEffect(caster, tx, ty, innerRadius, rad, WM_GetUltPulseDamage(caster, 68.0), 18.0, 42.0)
             elseif abil == 'A007' then
                 // Illidan: fel-tidal metamorphosis orbit and twin-glaive shock pulses.
                 call DestroyEffect(AddSpecialEffect("WM_FX_FelGlaive.mdx", tx, ty))
@@ -314,8 +378,8 @@ function WM_OnUltWaveTick takes nothing returns nothing
                 set tx = GetUnitX(caster)
                 set ty = GetUnitY(caster)
                 call DestroyEffect(AddSpecialEffect("WM_FX_Void.mdx", tx, ty))
-                call WM_SpawnRingFX("Abilities\\Spells\\NightElf\\Blink\\BlinkCaster.mdl", tx, ty, rad * 0.72, 8, I2R(pulse) * 0.50)
-                call WM_ApplyAreaEffect(caster, tx, ty, 380.0, WM_GetUltPulseDamage(caster, 61.0), 12.0, 0.0, 0.0, 34.0)
+                call WM_SpawnRingFX("Abilities\\Spells\\NightElf\\Blink\\BlinkCaster.mdl", tx, ty, rad * 0.60, 8, I2R(pulse) * 0.50)
+                call WM_ApplyAreaEffect(caster, tx, ty, 300.0, WM_GetUltPulseDamage(caster, 61.0), 12.0, 0.0, 0.0, 34.0)
                 call SetWidgetLife(caster, GetWidgetLife(caster) + 35.0)
             elseif abil == 'A047' then
                 // Aetheron: starfall-and-barrier over the cosmic field.
@@ -340,10 +404,11 @@ function WM_OnUltWaveTick takes nothing returns nothing
                     call WM_SpawnTimedUnit(owner, 't013', tx + 150.0, ty, 20.0)
                 endif
             elseif abil == 'A059' then
-                // Mimiron: an orbital laser sweeps 3 successive circles.
+                // Mimiron: a 1040u orbital laser rotates through three telegraphed lanes.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))
-                call WM_SpawnRingFX("Abilities\\Spells\\Other\\Doom\\DoomDeath.mdl", tx, ty, rad * 0.8, 8, I2R(pulse) * 0.38)
-                call WM_ApplyAreaEffect(caster, tx, ty, 420.0, WM_GetUltPulseDamage(caster, 60.0), 0.0, 0.0, 0.0, 0.0)
+                set ang = Atan2(ty - GetUnitY(caster), tx - GetUnitX(caster)) + (I2R(pulse) - 2.0) * 0.42
+                call WM_SpawnUltLineFX("Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl", tx, ty, ang, 520.0, 7)
+                call WM_ApplyLineEffect(caster, WM_ClampMapCoord(tx - Cos(ang) * 520.0), WM_ClampMapCoord(ty - Sin(ang) * 520.0), WM_ClampMapCoord(tx + Cos(ang) * 520.0), WM_ClampMapCoord(ty + Sin(ang) * 520.0), 72.0, WM_GetUltPulseDamage(caster, 60.0))
             elseif abil == 'A063' then
                 // Loken: Tesla overcharge steals mana and calls two short-lived interceptors.
                 call DestroyEffect(AddSpecialEffect("WM_FX_Runic.mdx", tx, ty))

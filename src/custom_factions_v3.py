@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-v7 Master Expansion Module for `(8) Crown of WarMahdi`:
+v8 Master Expansion Module for `(8) Crown of WarMahdi`:
   - Two complete, tournament-balanced Custom Playable Empires with race-specific
     Build mechanics, faction-appropriate models, and model-matched native icons:
       7. Voidborn Legion (`v001..v019`, Heroes `V001..V004`, Upgrades `R000..R001`)
@@ -11,7 +11,7 @@ v7 Master Expansion Module for `(8) Crown of WarMahdi`:
             Clockwork/Titan/Arcane models and model-matched native icons.
   - `war3map.w3a` (v2) generator for ALL **64 Unique Custom Hero Skills (`A000..A063`)**
     (16 Custom Heroes x 4 Exclusive Skills = ZERO shared hero skills anywhere!), each
-    paired with a stock Warcraft III command button selected for its actual effect.
+    paired with its original imported, faction-themed BTN/DISBTN artwork.
   - `war3mapSkin.txt` Full Custom UI Overhaul (`[CustomSkin]` + `[FrameDef]`):
       * Custom Animated Mouse Cursor (`UI\\Cursor\\HumanCursor.mdl` + 4 racial BLPs)
       * Custom RPG Infocard Damage Type, Armor Type & Hero Attribute (`STR/AGI/INT`) icons
@@ -909,7 +909,7 @@ HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
     ("A000", 0, 2, "flamestrike",    "Maelstrom Vortex",           "Point-targeted 275 AoE: deals damage scaled by ability level and Vashj's INT, and pulls nearby non-immune enemies toward the whirlpool."),
     ("A001", 1, 1, "chainlightning", "Forked Tempest Arc",         "Lightning jumps to up to 3 enemies within 300 range of one another; each later jump deals less damage. Vashj gains 12 Mana per ability level."),
     ("A002", 2, 0, "thunderclap",    "Mana-Tide Aegis",            "In 300 AoE, deals 18 + 18 per ability level damage to enemies and restores 65 + 25 per level HP to nearby allies, including Vashj."),
-    ("A003", 3, 2, "monsoon",        "Cataclysmic Tsunami",        "Three expanding 390-AoE waves. Each pulse scales with Vashj's INT and hero level, heals allies for 18 HP, and pushes enemies outward."),
+    ("A003", 3, 2, "monsoon",        "Cataclysmic Tsunami",        "Three expanding fronts at 242/334/426 radius: the first floods its disc, then 190-unit outer bands surge outward. Each front scales with INT/hero level, heals allies in the wave for 18 HP, and pushes enemies 42 units."),
 
     # Hero 2: N004 — Illidan Stormrage, Betrayer of Tides (`A004..A007`)
     ("A004", 0, 2, "flamestrike",    "Azzinoth Glaive Barrage",    "Three crossing glaive lanes strike toward the target point; the side lanes hit harder than the center and a 150-AoE burst hits the endpoint. Damage scales with AGI."),
@@ -971,7 +971,7 @@ HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
     ("A040", 0, 2, "flamestrike",    "Umbral Shuriken Fan",        "A forward fan of three piercing lanes reaches 700 range: the center deals 0.86x AGI-scaled damage and the two side lanes deal 0.56x each."),
     ("A041", 1, 1, "chainlightning", "Phantom Ambush Strike",      "Shadowsteps to a walkable point just beyond one enemy and strikes for 1.38x AGI-scaled damage."),
     ("A042", 2, 0, "thunderclap",    "Smoke Veil of Karabor",      "In 260 AoE around Akama, deals 0.72x AGI-scaled damage, pushes enemies away, and summons two Void Zealots for 14 seconds."),
-    ("A043", 3, 0, "roar",           "Dance of a Thousand Shadows","Three 380-AoE shadow pulses around Akama scale with AGI and hero level. Each heals allies for 12 HP and Akama for 35 HP, while pushing foes away."),
+    ("A043", 3, 0, "roar",           "Dance of a Thousand Shadows","Three close-range 300-AoE shadow pulses around Akama scale with AGI and hero level. Each heals allies for 12 HP and Akama for 35 HP, while pushing foes away."),
 
     # Hero 12: V004 — Entropy Archon Aetheron (`A044..A047`)
     ("A044", 0, 2, "flamestrike",    "Starfall Singularity",       "Point-targeted starfall singularity deals 0.94x INT-scaled damage in 285 AoE and pulls enemies toward the center."),
@@ -996,7 +996,7 @@ HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
     ("A056", 0, 2, "flamestrike",    "Cluster Rocket Salvo",       "Three rocket impact zones hit the target area: 0.78x AGI-scaled damage in 225 AoE and 0.36x in each flanking 150 AoE; the center pushes enemies outward."),
     ("A057", 1, 1, "chainlightning", "Railgun Gauss Snipe",        "Railgun slug pierces a 58-width line from Mimiron to the target, dealing 1.32x AGI-scaled damage to enemies along the path."),
     ("A058", 2, 0, "thunderclap",    "Deploy Pocket Auto-Turrets", "In 250 AoE, deals 0.48x AGI-scaled damage and heals allies for 48 + 16 per level. Summons two Runic Sentinels for 16 seconds."),
-    ("A059", 3, 2, "monsoon",        "Omega Orbital Laser",        "Three expanding 420-AoE orbital laser pulses scale with Mimiron's AGI and hero level."),
+    ("A059", 3, 2, "monsoon",        "Omega Orbital Laser",        "Three telegraphed, rotating 1040-unit laser lanes sweep through the cast point at ±24 degrees. Each lane is 144 units wide and scales with Mimiron's AGI and hero level."),
 
     # Hero 16: T004 — Tempest Savant Loken (`A060..A063`)
     ("A060", 0, 2, "flamestrike",    "Ionosphere Plasma Field",    "Point-targeted 280 AoE: deals INT-scaled damage and burns 20 Mana per ability level from affected enemies."),
@@ -1005,31 +1005,11 @@ HERO_SKILL_SPECS_64: List[Tuple[str, int, int, str, str, str]] = [
     ("A063", 3, 2, "monsoon",        "Stormcore Superconductor",   "Three 410-AoE Tesla pulses scale with Loken's INT and hero level, heal allies, and burn enemy Mana. The second summons two Gyro-Interceptors for 18 seconds."),
 ]
 
-# Stock Warcraft III command-button art, mapped one-to-one to the custom skills.
-# Filenames are verified against 1.27.1 native object metadata and use the game's
-# own BTN/DISBTN assets on 1.26a, 1.27b and Reforged.
-_SKILL_BUTTON_STEMS = (
-    "BTNMonsoon", "BTNChainLightning", "BTNHealingWave", "BTNCrushingWave",
-    "BTNFanOfKnives", "BTNManaBurn", "BTNImmolationOn", "BTNMetamorphosis",
-    "BTNImpale", "BTNEnsnare", "BTNFrostArmor", "BTNLocustSwarm",
-    "BTNVolcano", "BTNCharm", "BTNRejuvenation", "BTNTornado",
-    "BTNWallOfFire", "BTNManaDrain", "BTNHealingWard", "BTNMarkOfFire",
-    "BTNSearingArrowsOn", "BTNTheBlackArrow", "BTNWindWalkOn", "BTNStarfall",
-    "BTNWarStomp", "BTNCriticalStrike", "BTNBattleStations", "BTNStampede",
-    "BTNHolyBolt", "BTNStormBolt", "BTNDivineIntervention", "BTNResurrection",
-    "BTNDeathAndDecay", "BTNCarrionSwarm", "BTNAntiMagicShell", "BTNDarkSummoning",
-    "BTNBlizzard", "BTNLifeDrain", "BTNDarkRitual", "BTNAbsorbMagic",
-    "BTNShadowStrike", "BTNAmbush", "BTNEtherealFormOn", "BTNSpiritOfVengeance",
-    "BTNMoonStone", "BTNBanish", "BTNSpellShieldAmulet", "BTNInfernal",
-    "BTNHammer", "BTNShockWave", "BTNAvatarOn", "BTNEarthquake",
-    "BTNFire", "BTNGolemStormBolt", "BTNRepairOn", "BTNMechanicalCritter",
-    "BTNClusterRockets", "BTNFlare", "BTNPocketFactory", "BTNFireForTheCannon",
-    "BTNManaFlare", "BTNOrbOfLightning", "BTNManaRechargeOn", "BTNStormEarth&Fire",
-)
-assert len(_SKILL_BUTTON_STEMS) == 64 and len(set(_SKILL_BUTTON_STEMS)) == 64
+# Original, imported, one-to-one command-button artwork for all 64 skills.
+# `custom_assets.py` generates both the normal and disabled Classic BLP1 twins.
 HERO_SKILL_ICON_PATHS = {
-    spec[0]: f"{BTN_PREFIX}{stem}.blp"
-    for spec, stem in zip(HERO_SKILL_SPECS_64, _SKILL_BUTTON_STEMS)
+    spec[0]: f"{BTN_PREFIX}BTN_WM_Skill_{spec[0]}.blp"
+    for spec in HERO_SKILL_SPECS_64
 }
 
 
@@ -1044,7 +1024,7 @@ def _make_ancl_hero_skill(
 ) -> Tuple[str, str, List[LevelModEntry]]:
     """
     Build a 100% compliant `ANcl` (Channel) custom Hero ability entry for `war3map.w3a`:
-      - Every skill receives a distinct native Warcraft III button icon selected for its effect.
+      - Every skill receives its own imported, original command-button icon and disabled twin.
       - Sets `Ncl1..6` across EVERY level `1..levels` so levels 2 & 3 never revert!
     """
     icon = HERO_SKILL_ICON_PATHS[new_id]
@@ -1258,7 +1238,7 @@ def serialize_war3map_skin() -> bytes:
         "ARMOR_SMALL=Aegis: |cff6ee7b7Agile Guard|r",
         "ARMOR_NONE=Aegis: |cffc084fcAstral Shroud|r",
         "UPPER_BUTTON_QUEST_TIP=|cffffcc00WarMahdi Codex & Guide|r (|cffffcc00F9|r)",
-        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v7 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681-100 Supply:|r 40% Gold Income",
+        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v8 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681-100 Supply:|r 40% Gold Income",
         "",
     ]
     return "\r\n".join(lines).encode("utf-8")
@@ -1284,7 +1264,7 @@ def _build_custom_faction_ai(
 ) -> str:
     return f"""//============================================================================
 //  {title_comment}
-//  Tournament Melee AI data for `(8) Crown of WarMahdi` v7
+//  Tournament Melee AI data for `(8) Crown of WarMahdi` v8
 //============================================================================
 globals
     integer CF_WORKER    = '{worker}'
