@@ -8,7 +8,7 @@
 |---|---|---|
 | Client build / distribution | Pending | Pending |
 | Date and tester | Pending | Pending |
-| Map SHA-256 | `7c6d038ba0522ff0a12472081cfbc95b5c7004c3ead00c49858090daafe5c8b7` | `7c6d038ba0522ff0a12472081cfbc95b5c7004c3ead00c49858090daafe5c8b7` |
+| Map SHA-256 | `c2013844640dd502d2fbe7dd37493705c1a426c3c89751da2ab74a0940e221e4` | `c2013844640dd502d2fbe7dd37493705c1a426c3c89751da2ab74a0940e221e4` |
 | Result / evidence link | Pending | Pending |
 
 Use a fresh copy of `maps/(8)CrownOfWarMahdi.w3x` in the classic TFT maps folder (`Warcraft III/Maps/FrozenThrone/`) and test separately on each client version listed above.
@@ -30,6 +30,14 @@ For each custom empire (Abyssal Tideborn, Sunfury Imperium, Voidborn Legion, Run
 - [ ] Build menus contain the expected structures without duplicate/overlapping button positions; construction completes on valid terrain.
 - [ ] Hall upgrades, unit production, research, altar heroes, and hero skill-point spending work without orders replacing one another or workers becoming idle indefinitely.
 - [ ] Run the custom AI long enough to observe its opening, tech progression, army production, and recovery after a blocked/failed build order.
+- [ ] Fog fairness: withhold vision of an enemy army, then reveal and hide it; confirm attacks target visible units or a timestamped last-seen point, and do not follow hidden units' current movement.
+- [ ] Objective behavior: observe visible creep selection, Shrine contest, defense when an enemy threatens the base, late public-start scouting, and a temporary expansion guard objective.
+- [ ] Counter adaptation: reveal enemy flyers/casters and a tier-2/tier-3 hall; use `-aistats` and unit production to confirm only observed threats influence ratios and tech cadence.
+- [ ] Expansion: in a safe custom-AI run, verify the Tier-3/time/resource/army gates, that it chooses only a visible free natural, that a worker builds the hall on valid terrain, and that up to three workers harvest the expansion mine. Also test a blocked or already-occupied site.
+- [ ] Group micro: arrange a visible local numerical disadvantage and check retreats; arrange an even/advantageous fight with a wounded target and check focus fire without repeated order spam.
+- [ ] Hero spell evaluation: test clustered and spread enemies, high-mana targets, a wounded allied group, and a nearby dead hero; check AoE centers, mana-drain selection, healing/ultimate gates, and spell-order telemetry.
+- [ ] Test all four difficulty choices. Confirm Novice gives no custom-AI income support; Veteran/Grandmaster/Mythic show and grant only +2/+1, +4/+2, or +7/+3 gold/lumber per 4 seconds respectively.
+- [ ] Type `-aistats` mid-match and record visible contacts, objective/defense, retreat/focus, spell, counter, and expansion counts; compare them with observed decisions rather than treating order counts as match wins.
 - [ ] Run the native Human, Orc, Undead, and Night Elf melee AI at least once each.
 
 ## C. Summon placement and displacement

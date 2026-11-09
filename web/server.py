@@ -82,6 +82,7 @@ def build_archive_manifest() -> dict:
             f"Stage 14: {blp1_count} BLP1s ({palette_blp_count} paletted portrait/skill-button icons), {skill_mdx_count} skill MDX effects + {sigil_mdx_count} faction sigils + {building_mdx_count} Naga building MDXs; race/role model duplicates checked",
             "Stage 15: TFT 1.26-era API compatibility proxy, explicit workers, sequential construction/training and AI safeguards",
             f"Stage 16: D4-symmetric neutral objectives; {stats.get('creepCamps', 0)} camp rosters/loot tiers, alliance-aware shrine rewards and equal race-pick economy",
+            "Stage 17: Fair-vision AI with expiring last-seen intel, adaptive counter-production, dynamic objectives, visible-natural expansion, coordinated micro, hero-spell evaluation, disclosed difficulty and -aistats telemetry",
         ],
     }
 

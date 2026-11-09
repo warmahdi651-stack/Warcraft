@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-16-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v8.
+17-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v8.
 Checks the MPQ, TFT v25, JASS2 APIs (1.26-era proxy and official 1.27b), all 64 hero abilities and skill-specific VFX,
 16 unique hero kits, 8 empire spawn/build definitions, four AI scripts and the JASS AI fallback,
 object/card/rally flags, native icon/model references, portrait/UI BLP1s/MDXs, pathing, creep safety, D4 objective/camp symmetry, loot tiers and lobby-economy fairness.
@@ -1784,6 +1784,20 @@ def run_verification(w3x_path: Path) -> None:
             assert 2.0 <= dps_per_food <= 6.2, f"Out-of-band DPS/food ({dps_per_food:.2f}) on {cuid}!"
             assert 105.0 <= hp_per_food <= 230.0, f"Out-of-band HP/food ({hp_per_food:.1f}) on {cuid}!"
 
+        # Keep the custom AI's supply guards aligned with actual packed object data.
+        ai_production_food = {
+            "nnmg": 2, "nsnp": 3, "nmyr": 4, "nnsw": 2, "nwgs": 2, "nhyc": 4, "nnrg": 5,
+            "hhes": 2, "nhea": 2, "hcth": 4, "nchp": 2, "hspt": 3, "hgyr": 1, "h006": 3,
+            "nbel": 4, "hdhw": 3, "hgry": 4,
+            "v011": 2, "v012": 3, "v013": 4, "v014": 2, "v015": 2, "v016": 4, "v017": 5,
+            "t011": 2, "t012": 3, "t013": 4, "t014": 2, "t015": 2, "t016": 4, "t017": 5,
+        }
+        for uid, expected_food in ai_production_food.items():
+            actual_food = eff_unit_stats(uid)["food"]
+            assert actual_food == expected_food, (
+                f"AI production food table mismatch for {uid}: expected {expected_food}, got {actual_food}"
+            )
+
         # Verify ALL 16 Custom Empire Heroes cost 425g/100L/5f/55s, have urqc=3, and level-1 stat sum in [50..56]
         # All 16 actual playable heroes get exact 55-point ladder attribute budgets,
         # proper altar-gating, no building rally field, and four exclusive spells apiece.
@@ -2223,8 +2237,88 @@ def run_verification(w3x_path: Path) -> None:
         "alliance-aware shrine + zero race-pick gold bonus)"
     )
 
+    # ------------------------------------------------------------------
+    # STAGE 17: Fair-vision, adaptive objectives/counters, role micro, and AI telemetry
+    # ------------------------------------------------------------------
+    intel_src = jass_src.split("function WM_AIRefreshEnemyIntel", 1)[1].split("endfunction", 1)[0]
+    objective_src = jass_src.split("function WM_AIChooseMarchObjective", 1)[1].split("endfunction", 1)[0]
+    creep_src = objective_src
+    natural_mine_src = jass_src.split("function WM_AIFindVisibleNaturalMine", 1)[1].split("endfunction", 1)[0]
+    spell_center_src = jass_src.split("function WM_AISelectSpellCenter", 1)[1].split("endfunction", 1)[0]
+    visible_count_src = jass_src.split("function WM_AICountVisibleEnemies", 1)[1].split("endfunction", 1)[0]
+    fallen_ally_src = jass_src.split("function WM_AIHasFallenAllyHero", 1)[1].split("endfunction", 1)[0]
+    spell_target_src = jass_src.split("function WM_AIFindSpellTarget", 1)[1].split("endfunction", 1)[0]
+    spell_combo_src = jass_src.split("function WM_AICastCustomHeroCombo", 1)[1].split("endfunction", 1)[0]
+    micro_src = jass_src.split("function WM_OnAITacticalMicroTick", 1)[1].split("endfunction", 1)[0]
+    macro_src = jass_src.split("function WM_OnProAIMacroTick", 1)[1].split("endfunction", 1)[0]
+    chat_src = jass_src.split("function WM_OnPlayerChatCommand", 1)[1].split("endfunction", 1)[0]
+    metrics_src = jass_src.split("function WM_ShowAIMetrics", 1)[1].split("endfunction", 1)[0]
+
+    assert "IsUnitVisible(u, aiPlayer)" in intel_src, "Enemy intel must filter units through the AI player's current vision"
+    assert "udg_AILastSeenX[slot]" in intel_src and "udg_AILastSeenY[slot]" in intel_src and "udg_AILastSeenAt[slot] = udg_MatchSeconds" in intel_src, (
+        "Fair enemy memory must store only observed positions and their observation time"
+    )
+    assert "WM_AIObservedHallTier(rawcode)" in intel_src and "udg_AIEnemyAirSeen[slot]" in intel_src and "udg_AIEnemyCasterSeen[slot]" in intel_src, (
+        "AI must adapt to visible enemy tier, air, and caster observations—not hidden player technology"
+    )
+    assert "seenAir >= udg_AIEnemyAirSeen[slot]" in intel_src and "seenCasters >= udg_AIEnemyCasterSeen[slot]" in intel_src and "age > 150" in intel_src and "udg_AIEnemyAirSeen[slot] - 1" in intel_src, (
+        "Composition evidence must refresh only at equal-or-higher observed counts and decay when that evidence gets stale"
+    )
+    assert "age <= 120" in objective_src and "udg_AILastSeenX[bestSlot]" in objective_src, (
+        "Scouting must use only expiring last-seen coordinates, not hidden enemy unit positions"
+    )
+    assert "IsUnitVisible(u, p)" in creep_src and "Player(PLAYER_NEUTRAL_AGGRESSIVE)" in creep_src, (
+        "Creep selection must use currently visible camps only"
+    )
+    assert "GetStartLocationX(GetPlayerStartLocation(Player(j)))" in objective_src and "udg_AIObjectiveMode[pid] = 5" in objective_src, (
+        "Late scouting may use the public start-location prior, but must remain a point-search objective"
+    )
+    assert "IsUnitVisible(u, p)" in natural_mine_src and "WM_AIIsTownHallRawcode(rawcode)" in natural_mine_src, (
+        "Natural expansion discovery must be visibility-gated and reject a visibly occupied town-hall site"
+    )
+    assert "WM_AIQueueExpansion" in macro_src and "tier >= 3" in macro_src and "hallCount == 1" in macro_src and "udg_AIExpansionPending" in macro_src, (
+        "Expansion must be a guarded worker build after tier 3, not a free hall or hidden-site placement"
+    )
+    assert "expansionWorkerCount < 3" in macro_src and "udg_AIObjectiveMode[i] == 4" in macro_src, (
+        "The expansion plan must staff a second mine and count defensive responses"
+    )
+    assert "enemyAirCount >= 2" in macro_src and "enemyCasterCount >= 2" in macro_src and "enemyTierCount > tier" in macro_src, (
+        "Composition and visible tech observations must change production and tech tempo"
+    )
+    assert "set productionId = 'hdhw'\n                        set unitFood = 3" in macro_src and "set productionId = 'hgry'\n                        set unitFood = 4" in macro_src and "foodUsed + unitFood <= foodCap and gold >= 160" in macro_src, (
+        "Adapted air production must respect the actual Dragonhawk/Gryphon food values"
+    )
+    assert "udg_TempGroupB" in spell_center_src and "udg_TempGroupA" not in spell_center_src and "IsUnitVisible(nearby, owner)" in spell_center_src and "WM_IsCustomAIWorker" in spell_center_src, (
+        "AOE scoring must use visible combat units and avoid clobbering the tactical outer unit group"
+    )
+    assert "WM_IsCustomAIWorker" in visible_count_src and "IsUnitVisible(u, owner)" in fallen_ally_src, (
+        "Spell triggers must not waste major AoE casts on custom workers or detect an unseen resurrection target"
+    )
+    assert "not IsUnitType(foe, UNIT_TYPE_PEON)" in micro_src and "WM_IsCustomAIWorker(udg_PlayerFaction[enemyPid], rawcode)" in micro_src, (
+        "Local-force micro must assess visible combat units rather than worker counts"
+    )
+    assert all(code in spell_combo_src for code in ("'A005'", "'A013'", "'A017'", "'A037'", "'A045'", "'A031'", "'A025'")), (
+        "Hero spell logic must include mana-target, Resurrection, and execution-specific decisions"
+    )
+    assert "WM_AISelectSpellCenter" in spell_combo_src and "WM_AIShouldCastAreaE" in spell_combo_src and "GetUnitState(manaTarget, UNIT_STATE_MANA) >= 25.0" in spell_combo_src and "WM_IsCustomAIWorker" in spell_target_src, (
+        "Hero spells must evaluate AOE density, support needs, and Mana Burn value before orders"
+    )
+    assert "udg_PlayerFaction[i] >= 5" in micro_src and "localEnemyCount >= localAllyCount + 2" in micro_src and "udg_AIMetricRetreatOrders" in micro_src and "udg_AIMetricFocusOrders" in micro_src, (
+        "Custom-faction group micro must compare visible local strength, retreat when outnumbered, and focus fire without overriding native melee AI"
+    )
+    assert "f >= 5 and armyCount >= 5" in macro_src and "if f >= 5 then" in macro_src and "WM_AIRefreshEnemyIntel" in macro_src, (
+        "The custom JASS commander must leave classic races on native melee AI and run fair enemy intel only for custom factions"
+    )
+    assert all(value in macro_src for value in ("set ecoBonusG = 2", "set ecoBonusG = 4", "set ecoBonusG = 7")), (
+        "Difficulty resource support must remain small and explicitly tiered"
+    )
+    assert "WM_GetDiffSupportLabel" in jass_src and "-aistats" in chat_src and "udg_AIMetricVisibleContacts" in metrics_src and "udg_AIMetricCounterOrders" in metrics_src and "udg_PlayerFaction[i] >= 5" in metrics_src and "No custom-faction AI opponents" in metrics_src, (
+        "Difficulty and custom-AI decision metrics must be disclosed and queryable without presenting native-AI zeros as telemetry"
+    )
+    print("[PASS] Stage 17: Fair-vision AI (TTL intel, observed counter/tech adaptation, dynamic shrine/creep/expansion/defense/scouting, coordinated micro, hero spell evaluation, disclosed difficulty + -aistats telemetry)")
+
     print("======================================================================")
-    print("  ALL 16 VERIFICATION STAGES PASSED; static/binary checks found no known object/UI/AI-startup/fairness defects.")
+    print("  ALL 17 VERIFICATION STAGES PASSED; static/binary checks found no known object/UI/AI-startup/fairness defects.")
     print("======================================================================")
 
 
