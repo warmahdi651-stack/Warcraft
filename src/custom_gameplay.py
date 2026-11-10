@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
 JASS2 Gameplay, Custom 3D Spell Engine, Sleek Menus, Live Multiboard HUD,
-and Human-Like Pro AI Tactical Brain for `(8) Crown of WarMahdi` v8.
+and Human-Like AI support for `(8) Crown of WarMahdi` v9.
 
 Classic TFT 1.26a/1.27b JASS2 compatibility targets:
   - Every `local` variable is declared at the top of its `function`.
   - Uses classic JASS2 natives only; no `Blz*` natives are required.
   - Zero handle leaks (`GroupClear` on reusable global groups, `DestroyEffect` on all
     one-shot VFX, local handle nulling before `return`/`endfunction`).
+  - Native Warcraft melee AI scripts own macro/economy/creep/expansion/attacks; JASS
+    adds difficulty support, fair-vision telemetry, and bounded hero combat micro.
   - Host sees AI Difficulty Menu FIRST (`t = 0.20s`), then all Humans get the sleek
     1-click Empire Picker (`Abyssal Tideborn`, `Sunfury Imperium`, `Voidborn Legion`,
     `Runeforged Bastion`, `Random Custom`, or `Keep Classic Race`).
@@ -25,11 +27,11 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     Return `(globals_jass_lines, functions_jass_code)` to embed inside `war3map.j`.
     """
     globals_jass = """
-    // ---- Crown of WarMahdi v8: 8 Empires, 16 Exclusive Heroes, 64 Skills, Dark UI & Pro AI ----
+    // ---- Crown of WarMahdi v9: 8 Empires, 16 Exclusive Heroes, 64 Skills, Dark UI & Melee AI ----
     integer array udg_PlayerFaction
     boolean array udg_PlayerChoseRace
     boolean array udg_PlayerLockedInLobby
-    boolean array udg_AIStarted
+    boolean array udg_AIDispatchSent
     integer array udg_PlayerKills
     integer array udg_AIStage
 
@@ -44,51 +46,31 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     integer array udg_AIEnemyRangedSeen
     integer array udg_AIEnemyRangedSeenAt
     integer array udg_AIEnemyTierSeen
-    real array udg_AIObjectiveX
-    real array udg_AIObjectiveY
     integer array udg_AIVisibleEnemyCount
     integer array udg_AIEnemyAirCount
     integer array udg_AIEnemyCasterCount
     integer array udg_AIEnemyRangedCount
     integer array udg_AIEnemyTierCount
     integer array udg_AIObjectiveMode
-    integer array udg_AILastMarchObjectiveMode
-    integer array udg_AILastMarchObjectiveAt
-    real array udg_AILastMarchObjectiveX
-    real array udg_AILastMarchObjectiveY
 
-    // Compact live telemetry, exposed to players with `-aistats`.
+    // Live telemetry, sampled every four seconds and exposed through `-aistats`.
     integer array udg_AIMetricVisibleContacts
-    integer array udg_AIMetricObjectiveOrders
-    integer array udg_AIMetricDefenseOrders
+    integer array udg_AIMetricArmy
+    integer array udg_AIMetricWorkers
+    integer array udg_AIMetricTownHalls
+    integer array udg_AIMetricTier
+    integer array udg_AIMetricAttackOrders
     integer array udg_AIMetricRetreatOrders
     integer array udg_AIMetricFocusOrders
     integer array udg_AIMetricSpellOrders
-    integer array udg_AIMetricCounterOrders
-    integer array udg_AIMetricExpansionOrders
 
-    // A second town hall is built only at a currently visible, unclaimed natural.
-    boolean array udg_AIExpansionPending
-    boolean array udg_AIExpansionActive
-    real array udg_AIExpansionX
-    real array udg_AIExpansionY
-    integer array udg_AIExpansionOrderAt
-    integer array udg_AINextExpansionTryAt
-
-    // One construction order per custom AI at a time; construct-finish clears the latch.
-    integer array udg_AIFallbackPendingRaw
-    integer array udg_AIFallbackPendingUntil
-    integer array udg_AINextWorkerOrderAt
-    integer array udg_AINextHallOrderAt
-    integer array udg_AINextHeroOrderAt
-    integer array udg_AINextRaxOrderAt
-    integer array udg_AINextSanctumOrderAt
-    integer array udg_AINextHeavyOrderAt
-    integer array udg_AINextAirOrderAt
-    integer array udg_AINextUpgradeOrderAt
+    // 8 handle-keyed spell throttle slots per player (3 custom heroes max at once).
+    integer array udg_AIHeroSpellHandle
+    integer array udg_AINextHeroSpellAt
 
     integer udg_HostPlayerId = -1
     integer udg_AIDiff = 3
+    constant integer WM_FOOD_CAP_LIMIT = 600
     boolean udg_DiffChosen = false
     boolean udg_RacePhaseStarted = false
     boolean udg_AllowChatSwitch = true
@@ -115,7 +97,7 @@ def generate_custom_gameplay_jass() -> Tuple[str, str]:
     timer udg_RaceTimeoutTimer = null
     timer udg_ChatLockTimer = null
     timer udg_HUDTimer = null
-    timer udg_AIBrainTimer = null
+    timer udg_AIMaintenanceTimer = null
     timer udg_AIMicroTimer = null
     timer udg_UltWaveTimer = null
 
@@ -220,11 +202,11 @@ function WM_GetDiffSupportLabel takes integer d returns string
     if d == 1 then
         return "|cff94a3b8no income bonus|r"
     elseif d == 2 then
-        return "|cff94a3b8+2g/+1l per 4s|r"
+        return "|cff94a3b8+1g/+1l per 4s|r"
     elseif d == 3 then
-        return "|cff94a3b8+4g/+2l per 4s|r"
+        return "|cff94a3b8+2g/+1l per 4s|r"
     endif
-    return "|cff94a3b8+7g/+3l per 4s|r"
+    return "|cff94a3b8+3g/+2l per 4s|r"
 endfunction
 
 function WM_HeroPrimaryBonus takes unit u returns real
@@ -880,20 +862,29 @@ function WM_OnUnitDeathTrackKills takes nothing returns boolean
 endfunction
 
 // ============================================================================
-// HUMAN-LIKE PRO AI ENGINE (AUTONOMOUS MACRO BUILDER + CREEPING + MICRO + COMBOS)
+// AI DISPATCH, FAIR-VISION TELEMETRY, AND CUSTOM-HERO TACTICAL SUPPORT
 // ============================================================================
 
 function WM_StartNativeAIScriptForPlayer takes player p, integer faction returns nothing
     local integer pid = GetPlayerId(p)
-    if udg_AIStarted[pid] then
+    if pid < 0 or pid >= 8 or udg_AIDispatchSent[pid] then
+        set p = null
         return
     endif
-    set udg_AIStarted[pid] = true
+    set udg_AIDispatchSent[pid] = true
 
-    // Custom-race .ai files were competing with the generated JASS macro for the
-    // same halls, altars, and workers. The guarded JASS controller is authoritative.
-    if faction >= 5 then
-        return
+    // Exactly one macro controller per CPU: each custom empire's imported common.ai
+    // script owns harvesting, construction, tech, army production, creeping,
+    // expansion and attack waves. The JASS timers only provide telemetry and hero
+    // micro, so they never issue a second set of build/training/march orders.
+    if faction == 5 then
+        call StartMeleeAI(p, "naga_melee.ai")
+    elseif faction == 6 then
+        call StartMeleeAI(p, "camphuman_melee.ai")
+    elseif faction == 7 then
+        call StartMeleeAI(p, "voidborn_melee.ai")
+    elseif faction == 8 then
+        call StartMeleeAI(p, "runeforged_melee.ai")
     elseif faction == 1 then
         call StartMeleeAI(p, "Scripts\\human.ai")
     elseif faction == 2 then
@@ -902,7 +893,10 @@ function WM_StartNativeAIScriptForPlayer takes player p, integer faction returns
         call StartMeleeAI(p, "Scripts\\undead.ai")
     elseif faction == 4 then
         call StartMeleeAI(p, "Scripts\\elf.ai")
+    else
+        set udg_AIDispatchSent[pid] = false
     endif
+    set p = null
 endfunction
 
 function WM_AIChooseHeroSkill takes unit hero, integer q, integer w, integer e, integer r returns nothing
@@ -994,6 +988,15 @@ function WM_AIIsTownHallRawcode takes integer rawcode returns boolean
     return false
 endfunction
 
+function WM_AIIsCasterUnit takes integer rawcode returns boolean
+    // Do not classify heroes (handled separately), generic mana users, or mana-bearing
+    // air/elite units as casters. Keep an explicit roster of actual spellcasters.
+    if rawcode == 'hmpr' or rawcode == 'hsor' or rawcode == 'hspt' or rawcode == 'oshm' or rawcode == 'odoc' or rawcode == 'otbr' or rawcode == 'uban' or rawcode == 'unec' or rawcode == 'uobs' or rawcode == 'edot' or rawcode == 'edoc' or rawcode == 'nnsw' or rawcode == 'nwgs' or rawcode == 'nchp' or rawcode == 'nhym' or rawcode == 'v014' or rawcode == 't014' then
+        return true
+    endif
+    return false
+endfunction
+
 function WM_AIRefreshEnemyIntel takes player aiPlayer, integer aiPid, real homeX, real homeY returns unit
     local integer enemyId = 0
     local integer slot = 0
@@ -1057,7 +1060,7 @@ function WM_AIRefreshEnemyIntel takes player aiPlayer, integer aiPid, real homeX
                         if IsUnitType(u, UNIT_TYPE_FLYING) then
                             set seenAir = seenAir + 1
                         endif
-                        if GetUnitState(u, UNIT_STATE_MAX_MANA) > 0.0 then
+                        if not IsUnitType(u, UNIT_TYPE_HERO) and WM_AIIsCasterUnit(rawcode) then
                             set seenCasters = seenCasters + 1
                         endif
                         if IsUnitType(u, UNIT_TYPE_RANGED_ATTACKER) then
@@ -1086,7 +1089,7 @@ function WM_AIRefreshEnemyIntel takes player aiPlayer, integer aiPid, real homeX
                             if IsUnitType(u, UNIT_TYPE_HERO) then
                                 set score = score + 260.0
                             endif
-                            if GetUnitState(u, UNIT_STATE_MAX_MANA) > 0.0 then
+                            if not IsUnitType(u, UNIT_TYPE_HERO) and WM_AIIsCasterUnit(rawcode) then
                                 set score = score + 100.0
                             endif
                             if IsUnitType(u, UNIT_TYPE_RANGED_ATTACKER) then
@@ -1099,13 +1102,6 @@ function WM_AIRefreshEnemyIntel takes player aiPlayer, integer aiPid, real homeX
                             endif
                             if distSq < 1960000.0 then
                                 set score = score + 400.0
-                            endif
-                            if udg_AIExpansionActive[aiPid] then
-                                set dx = GetUnitX(u) - udg_AIExpansionX[aiPid]
-                                set dy = GetUnitY(u) - udg_AIExpansionY[aiPid]
-                                if dx * dx + dy * dy < 2250000.0 then
-                                    set score = score + 320.0
-                                endif
                             endif
                             if score > bestScore then
                                 set bestScore = score
@@ -1285,6 +1281,7 @@ function WM_AISelectSpellCenter takes unit hero, unit fallback, real radius retu
     local unit nearby = null
     local integer enemyPid = 0
     local integer rawcode = 0
+    local integer candidateCount = 0
     local real hx = GetUnitX(hero)
     local real hy = GetUnitY(hero)
     local real cx = GetUnitX(fallback)
@@ -1295,15 +1292,19 @@ function WM_AISelectSpellCenter takes unit hero, unit fallback, real radius retu
     local integer bestHits = 0
     set udg_AISpellAimX = cx
     set udg_AISpellAimY = cy
+
+    // Bound the density search to eight visible candidate centers within 560u.
+    // This retains cluster-aware AoE targeting without an unbounded N-by-N scan.
     call GroupClear(udg_SpellGroup)
-    call GroupEnumUnitsInRange(udg_SpellGroup, hx, hy, 700.0, null)
+    call GroupEnumUnitsInRange(udg_SpellGroup, hx, hy, 560.0, null)
     loop
         set candidate = FirstOfGroup(udg_SpellGroup)
-        exitwhen candidate == null
+        exitwhen candidate == null or candidateCount >= 8
         call GroupRemoveUnit(udg_SpellGroup, candidate)
         set enemyPid = GetPlayerId(GetOwningPlayer(candidate))
         set rawcode = GetUnitTypeId(candidate)
         if GetWidgetLife(candidate) > 0.405 and IsUnitEnemy(candidate, owner) and IsUnitVisible(candidate, owner) and not IsUnitType(candidate, UNIT_TYPE_STRUCTURE) and not IsUnitType(candidate, UNIT_TYPE_PEON) and not WM_IsCustomAIWorker(udg_PlayerFaction[enemyPid], rawcode) then
+            set candidateCount = candidateCount + 1
             set cx = GetUnitX(candidate)
             set cy = GetUnitY(candidate)
             set hits = 0
@@ -1321,8 +1322,7 @@ function WM_AISelectSpellCenter takes unit hero, unit fallback, real radius retu
                     set score = score + 100.0
                     if IsUnitType(nearby, UNIT_TYPE_HERO) then
                         set score = score + 18.0
-                    endif
-                    if GetUnitState(nearby, UNIT_STATE_MAX_MANA) > 0.0 then
+                    elseif WM_AIIsCasterUnit(rawcode) then
                         set score = score + 8.0
                     endif
                 endif
@@ -1418,6 +1418,41 @@ function WM_AIHasFallenAllyHero takes unit hero, real radius returns boolean
     set owner = null
     set u = null
     return found
+endfunction
+
+function WM_AIHeroSpellReady takes unit hero returns boolean
+    local integer pid = GetPlayerId(GetOwningPlayer(hero))
+    local integer heroHandle = GetHandleId(hero)
+    local integer base = pid * 8
+    local integer slot = 0
+    local integer freeSlot = -1
+    if pid < 0 or pid >= 8 then
+        set hero = null
+        return false
+    endif
+    set slot = base
+    loop
+        exitwhen slot >= base + 8
+        if udg_AIHeroSpellHandle[slot] == heroHandle then
+            if udg_MatchSeconds < udg_AINextHeroSpellAt[slot] then
+                set hero = null
+                return false
+            endif
+            set udg_AINextHeroSpellAt[slot] = udg_MatchSeconds + 4
+            set hero = null
+            return true
+        elseif udg_AIHeroSpellHandle[slot] == 0 and freeSlot < 0 then
+            set freeSlot = slot
+        endif
+        set slot = slot + 1
+    endloop
+    if freeSlot < 0 then
+        set freeSlot = base
+    endif
+    set udg_AIHeroSpellHandle[freeSlot] = heroHandle
+    set udg_AINextHeroSpellAt[freeSlot] = udg_MatchSeconds + 4
+    set hero = null
+    return true
 endfunction
 
 function WM_AICastCustomHeroCombo takes unit hero, unit enemy returns nothing
@@ -1520,6 +1555,9 @@ function WM_AICastCustomHeroCombo takes unit hero, unit enemy returns nothing
     endif
 
     if q == 0 then
+        return
+    endif
+    if not WM_AIHeroSpellReady(hero) then
         return
     endif
     call WM_AIChooseHeroSkill(hero, q, w, e, r)
@@ -1723,12 +1761,67 @@ function WM_AIUseInventory takes unit hero, real homeX, real homeY returns nothi
     set it = null
 endfunction
 
+function WM_AIRetreatFromUnit takes unit u, unit foe, real retreatDistance returns boolean
+    local real ux = 0.0
+    local real uy = 0.0
+    local real dx = 0.0
+    local real dy = 0.0
+    local real dlen = 1.0
+    local real baseAngle = 0.0
+    local real angle = 0.0
+    local real nx = 0.0
+    local real ny = 0.0
+    local integer spoke = 0
+    local pathingtype terrainPath = PATHING_TYPE_WALKABILITY
+    local boolean found = false
+    local boolean ordered = false
+    if u == null or foe == null then
+        set u = null
+        set foe = null
+        return false
+    endif
+    set ux = GetUnitX(u)
+    set uy = GetUnitY(u)
+    set dx = ux - GetUnitX(foe)
+    set dy = uy - GetUnitY(foe)
+    set dlen = SquareRoot(dx * dx + dy * dy)
+    if dlen < 1.0 then
+        set dx = 1.0
+        set dy = 0.0
+        set dlen = 1.0
+    endif
+    set baseAngle = Atan2(dy / dlen, dx / dlen)
+    if IsUnitType(u, UNIT_TYPE_FLYING) then
+        set terrainPath = PATHING_TYPE_FLYABILITY
+    elseif WM_UsesAmphibiousPathing(u) then
+        set terrainPath = PATHING_TYPE_AMPHIBIOUSPATHING
+    endif
+
+    // Try eight local headings, starting directly away from the visible threat.
+    // Terrain-only probes keep mass retreats cheap; Warcraft handles unit collision
+    // and route finding once the point is issued.
+    loop
+        exitwhen spoke >= 8 or found
+        set angle = baseAngle + I2R(spoke) * 0.78539816339
+        set nx = WM_ClampMapCoord(ux + Cos(angle) * retreatDistance)
+        set ny = WM_ClampMapCoord(uy + Sin(angle) * retreatDistance)
+        if not IsTerrainPathable(nx, ny, terrainPath) then
+            set found = true
+            set ordered = IssuePointOrder(u, "move", nx, ny)
+        endif
+        set spoke = spoke + 1
+    endloop
+    set u = null
+    set foe = null
+    return ordered
+endfunction
+
 function WM_OnAITacticalMicroTick takes nothing returns nothing
     local integer i = 0
     local player p = null
     local unit u = null
     local unit foe = null
-    local unit allyUnit = null
+    local unit nearby = null
     local unit weakFoe = null
     local unit nearFoe = null
     local real ux = 0.0
@@ -1738,15 +1831,13 @@ function WM_OnAITacticalMicroTick takes nothing returns nothing
     local real lowestPct = 2.0
     local real nearDistSq = 99999999.0
     local real candidateDistSq = 0.0
-    local real dx = 0.0
-    local real dy = 0.0
-    local real dlen = 1.0
     local integer localAllyCount = 0
     local integer localEnemyCount = 0
     local integer enemyPid = 0
     local integer rawcode = 0
     local integer attackOrder = 0
     local boolean issued = false
+    local boolean shouldScan = false
     local integer sLoc = 0
     local real homeX = 0.0
     local real homeY = 0.0
@@ -1767,102 +1858,92 @@ function WM_OnAITacticalMicroTick takes nothing returns nothing
                 exitwhen u == null
                 call GroupRemoveUnit(udg_TempGroupA, u)
 
-                if GetWidgetLife(u) > 0.405 and not IsUnitType(u, UNIT_TYPE_STRUCTURE) and not IsUnitType(u, UNIT_TYPE_PEON) and not WM_IsCustomAIWorker(udg_PlayerFaction[i], GetUnitTypeId(u)) then
+                if GetWidgetLife(u) > 0.405 and not IsUnitType(u, UNIT_TYPE_STRUCTURE) and not IsUnitType(u, UNIT_TYPE_PEON) and not WM_IsCustomAIWorker(udg_PlayerFaction[i], GetUnitTypeId(u)) and (udg_PlayerFaction[i] < 5 or IsUnitType(u, UNIT_TYPE_HERO)) then
                     set ux = GetUnitX(u)
                     set uy = GetUnitY(u)
                     set hpPct = GetWidgetLife(u) / RMaxBJ(1.0, GetUnitState(u, UNIT_STATE_MAX_LIFE))
                     if IsUnitType(u, UNIT_TYPE_HERO) then
                         call WM_AIUseInventory(u, homeX, homeY)
                         call WM_AIPickupNearbyItems(u)
+                        set ux = GetUnitX(u)
+                        set uy = GetUnitY(u)
                     endif
 
-                    // Local force comparison uses only currently visible allied units.
-                    set localAllyCount = 0
-                    call GroupClear(udg_SpellGroup)
-                    call GroupEnumUnitsInRange(udg_SpellGroup, ux, uy, 850.0, null)
-                    loop
-                        set allyUnit = FirstOfGroup(udg_SpellGroup)
-                        exitwhen allyUnit == null
-                        call GroupRemoveUnit(udg_SpellGroup, allyUnit)
-                        if GetWidgetLife(allyUnit) > 0.405 and IsUnitAlly(allyUnit, p) and IsUnitVisible(allyUnit, p) and not IsUnitType(allyUnit, UNIT_TYPE_STRUCTURE) and not IsUnitType(allyUnit, UNIT_TYPE_PEON) and not WM_IsCustomAIWorker(udg_PlayerFaction[i], GetUnitTypeId(allyUnit)) then
-                            set localAllyCount = localAllyCount + 1
-                        endif
-                    endloop
+                    // Skip full-health units on non-combat orders. One combined local
+                    // scan replaces separate ally/enemy radius enumerations (650u max).
+                    set shouldScan = IsUnitType(u, UNIT_TYPE_HERO) or hpPct < 0.72 or GetUnitCurrentOrder(u) == 0 or GetUnitCurrentOrder(u) == attackOrder
+                    if shouldScan then
+                        set nearFoe = null
+                        set weakFoe = null
+                        set lowestPct = 2.0
+                        set nearDistSq = 99999999.0
+                        set localAllyCount = 0
+                        set localEnemyCount = 0
+                        call GroupClear(udg_SpellGroup)
+                        call GroupEnumUnitsInRange(udg_SpellGroup, ux, uy, 650.0, null)
+                        loop
+                            set nearby = FirstOfGroup(udg_SpellGroup)
+                            exitwhen nearby == null
+                            call GroupRemoveUnit(udg_SpellGroup, nearby)
+                            if GetWidgetLife(nearby) > 0.405 and not IsUnitType(nearby, UNIT_TYPE_STRUCTURE) and not IsUnitType(nearby, UNIT_TYPE_PEON) then
+                                set enemyPid = GetPlayerId(GetOwningPlayer(nearby))
+                                set rawcode = GetUnitTypeId(nearby)
+                                if IsUnitAlly(nearby, p) and IsUnitVisible(nearby, p) and not WM_IsCustomAIWorker(udg_PlayerFaction[i], rawcode) then
+                                    set localAllyCount = localAllyCount + 1
+                                elseif IsUnitEnemy(nearby, p) and IsUnitVisible(nearby, p) and not WM_IsCustomAIWorker(udg_PlayerFaction[enemyPid], rawcode) then
+                                    set localEnemyCount = localEnemyCount + 1
+                                    set ux = GetUnitX(u)
+                                    set uy = GetUnitY(u)
+                                    set candidateDistSq = (GetUnitX(nearby) - ux) * (GetUnitX(nearby) - ux) + (GetUnitY(nearby) - uy) * (GetUnitY(nearby) - uy)
+                                    if nearFoe == null or candidateDistSq < nearDistSq then
+                                        set nearDistSq = candidateDistSq
+                                        set nearFoe = nearby
+                                    endif
+                                    set foePct = GetWidgetLife(nearby) / RMaxBJ(1.0, GetUnitState(nearby, UNIT_STATE_MAX_LIFE))
+                                    if foePct < lowestPct then
+                                        set lowestPct = foePct
+                                        set weakFoe = nearby
+                                    endif
+                                endif
+                            endif
+                        endloop
 
-                    // Scan visible enemy units within 650 range and select nearest + weakest.
-                    set nearFoe = null
-                    set weakFoe = null
-                    set lowestPct = 2.0
-                    set nearDistSq = 99999999.0
-                    set localEnemyCount = 0
-                    call GroupClear(udg_TempGroupB)
-                    call GroupEnumUnitsInRange(udg_TempGroupB, ux, uy, 650.0, null)
-                    loop
-                        set foe = FirstOfGroup(udg_TempGroupB)
-                        exitwhen foe == null
-                        call GroupRemoveUnit(udg_TempGroupB, foe)
-                        set enemyPid = GetPlayerId(GetOwningPlayer(foe))
-                        set rawcode = GetUnitTypeId(foe)
-                        if GetWidgetLife(foe) > 0.405 and IsUnitEnemy(foe, p) and IsUnitVisible(foe, p) and not IsUnitType(foe, UNIT_TYPE_STRUCTURE) and not IsUnitType(foe, UNIT_TYPE_PEON) and not WM_IsCustomAIWorker(udg_PlayerFaction[enemyPid], rawcode) then
-                            set localEnemyCount = localEnemyCount + 1
-                            set dx = GetUnitX(foe) - ux
-                            set dy = GetUnitY(foe) - uy
-                            set candidateDistSq = dx * dx + dy * dy
-                            if nearFoe == null or candidateDistSq < nearDistSq then
-                                set nearDistSq = candidateDistSq
-                                set nearFoe = foe
+                        if IsUnitType(u, UNIT_TYPE_HERO) and GetUnitTypeId(u) == 'Huth' and hpPct >= 0.26 and udg_AIDiff >= 2 and GetUnitAbilityLevel(u, 'A031') > 0 and WM_AIHasFallenAllyHero(u, 520.0) then
+                            // Uther can restore a fallen ally even when no enemy is in range.
+                            if WM_AIHeroSpellReady(u) and IssueImmediateOrder(u, "resurrection") then
+                                set udg_AIMetricSpellOrders[i] = udg_AIMetricSpellOrders[i] + 1
                             endif
-                            set foePct = GetWidgetLife(foe) / RMaxBJ(1.0, GetUnitState(foe, UNIT_STATE_MAX_LIFE))
-                            if foePct < lowestPct then
-                                set lowestPct = foePct
-                                set weakFoe = foe
-                            endif
-                        endif
-                    endloop
-
-                    if IsUnitType(u, UNIT_TYPE_HERO) and GetUnitTypeId(u) == 'Huth' and hpPct >= 0.26 and udg_AIDiff >= 2 and GetUnitAbilityLevel(u, 'A031') > 0 and WM_AIHasFallenAllyHero(u, 520.0) then
-                        // Uther can restore a fallen ally even when no enemy is currently in spell range.
-                        if IssueImmediateOrder(u, "resurrection") then
-                            set udg_AIMetricSpellOrders[i] = udg_AIMetricSpellOrders[i] + 1
-                        endif
-                    elseif nearFoe != null then
-                        // Local force assessment enables a coordinated fallback instead of
-                        // leaving wounded units isolated against a visible numerical advantage.
-                        if IsUnitType(u, UNIT_TYPE_HERO) and hpPct < 0.26 and udg_AIDiff >= 2 then
-                            call WM_AIUseInventory(u, homeX, homeY)
-                            set issued = IssuePointOrder(u, "move", homeX, homeY)
-                            if issued then
-                                set udg_AIMetricRetreatOrders[i] = udg_AIMetricRetreatOrders[i] + 1
-                            endif
-                        elseif udg_AIDiff >= 3 and localEnemyCount >= localAllyCount + 2 and (hpPct < 0.55 or localEnemyCount >= localAllyCount * 2) and (GetUnitCurrentOrder(u) == 0 or GetUnitCurrentOrder(u) == attackOrder) then
-                            set issued = IssuePointOrder(u, "move", homeX, homeY)
-                            if issued then
-                                set udg_AIMetricRetreatOrders[i] = udg_AIMetricRetreatOrders[i] + 1
-                            endif
-                        // Wounded units kite away from their nearest currently visible threat.
-                        elseif hpPct < 0.33 and udg_AIDiff >= 2 then
-                            set dx = ux - GetUnitX(nearFoe)
-                            set dy = uy - GetUnitY(nearFoe)
-                            set dlen = SquareRoot(dx * dx + dy * dy)
-                            if dlen < 1.0 then
-                                set dlen = 1.0
-                            endif
-                            set issued = IssuePointOrder(u, "move", WM_ClampMapCoord(ux + (dx / dlen) * 265.0), WM_ClampMapCoord(uy + (dy / dlen) * 265.0))
-                            if issued then
-                                set udg_AIMetricRetreatOrders[i] = udg_AIMetricRetreatOrders[i] + 1
-                            endif
-                        // Hero spell evaluation uses visible clusters and ability-specific targets.
-                        elseif IsUnitType(u, UNIT_TYPE_HERO) then
-                            if weakFoe != null then
-                                call WM_AICastCustomHeroCombo(u, weakFoe)
-                            else
-                                call WM_AICastCustomHeroCombo(u, nearFoe)
-                            endif
-                        // Equal-or-better local numbers focus a finishable target as a group.
-                        elseif weakFoe != null and localAllyCount >= localEnemyCount and ((udg_AIDiff >= 4 and lowestPct < 0.58) or (udg_AIDiff >= 3 and lowestPct < 0.38)) and (GetUnitCurrentOrder(u) == 0 or GetUnitCurrentOrder(u) == attackOrder) then
-                            set issued = IssueTargetOrder(u, "attack", weakFoe)
-                            if issued then
-                                set udg_AIMetricFocusOrders[i] = udg_AIMetricFocusOrders[i] + 1
+                        elseif nearFoe != null then
+                            // Numerical retreats move away from the local threat, using
+                            // a pathable, collision-safe point rather than the home start.
+                            if IsUnitType(u, UNIT_TYPE_HERO) and hpPct < 0.26 and udg_AIDiff >= 2 then
+                                set issued = WM_AIRetreatFromUnit(u, nearFoe, 480.0)
+                                if issued then
+                                    set udg_AIMetricRetreatOrders[i] = udg_AIMetricRetreatOrders[i] + 1
+                                endif
+                            elseif udg_AIDiff >= 3 and localEnemyCount >= localAllyCount + 2 and (hpPct < 0.55 or localEnemyCount >= localAllyCount * 2) then
+                                set issued = WM_AIRetreatFromUnit(u, nearFoe, 420.0)
+                                if issued then
+                                    set udg_AIMetricRetreatOrders[i] = udg_AIMetricRetreatOrders[i] + 1
+                                endif
+                            // Wounded units make a shorter, collision-safe local kite.
+                            elseif hpPct < 0.33 and udg_AIDiff >= 2 then
+                                set issued = WM_AIRetreatFromUnit(u, nearFoe, 265.0)
+                                if issued then
+                                    set udg_AIMetricRetreatOrders[i] = udg_AIMetricRetreatOrders[i] + 1
+                                endif
+                            elseif IsUnitType(u, UNIT_TYPE_HERO) then
+                                if weakFoe != null then
+                                    call WM_AICastCustomHeroCombo(u, weakFoe)
+                                else
+                                    call WM_AICastCustomHeroCombo(u, nearFoe)
+                                endif
+                            // Equal-or-better local numbers focus a finishable target.
+                            elseif weakFoe != null and localAllyCount >= localEnemyCount and ((udg_AIDiff >= 4 and lowestPct < 0.58) or (udg_AIDiff >= 3 and lowestPct < 0.38)) and (GetUnitCurrentOrder(u) == 0 or GetUnitCurrentOrder(u) == attackOrder) then
+                                set issued = IssueTargetOrder(u, "attack", weakFoe)
+                                if issued then
+                                    set udg_AIMetricFocusOrders[i] = udg_AIMetricFocusOrders[i] + 1
+                                endif
                             endif
                         endif
                     endif
@@ -1875,656 +1956,80 @@ function WM_OnAITacticalMicroTick takes nothing returns nothing
     set p = null
     set u = null
     set foe = null
-    set allyUnit = null
+    set nearby = null
     set weakFoe = null
     set nearFoe = null
 endfunction
 
 // ---------------------------------------------------------------------------
-// Custom-faction CPU commander: the generated JASS macro is authoritative for
-// factions 5..8; classic races retain their native melee AI. The fallback uses
-// real worker build orders and guarded production, not free unit spawns.
+// Custom-faction CPU support: the imported common.ai script is the sole macro
+// controller. JASS samples its live economy/army state without issuing orders.
 // ---------------------------------------------------------------------------
-function WM_CountOwnedType takes player p, integer rawcode returns integer
-    local unit u = null
-    local integer count = 0
-    call GroupClear(udg_TempGroupB)
-    call GroupEnumUnitsOfPlayer(udg_TempGroupB, p, null)
-    loop
-        set u = FirstOfGroup(udg_TempGroupB)
-        exitwhen u == null
-        call GroupRemoveUnit(udg_TempGroupB, u)
-        if GetUnitTypeId(u) == rawcode and GetWidgetLife(u) > 0.405 then
-            set count = count + 1
-        endif
-    endloop
-    set u = null
-    return count
-endfunction
-
-function WM_CountLivingHeroes takes player p returns integer
-    local unit u = null
-    local integer total = 0
-    call GroupClear(udg_TempGroupB)
-    call GroupEnumUnitsOfPlayer(udg_TempGroupB, p, null)
-    loop
-        set u = FirstOfGroup(udg_TempGroupB)
-        exitwhen u == null
-        call GroupRemoveUnit(udg_TempGroupB, u)
-        if GetWidgetLife(u) > 0.405 and IsUnitType(u, UNIT_TYPE_HERO) then
-            set total = total + 1
-        endif
-    endloop
-    set u = null
-    return total
-endfunction
-
-function WM_AITryBuild takes unit worker, integer rawcode, real sx, real sy, integer slot returns boolean
-    local integer attempt = 0
-    local real baseAngle = Atan2(sy, sx)
-    local real angle = 0.0
-    local real radius = 820.0
-    local real bx = 0.0
-    local real by = 0.0
-    local real dx = 0.0
-    local real dy = 0.0
-    local real mineD = 99999999.0
-    local unit mine = WM_FindNearestGoldMine(sx, sy)
-    if worker == null then
-        set mine = null
-        return false
+function WM_AIRawcodeHallTier takes integer rawcode returns integer
+    if rawcode == 'hcas' or rawcode == 'ofrt' or rawcode == 'unp2' or rawcode == 'etoe' or rawcode == 'n002' or rawcode == 'h003' or rawcode == 'v003' or rawcode == 't003' then
+        return 3
+    elseif rawcode == 'hkee' or rawcode == 'ostr' or rawcode == 'unp1' or rawcode == 'etoa' or rawcode == 'n001' or rawcode == 'h002' or rawcode == 'v002' or rawcode == 't002' then
+        return 2
+    elseif rawcode == 'htow' or rawcode == 'ogre' or rawcode == 'unpl' or rawcode == 'etol' or rawcode == 'nntt' or rawcode == 'h001' or rawcode == 'v001' or rawcode == 't001' then
+        return 1
     endif
-    // Orbit the base but avoid the nearest gold mine; only accepted build orders count.
-    loop
-        exitwhen attempt >= 12
-        set angle = baseAngle + 0.392699 + I2R(slot + attempt) * 0.785398
-        set radius = 820.0 + I2R(attempt / 4) * 95.0
-        set bx = WM_ClampMapCoord(sx + Cos(angle) * radius)
-        set by = WM_ClampMapCoord(sy + Sin(angle) * radius)
-        set mineD = 99999999.0
-        if mine != null then
-            set dx = bx - GetUnitX(mine)
-            set dy = by - GetUnitY(mine)
-            set mineD = dx * dx + dy * dy
-        endif
-        if mineD >= 600.0 * 600.0 and not IsTerrainPathable(bx, by, PATHING_TYPE_BUILDABILITY) then
-            if IssueBuildOrderById(worker, rawcode, bx, by) then
-                set worker = null
-                set mine = null
-                return true
-            endif
-        endif
-        set attempt = attempt + 1
-    endloop
-    set worker = null
-    set mine = null
-    return false
-endfunction
-
-function WM_AIFindVisibleNaturalMine takes player p, real sx, real sy returns unit
-    local unit u = null
-    local unit nearby = null
-    local unit best = null
-    local integer rawcode = 0
-    local real dx = 0.0
-    local real dy = 0.0
-    local real distSq = 0.0
-    local real bestDistSq = 99999999.0
-    local boolean occupied = false
-    call GroupClear(udg_TempGroupB)
-    call GroupEnumUnitsInRange(udg_TempGroupB, sx, sy, 7000.0, null)
-    loop
-        set u = FirstOfGroup(udg_TempGroupB)
-        exitwhen u == null
-        call GroupRemoveUnit(udg_TempGroupB, u)
-        if GetUnitTypeId(u) == 'ngol' and GetResourceAmount(u) > 2000 and IsUnitVisible(u, p) then
-            set dx = GetUnitX(u) - sx
-            set dy = GetUnitY(u) - sy
-            set distSq = dx * dx + dy * dy
-            if distSq > 4840000.0 and distSq < 49000000.0 and distSq < bestDistSq then
-                set occupied = false
-                call GroupClear(udg_TempGroupA)
-                call GroupEnumUnitsInRange(udg_TempGroupA, GetUnitX(u), GetUnitY(u), 1550.0, null)
-                loop
-                    set nearby = FirstOfGroup(udg_TempGroupA)
-                    exitwhen nearby == null or occupied
-                    call GroupRemoveUnit(udg_TempGroupA, nearby)
-                    set rawcode = GetUnitTypeId(nearby)
-                    if GetWidgetLife(nearby) > 0.405 and IsUnitType(nearby, UNIT_TYPE_STRUCTURE) and IsUnitVisible(nearby, p) and WM_AIIsTownHallRawcode(rawcode) then
-                        set occupied = true
-                    endif
-                endloop
-                if not occupied then
-                    set best = u
-                    set bestDistSq = distSq
-                endif
-            endif
-        endif
-    endloop
-    set nearby = null
-    set u = null
-    return best
-endfunction
-
-function WM_AITryBuildAtPoint takes unit worker, integer rawcode, real sx, real sy, real mineX, real mineY returns boolean
-    local integer attempt = 0
-    local real baseAngle = Atan2(sy - mineY, sx - mineX)
-    local real angle = 0.0
-    local real radius = 820.0
-    local real bx = 0.0
-    local real by = 0.0
-    local real dx = 0.0
-    local real dy = 0.0
-    if worker == null then
-        return false
-    endif
-    loop
-        exitwhen attempt >= 16
-        set angle = baseAngle + I2R(attempt) * 0.392699
-        if attempt >= 8 then
-            set radius = 980.0
-        else
-            set radius = 790.0
-        endif
-        set bx = WM_ClampMapCoord(mineX + Cos(angle) * radius)
-        set by = WM_ClampMapCoord(mineY + Sin(angle) * radius)
-        set dx = bx - mineX
-        set dy = by - mineY
-        if dx * dx + dy * dy >= 610000.0 and not IsTerrainPathable(bx, by, PATHING_TYPE_BUILDABILITY) then
-            if IssueBuildOrderById(worker, rawcode, bx, by) then
-                set worker = null
-                return true
-            endif
-        endif
-        set attempt = attempt + 1
-    endloop
-    set worker = null
-    return false
-endfunction
-
-function WM_AIQueueExpansion takes player p, unit worker, integer hallRawcode, real sx, real sy, real mineX, real mineY returns boolean
-    local integer pid = GetPlayerId(p)
-    if pid < 0 or pid >= 8 or worker == null or hallRawcode == 0 or udg_AIFallbackPendingRaw[pid] != 0 then
-        set p = null
-        set worker = null
-        return false
-    endif
-    if WM_AITryBuildAtPoint(worker, hallRawcode, sx, sy, mineX, mineY) then
-        set udg_AIFallbackPendingRaw[pid] = hallRawcode
-        set udg_AIFallbackPendingUntil[pid] = udg_MatchSeconds + 240
-        set udg_AIExpansionPending[pid] = true
-        set udg_AIExpansionActive[pid] = false
-        set udg_AIExpansionX[pid] = mineX
-        set udg_AIExpansionY[pid] = mineY
-        set udg_AIExpansionOrderAt[pid] = udg_MatchSeconds
-        set udg_AIMetricExpansionOrders[pid] = udg_AIMetricExpansionOrders[pid] + 1
-        set p = null
-        set worker = null
-        return true
-    endif
-    set p = null
-    set worker = null
-    return false
-endfunction
-
-function WM_AIQueueFallbackBuild takes player p, unit worker, integer rawcode, real sx, real sy, integer slot returns boolean
-    local integer pid = GetPlayerId(p)
-    if pid < 0 or pid >= 8 or rawcode == 0 or worker == null then
-        return false
-    endif
-    if udg_AIFallbackPendingRaw[pid] != 0 then
-        return false
-    endif
-    if WM_AITryBuild(worker, rawcode, sx, sy, slot) then
-        set udg_AIFallbackPendingRaw[pid] = rawcode
-        set udg_AIFallbackPendingUntil[pid] = udg_MatchSeconds + 90
-        return true
-    endif
-    return false
-endfunction
-
-function WM_AIFallbackBuild takes player p, integer faction, unit worker, real sx, real sy returns boolean
-    // Distinct build orders adapt standard-race ideas to each custom tech tree:
-    // Naga = fast Altar/Spawning-Grounds pressure; Sunfury = fast Altar then Archer
-    // production; Voidborn = Fiend-like early Rift Gate before its delayed Altar;
-    // Runeforged = early Altar + low-cost tech path inspired by Orc fast-tech.
-    if faction == 5 then
-        if WM_CountOwnedType(p, 'nnfm') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'nnfm', sx, sy, 0)
-        elseif WM_CountOwnedType(p, 'nnad') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'nnad', sx, sy, 1)
-        elseif WM_CountOwnedType(p, 'nnsg') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'nnsg', sx, sy, 2)
-        elseif WM_CountOwnedType(p, 'n004') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'n004', sx, sy, 3)
-        elseif WM_CountOwnedType(p, 'n003') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'n003', sx, sy, 4)
-        elseif WM_CountOwnedType(p, 'nntg') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'nntg', sx, sy, 5)
-        elseif WM_CountOwnedType(p, 'n001') > 0 and WM_CountOwnedType(p, 'nnsa') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'nnsa', sx, sy, 6)
-        elseif WM_CountOwnedType(p, 'n001') > 0 and WM_CountOwnedType(p, 'n005') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'n005', sx, sy, 7)
-        endif
-    elseif faction == 6 then
-        if WM_CountOwnedType(p, 'nefm') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'nefm', sx, sy, 0)
-        elseif WM_CountOwnedType(p, 'h004') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'h004', sx, sy, 1)
-        elseif WM_CountOwnedType(p, 'h007') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'h007', sx, sy, 2)
-        elseif WM_CountOwnedType(p, 'h011') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'h011', sx, sy, 3)
-        elseif WM_CountOwnedType(p, 'h010') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'h010', sx, sy, 4)
-        elseif WM_CountOwnedType(p, 'h005') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'h005', sx, sy, 5)
-        elseif WM_CountOwnedType(p, 'negt') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'negt', sx, sy, 6)
-        elseif WM_CountOwnedType(p, 'h002') > 0 and WM_CountOwnedType(p, 'nheb') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'nheb', sx, sy, 7)
-        elseif WM_CountOwnedType(p, 'h002') > 0 and WM_CountOwnedType(p, 'h008') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'h008', sx, sy, 1)
-        elseif WM_CountOwnedType(p, 'h002') > 0 and WM_CountOwnedType(p, 'h009') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'h009', sx, sy, 2)
-        endif
-    elseif faction == 7 then
-        if WM_CountOwnedType(p, 'v004') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'v004', sx, sy, 0)
-        elseif WM_CountOwnedType(p, 'v005') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'v005', sx, sy, 1)
-        elseif WM_CountOwnedType(p, 'v007') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'v007', sx, sy, 2)
-        elseif WM_CountOwnedType(p, 'v006') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'v006', sx, sy, 3)
-        elseif WM_CountOwnedType(p, 'v008') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'v008', sx, sy, 4)
-        elseif WM_CountOwnedType(p, 'v009') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'v009', sx, sy, 5)
-        elseif WM_CountOwnedType(p, 'v002') > 0 and WM_CountOwnedType(p, 'v018') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'v018', sx, sy, 6)
-        elseif WM_CountOwnedType(p, 'v002') > 0 and WM_CountOwnedType(p, 'v019') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 'v019', sx, sy, 7)
-        endif
-    elseif faction == 8 then
-        if WM_CountOwnedType(p, 't007') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 't007', sx, sy, 0)
-        elseif WM_CountOwnedType(p, 't004') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 't004', sx, sy, 1)
-        elseif WM_CountOwnedType(p, 't005') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 't005', sx, sy, 2)
-        elseif WM_CountOwnedType(p, 't006') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 't006', sx, sy, 3)
-        elseif WM_CountOwnedType(p, 't008') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 't008', sx, sy, 4)
-        elseif WM_CountOwnedType(p, 't009') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 't009', sx, sy, 5)
-        elseif WM_CountOwnedType(p, 't002') > 0 and WM_CountOwnedType(p, 't018') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 't018', sx, sy, 6)
-        elseif WM_CountOwnedType(p, 't002') > 0 and WM_CountOwnedType(p, 't019') == 0 then
-            return WM_AIQueueFallbackBuild(p, worker, 't019', sx, sy, 7)
-        endif
-    endif
-    set p = null
-    set worker = null
-    return false
-endfunction
-
-function WM_AIFallbackSupply takes player p, integer faction, unit worker, real sx, real sy returns boolean
-    local integer supplyId = 0
-    if faction == 5 then
-        set supplyId = 'nnfm'
-    elseif faction == 6 then
-        set supplyId = 'nefm'
-    elseif faction == 7 then
-        set supplyId = 'v004'
-    elseif faction == 8 then
-        set supplyId = 't004'
-    endif
-    if supplyId != 0 then
-        return WM_AIQueueFallbackBuild(p, worker, supplyId, sx, sy, 9)
-    endif
-    return false
-endfunction
-
-function WM_OnAIFallbackBuildFinished takes nothing returns boolean
-    local unit built = GetTriggerUnit()
-    local player owner = null
-    local integer pid = -1
-    if built != null then
-        set owner = GetOwningPlayer(built)
-        set pid = GetPlayerId(owner)
-        if pid >= 0 and pid < 8 and GetUnitTypeId(built) == udg_AIFallbackPendingRaw[pid] then
-            set udg_AIFallbackPendingRaw[pid] = 0
-            set udg_AIFallbackPendingUntil[pid] = 0
-            if udg_AIExpansionPending[pid] then
-                set udg_AIExpansionPending[pid] = false
-                set udg_AIExpansionActive[pid] = true
-                set udg_AIExpansionX[pid] = GetUnitX(built)
-                set udg_AIExpansionY[pid] = GetUnitY(built)
-            endif
-        endif
-    endif
-    set built = null
-    set owner = null
-    return false
-endfunction
-
-function WM_AIChooseMarchObjective takes player p, integer pid, integer armyCount, real homeX, real homeY, unit visibleEnemy returns nothing
-    local integer j = 0
-    local integer slot = 0
-    local integer bestSlot = -1
-    local integer age = 0
-    local integer bestAge = 999999
-    local unit u = null
-    local real enemyX = 0.0
-    local real enemyY = 0.0
-    local real dx = 0.0
-    local real dy = 0.0
-    local real distSq = 0.0
-    local real bestDistSq = 99999999.0
-    local real creepX = 0.0
-    local real creepY = 0.0
-    local real startX = 0.0
-    local real startY = 0.0
-    local boolean decided = false
-    local boolean shrineAllied = false
-
-    set udg_AIObjectiveX[pid] = 0.0
-    set udg_AIObjectiveY[pid] = 0.0
-    set udg_AIObjectiveMode[pid] = 2
-
-    if visibleEnemy != null then
-        set enemyX = GetUnitX(visibleEnemy)
-        set enemyY = GetUnitY(visibleEnemy)
-        if udg_AIExpansionActive[pid] then
-            set dx = enemyX - udg_AIExpansionX[pid]
-            set dy = enemyY - udg_AIExpansionY[pid]
-            if dx * dx + dy * dy < 2250000.0 then
-                set udg_AIObjectiveX[pid] = enemyX
-                set udg_AIObjectiveY[pid] = enemyY
-                set udg_AIObjectiveMode[pid] = 4
-                set decided = true
-            endif
-        endif
-        if not decided then
-            set dx = enemyX - homeX
-            set dy = enemyY - homeY
-            if dx * dx + dy * dy < 1960000.0 then
-                set udg_AIObjectiveX[pid] = enemyX
-                set udg_AIObjectiveY[pid] = enemyY
-                set udg_AIObjectiveMode[pid] = 4
-                set decided = true
-            elseif armyCount >= 8 and udg_MatchSeconds >= 100 then
-                set udg_AIObjectiveX[pid] = enemyX
-                set udg_AIObjectiveY[pid] = enemyY
-                set udg_AIObjectiveMode[pid] = 3
-                set decided = true
-            endif
-        endif
-    endif
-
-    // A live expansion is a temporary rally/guard objective, not a source of
-    // hidden enemy data. The builder's known site is recorded when the order lands.
-    if not decided and udg_AIExpansionPending[pid] and armyCount >= 8 and udg_MatchSeconds - udg_AIExpansionOrderAt[pid] <= 240 then
-        set udg_AIObjectiveX[pid] = udg_AIExpansionX[pid]
-        set udg_AIObjectiveY[pid] = udg_AIExpansionY[pid]
-        set udg_AIObjectiveMode[pid] = 6
-        set decided = true
-    endif
-
-    // Early creep choice uses only currently visible neutral units.
-    if not decided and visibleEnemy == null and udg_MatchSeconds < 240 and armyCount < 10 then
-        set bestDistSq = 27000000.0
-        call GroupClear(udg_TempGroupB)
-        call GroupEnumUnitsOfPlayer(udg_TempGroupB, Player(PLAYER_NEUTRAL_AGGRESSIVE), null)
-        loop
-            set u = FirstOfGroup(udg_TempGroupB)
-            exitwhen u == null
-            call GroupRemoveUnit(udg_TempGroupB, u)
-            if GetWidgetLife(u) > 0.405 and IsUnitVisible(u, p) and not IsUnitType(u, UNIT_TYPE_STRUCTURE) then
-                set dx = GetUnitX(u) - homeX
-                set dy = GetUnitY(u) - homeY
-                set distSq = dx * dx + dy * dy
-                if distSq < bestDistSq then
-                    set bestDistSq = distSq
-                    set creepX = GetUnitX(u)
-                    set creepY = GetUnitY(u)
-                endif
-            endif
-        endloop
-        if bestDistSq < 27000000.0 then
-            set udg_AIObjectiveX[pid] = creepX
-            set udg_AIObjectiveY[pid] = creepY
-            set udg_AIObjectiveMode[pid] = 1
-            set decided = true
-        endif
-    endif
-
-    // Contest the Shrine unless it is held by this AI's actual alliance.
-    if not decided then
-        if udg_ShrineControllerPid >= 0 and udg_ShrineControllerPid < 8 then
-            if Player(udg_ShrineControllerPid) == p or IsPlayerAlly(p, Player(udg_ShrineControllerPid)) then
-                set shrineAllied = true
-            endif
-        endif
-        if not shrineAllied then
-            set udg_AIObjectiveX[pid] = 0.0
-            set udg_AIObjectiveY[pid] = 0.0
-            set udg_AIObjectiveMode[pid] = 2
-            set decided = true
-        endif
-    endif
-
-    // Revisit a recent last-seen location, never a hidden unit's current position.
-    if not decided then
-        set j = 0
-        loop
-            exitwhen j >= 8
-            if j != pid and GetPlayerSlotState(Player(j)) == PLAYER_SLOT_STATE_PLAYING and IsPlayerEnemy(p, Player(j)) then
-                set slot = pid * 8 + j
-                set age = udg_MatchSeconds - udg_AILastSeenAt[slot]
-                if udg_AILastSeenAt[slot] > 0 and age >= 0 and age <= 120 and age < bestAge then
-                    set bestAge = age
-                    set bestSlot = slot
-                endif
-            endif
-            set j = j + 1
-        endloop
-        if bestSlot >= 0 and armyCount >= 8 then
-            set udg_AIObjectiveX[pid] = udg_AILastSeenX[bestSlot]
-            set udg_AIObjectiveY[pid] = udg_AILastSeenY[bestSlot]
-            set udg_AIObjectiveMode[pid] = 5
-            set decided = true
-        endif
-    endif
-
-    // Public start locations are a fair late-game scouting prior when no recent
-    // contact exists; the AI still has to see the base before targeting its units.
-    if not decided and armyCount >= 8 and udg_MatchSeconds >= 180 then
-        set bestDistSq = 99999999.0
-        set j = 0
-        loop
-            exitwhen j >= 8
-            if GetPlayerSlotState(Player(j)) == PLAYER_SLOT_STATE_PLAYING and IsPlayerEnemy(p, Player(j)) then
-                set startX = GetStartLocationX(GetPlayerStartLocation(Player(j)))
-                set startY = GetStartLocationY(GetPlayerStartLocation(Player(j)))
-                set dx = startX - homeX
-                set dy = startY - homeY
-                set distSq = dx * dx + dy * dy
-                if distSq < bestDistSq then
-                    set bestDistSq = distSq
-                    set udg_AIObjectiveX[pid] = startX
-                    set udg_AIObjectiveY[pid] = startY
-                endif
-            endif
-            set j = j + 1
-        endloop
-        if bestDistSq < 99999999.0 then
-            set udg_AIObjectiveMode[pid] = 5
-            set decided = true
-        endif
-    endif
-
-    if not decided then
-        set udg_AIObjectiveX[pid] = 0.0
-        set udg_AIObjectiveY[pid] = 0.0
-        set udg_AIObjectiveMode[pid] = 2
-    endif
-    set u = null
+    return 0
 endfunction
 
 function WM_AIObjectiveLabel takes integer mode returns string
-    if mode == 1 then
-        return "creep"
-    elseif mode == 2 then
-        return "shrine"
-    elseif mode == 3 then
-        return "attack"
-    elseif mode == 4 then
-        return "defend"
-    elseif mode == 5 then
-        return "scout"
-    elseif mode == 6 then
-        return "expand"
+    if mode == 7 then
+        return "native melee script"
     endif
-    return "rally"
+    return "starting"
 endfunction
 
 function WM_OnProAIMacroTick takes nothing returns nothing
     local integer i = 0
     local player p = null
+    local unit u = null
+    local unit contact = null
     local integer f = 0
-    local integer gold = 0
-    local integer lum = 0
-    local integer foodUsed = 0
-    local integer foodCap = 0
+    local integer rawcode = 0
     local integer armyCount = 0
     local integer workerCount = 0
-    local integer goldWorkerCount = 0
-    local integer expansionWorkerCount = 0
-    local integer heroCount = 0
-    local integer desiredWorkers = 0
-    local integer workerId = 0
-    local integer tier = 0
-    local integer productionId = 0
-    local integer productionWait = 0
-    local integer unitFood = 0
-    local integer weaponUpgrade = 0
-    local integer armorUpgrade = 0
-    local integer weaponLevel = 0
-    local integer armorLevel = 0
-    local integer techOrder = 0
-    local integer techWait = 125
-    local integer j = 0
-    local integer rawcode = 0
     local integer hallCount = 0
-    local integer expansionHallId = 0
-    local integer enemyAirCount = 0
-    local integer enemyCasterCount = 0
-    local integer enemyRangedCount = 0
-    local integer enemyTierCount = 0
-    local integer attackOrder = 0
-    local integer currentOrder = 0
+    local integer tier = 0
+    local integer attackCount = 0
+    local integer attackOrder = OrderId("attack")
     local integer ecoBonusG = 0
     local integer ecoBonusL = 0
-    local unit u = null
-    local unit hall = null
-    local unit altar = null
-    local unit rax = null
-    local unit sanctum = null
-    local unit heavyBay = null
-    local unit airBay = null
-    local unit armory = null
-    local unit idleWorker = null
-    local unit aiBuilder = null
-    local unit mine = null
-    local unit expansionMine = null
-    local unit targetEnemy = null
-    local destructable tree = null
-    local rect treeRect = null
-    local real sx = 0.0
-    local real sy = 0.0
-    local real tx = 0.0
-    local real ty = 0.0
-    local real dx = 0.0
-    local real dy = 0.0
-    local real candidateDist = 0.0
-    local real targetDist = 99999999.0
-    local boolean issued = false
-    local boolean didBuild = false
-    local boolean productionAdapted = false
-    local boolean expansionSafe = true
-    local boolean objectiveChanged = false
+    local integer startLoc = 0
+    local real homeX = 0.0
+    local real homeY = 0.0
 
-    // Small, disclosed custom-race support only; tactical quality does most of the scaling.
-    // The macro runs every 4s: Veteran +30g/+15l, Grandmaster +60g/+30l,
-    // Mythic +105g/+45l per minute. Novice receives no economic assistance.
+    // The selected difficulty grants modest, disclosed income to custom empires.
+    // Their imported melee AI scripts—not this telemetry timer—own all macro orders.
     if udg_AIDiff == 2 then
-        set ecoBonusG = 2
+        set ecoBonusG = 1
         set ecoBonusL = 1
     elseif udg_AIDiff == 3 then
-        set ecoBonusG = 4
-        set ecoBonusL = 2
+        set ecoBonusG = 2
+        set ecoBonusL = 1
     elseif udg_AIDiff >= 4 then
-        set ecoBonusG = 7
-        set ecoBonusL = 3
+        set ecoBonusG = 3
+        set ecoBonusL = 2
     endif
-    set attackOrder = OrderId("attack")
 
     loop
         exitwhen i >= 8
         set p = Player(i)
         if GetPlayerSlotState(p) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(p) == MAP_CONTROL_COMPUTER then
             set f = udg_PlayerFaction[i]
-            if f >= 5 and ecoBonusG > 0 then
+            if f >= 5 and udg_AIDispatchSent[i] and ecoBonusG > 0 then
                 call SetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) + ecoBonusG)
                 call SetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER, GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER) + ecoBonusL)
             endif
 
-            set gold = GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD)
-            set lum = GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER)
-            set foodUsed = GetPlayerState(p, PLAYER_STATE_RESOURCE_FOOD_USED)
-            set foodCap = GetPlayerState(p, PLAYER_STATE_RESOURCE_FOOD_CAP)
-            set sx = GetStartLocationX(GetPlayerStartLocation(p))
-            set sy = GetStartLocationY(GetPlayerStartLocation(p))
-            set hall = null
-            set altar = null
-            set rax = null
-            set sanctum = null
-            set heavyBay = null
-            set airBay = null
-            set armory = null
-            set idleWorker = null
-            set aiBuilder = null
-            set mine = null
-            set tree = null
             set armyCount = 0
             set workerCount = 0
-            set goldWorkerCount = 0
-            set expansionWorkerCount = 0
-            set heroCount = 0
             set hallCount = 0
-            set expansionMine = null
-            set targetEnemy = null
-            set udg_AIObjectiveMode[i] = 0
-
-            if f >= 5 then
-                set mine = WM_FindNearestGoldMine(sx, sy)
-                if udg_AIExpansionActive[i] then
-                    set expansionMine = WM_FindNearestGoldMine(udg_AIExpansionX[i], udg_AIExpansionY[i])
-                endif
-                set udg_SearchX = sx
-                set udg_SearchY = sy
-                set udg_NearestTree = null
-                set udg_NearestTreeDist = 99999999.0
-                set treeRect = Rect(sx - 1350.0, sy - 1350.0, sx + 1350.0, sy + 1350.0)
-                call EnumDestructablesInRect(treeRect, null, function WM_EnumNearestTree)
-                call RemoveRect(treeRect)
-                set treeRect = null
-                set tree = udg_NearestTree
-            endif
-
+            set tier = 0
+            set attackCount = 0
             call GroupClear(udg_TempGroupA)
             call GroupEnumUnitsOfPlayer(udg_TempGroupA, p, null)
             loop
@@ -2535,663 +2040,36 @@ function WM_OnProAIMacroTick takes nothing returns nothing
                     set rawcode = GetUnitTypeId(u)
                     if IsUnitType(u, UNIT_TYPE_PEON) or WM_IsCustomAIWorker(f, rawcode) then
                         set workerCount = workerCount + 1
-                        if aiBuilder == null then
-                            set aiBuilder = u
-                        endif
-                        if idleWorker == null and GetUnitCurrentOrder(u) == 0 then
-                            set idleWorker = u
-                        endif
-                        if f >= 5 and mine != null and GetUnitCurrentOrder(u) != 0 then
-                            set dx = GetUnitX(u) - GetUnitX(mine)
-                            set dy = GetUnitY(u) - GetUnitY(mine)
-                            if dx * dx + dy * dy < 390000.0 then
-                                set goldWorkerCount = goldWorkerCount + 1
-                            endif
-                        endif
-                        if f >= 5 and expansionMine != null and GetUnitCurrentOrder(u) != 0 then
-                            set dx = GetUnitX(u) - GetUnitX(expansionMine)
-                            set dy = GetUnitY(u) - GetUnitY(expansionMine)
-                            if dx * dx + dy * dy < 390000.0 then
-                                set expansionWorkerCount = expansionWorkerCount + 1
-                            endif
-                        endif
-                    elseif IsUnitType(u, UNIT_TYPE_HERO) then
-                        set armyCount = armyCount + 1
-                        set heroCount = heroCount + 1
-                        if f >= 5 then
-                            call WM_AIChooseCustomHeroSkill(u, f)
-                        endif
                     elseif IsUnitType(u, UNIT_TYPE_STRUCTURE) then
-                        if f >= 5 and WM_AIIsTownHallRawcode(rawcode) then
+                        if WM_AIIsTownHallRawcode(rawcode) then
                             set hallCount = hallCount + 1
-                        endif
-                        if f == 5 then
-                            if rawcode == 'nntt' or rawcode == 'n001' or rawcode == 'n002' then
-                                set hall = u
-                            elseif rawcode == 'nnad' then
-                                set altar = u
-                            elseif rawcode == 'nnsg' then
-                                set rax = u
-                            elseif rawcode == 'nnsa' then
-                                set sanctum = u
-                            elseif rawcode == 'n005' then
-                                set heavyBay = u
-                            elseif rawcode == 'n004' then
-                                set armory = u
-                            endif
-                        elseif f == 6 then
-                            if rawcode == 'h001' or rawcode == 'h002' or rawcode == 'h003' then
-                                set hall = u
-                            elseif rawcode == 'h004' then
-                                set altar = u
-                            elseif rawcode == 'h007' then
-                                set rax = u
-                            elseif rawcode == 'nheb' then
-                                set sanctum = u
-                            elseif rawcode == 'h008' then
-                                set heavyBay = u
-                            elseif rawcode == 'h009' then
-                                set airBay = u
-                            elseif rawcode == 'h010' then
-                                set armory = u
-                            endif
-                        elseif f == 7 then
-                            if rawcode == 'v001' or rawcode == 'v002' or rawcode == 'v003' then
-                                set hall = u
-                            elseif rawcode == 'v007' then
-                                set altar = u
-                            elseif rawcode == 'v005' then
-                                set rax = u
-                            elseif rawcode == 'v018' then
-                                set sanctum = u
-                            elseif rawcode == 'v019' then
-                                set heavyBay = u
-                            elseif rawcode == 'v006' then
-                                set armory = u
-                            endif
-                        elseif f == 8 then
-                            if rawcode == 't001' or rawcode == 't002' or rawcode == 't003' then
-                                set hall = u
-                            elseif rawcode == 't007' then
-                                set altar = u
-                            elseif rawcode == 't005' then
-                                set rax = u
-                            elseif rawcode == 't018' then
-                                set sanctum = u
-                            elseif rawcode == 't019' then
-                                set heavyBay = u
-                            elseif rawcode == 't006' then
-                                set armory = u
+                            if WM_AIRawcodeHallTier(rawcode) > tier then
+                                set tier = WM_AIRawcodeHallTier(rawcode)
                             endif
                         endif
                     else
                         set armyCount = armyCount + 1
+                        if GetUnitCurrentOrder(u) == attackOrder then
+                            set attackCount = attackCount + 1
+                        endif
                     endif
                 endif
             endloop
 
-            set targetEnemy = null
-            set enemyAirCount = 0
-            set enemyCasterCount = 0
-            set enemyRangedCount = 0
-            set enemyTierCount = 0
-            if f >= 5 then
-                set targetEnemy = WM_AIRefreshEnemyIntel(p, i, sx, sy)
-                set enemyAirCount = udg_AIEnemyAirCount[i]
-                set enemyCasterCount = udg_AIEnemyCasterCount[i]
-                set enemyRangedCount = udg_AIEnemyRangedCount[i]
-                set enemyTierCount = udg_AIEnemyTierCount[i]
-                if hallCount < 2 then
-                    set udg_AIExpansionActive[i] = false
-                    set expansionMine = null
-                endif
-            endif
+            set udg_AIMetricArmy[i] = armyCount
+            set udg_AIMetricWorkers[i] = workerCount
+            set udg_AIMetricTownHalls[i] = hallCount
+            set udg_AIMetricTier[i] = tier
+            set udg_AIMetricAttackOrders[i] = attackCount
+            set udg_AIObjectiveMode[i] = 7
 
-            if f >= 5 then
-                // A timeout is a recovery path if a build order is interrupted or the
-                // client does not deliver CONSTRUCT_FINISH; normal completion clears it.
-                if udg_AIFallbackPendingRaw[i] != 0 and udg_MatchSeconds >= udg_AIFallbackPendingUntil[i] then
-                    set udg_AIFallbackPendingRaw[i] = 0
-                    set udg_AIFallbackPendingUntil[i] = 0
-                    if udg_AIExpansionPending[i] then
-                        set udg_AIExpansionPending[i] = false
-                    endif
-                endif
-                if idleWorker != null then
-                    set aiBuilder = idleWorker
-                endif
-
-                if aiBuilder != null and udg_AIFallbackPendingRaw[i] == 0 then
-                    if foodCap < 90 and foodUsed + 2 >= foodCap then
-                        set didBuild = WM_AIFallbackSupply(p, f, aiBuilder, sx, sy)
-                    else
-                        set didBuild = WM_AIFallbackBuild(p, f, aiBuilder, sx, sy)
-                    endif
-                    if didBuild then
-                        set idleWorker = null
-                    endif
-                endif
-
-                // Keep roughly three workers on Gold; direct all other idle custom workers
-                // to a nearby tree. nmpe/nhew/v010/t010 are recognized explicitly above.
-                if idleWorker != null then
-                    if expansionMine != null and expansionWorkerCount < 3 then
-                        call IssueTargetOrder(idleWorker, "harvest", expansionMine)
-                    elseif goldWorkerCount < 3 and mine != null then
-                        call IssueTargetOrder(idleWorker, "harvest", mine)
-                    elseif tree != null then
-                        call IssueTargetOrder(idleWorker, "harvest", tree)
-                    endif
-                endif
-
-                if f == 5 then
-                    set workerId = 'nmpe'
-                    set desiredWorkers = 13
-                elseif f == 6 then
-                    set workerId = 'nhew'
-                    set desiredWorkers = 14
-                elseif f == 7 then
-                    set workerId = 'v010'
-                    set desiredWorkers = 12
-                else
-                    set workerId = 't010'
-                    set desiredWorkers = 11
-                endif
-                if expansionMine != null then
-                    set desiredWorkers = desiredWorkers + 4
-                endif
-                if hall != null and GetUnitCurrentOrder(hall) == 0 and udg_MatchSeconds >= udg_AINextWorkerOrderAt[i] and workerCount < desiredWorkers and foodUsed + 1 < foodCap and gold >= 75 then
-                    set issued = IssueImmediateOrderById(hall, workerId)
-                    if issued then
-                        set udg_AINextWorkerOrderAt[i] = udg_MatchSeconds + 16
-                    endif
-                endif
-
-                // Custom-tier number drives building, hero, army, and research availability.
-                set tier = 0
-                if f == 5 then
-                    if WM_CountOwnedType(p, 'n002') > 0 then
-                        set tier = 3
-                    elseif WM_CountOwnedType(p, 'n001') > 0 then
-                        set tier = 2
-                    elseif WM_CountOwnedType(p, 'nntt') > 0 then
-                        set tier = 1
-                    endif
-                elseif f == 6 then
-                    if WM_CountOwnedType(p, 'h003') > 0 then
-                        set tier = 3
-                    elseif WM_CountOwnedType(p, 'h002') > 0 then
-                        set tier = 2
-                    elseif WM_CountOwnedType(p, 'h001') > 0 then
-                        set tier = 1
-                    endif
-                elseif f == 7 then
-                    if WM_CountOwnedType(p, 'v003') > 0 then
-                        set tier = 3
-                    elseif WM_CountOwnedType(p, 'v002') > 0 then
-                        set tier = 2
-                    elseif WM_CountOwnedType(p, 'v001') > 0 then
-                        set tier = 1
-                    endif
-                elseif f == 8 then
-                    if WM_CountOwnedType(p, 't003') > 0 then
-                        set tier = 3
-                    elseif WM_CountOwnedType(p, 't002') > 0 then
-                        set tier = 2
-                    elseif WM_CountOwnedType(p, 't001') > 0 then
-                        set tier = 1
-                    endif
-                endif
-
-                // Sequential town-hall tech: prerequisites + idle state + cooldown prevent
-                // a second command from replacing the first while an upgrade is running.
-                set techOrder = 0
-                if f == 5 then
-                    if tier == 1 and WM_CountOwnedType(p, 'nnad') > 0 and WM_CountOwnedType(p, 'nnsg') > 0 then
-                        set techOrder = 'n001'
-                    elseif tier == 2 and WM_CountOwnedType(p, 'nnsa') > 0 and WM_CountOwnedType(p, 'n005') > 0 then
-                        set techOrder = 'n002'
-                    endif
-                elseif f == 6 then
-                    if tier == 1 and WM_CountOwnedType(p, 'h004') > 0 and WM_CountOwnedType(p, 'h007') > 0 and WM_CountOwnedType(p, 'h010') > 0 then
-                        set techOrder = 'h002'
-                    elseif tier == 2 and WM_CountOwnedType(p, 'nheb') > 0 and WM_CountOwnedType(p, 'h008') > 0 then
-                        set techOrder = 'h003'
-                    endif
-                elseif f == 7 then
-                    if tier == 1 and WM_CountOwnedType(p, 'v007') > 0 and WM_CountOwnedType(p, 'v005') > 0 and WM_CountOwnedType(p, 'v006') > 0 then
-                        set techOrder = 'v002'
-                    elseif tier == 2 and WM_CountOwnedType(p, 'v018') > 0 and WM_CountOwnedType(p, 'v019') > 0 then
-                        set techOrder = 'v003'
-                    endif
-                elseif f == 8 then
-                    if tier == 1 and WM_CountOwnedType(p, 't007') > 0 and WM_CountOwnedType(p, 't005') > 0 and WM_CountOwnedType(p, 't006') > 0 then
-                        set techOrder = 't002'
-                    elseif tier == 2 and WM_CountOwnedType(p, 't018') > 0 and WM_CountOwnedType(p, 't019') > 0 then
-                        set techOrder = 't003'
-                    endif
-                endif
-                set techWait = 125
-                if enemyTierCount > tier and udg_AIDiff >= 3 then
-                    set techWait = 70
-                elseif enemyTierCount > tier then
-                    set techWait = 95
-                elseif udg_AIDiff >= 4 then
-                    set techWait = 105
-                endif
-                if hall != null and techOrder != 0 and GetUnitCurrentOrder(hall) == 0 and udg_MatchSeconds >= udg_AINextHallOrderAt[i] and gold >= 340 and lum >= 190 then
-                    set issued = IssueImmediateOrderById(hall, techOrder)
-                    if issued then
-                        set udg_AINextHallOrderAt[i] = udg_MatchSeconds + techWait
-                    endif
-                endif
-
-                // A fair natural expansion needs current vision, a completed T3 main,
-                // a healthy field army, safe home-front intel, and a large resource reserve.
-                set expansionHallId = 0
-                if f == 5 then
-                    set expansionHallId = 'nntt'
-                elseif f == 6 then
-                    set expansionHallId = 'h001'
-                elseif f == 7 then
-                    set expansionHallId = 'v001'
-                elseif f == 8 then
-                    set expansionHallId = 't001'
-                endif
-                set expansionSafe = true
-                if targetEnemy != null then
-                    set dx = GetUnitX(targetEnemy) - sx
-                    set dy = GetUnitY(targetEnemy) - sy
-                    if dx * dx + dy * dy < 6250000.0 then
-                        set expansionSafe = false
-                    endif
-                endif
-                if expansionHallId != 0 and hallCount == 1 and tier >= 3 and armyCount >= 8 and workerCount >= 9 and udg_MatchSeconds >= 300 and udg_MatchSeconds >= udg_AINextExpansionTryAt[i] and not udg_AIExpansionPending[i] and udg_AIFallbackPendingRaw[i] == 0 and expansionSafe and hall != null and GetUnitCurrentOrder(hall) == 0 and GetPlayerState(p, PLAYER_STATE_RESOURCE_GOLD) >= 850 and GetPlayerState(p, PLAYER_STATE_RESOURCE_LUMBER) >= 320 then
-                    set expansionMine = WM_AIFindVisibleNaturalMine(p, sx, sy)
-                    set udg_AINextExpansionTryAt[i] = udg_MatchSeconds + 24
-                    if expansionMine != null then
-                        set didBuild = WM_AIQueueExpansion(p, aiBuilder, expansionHallId, sx, sy, GetUnitX(expansionMine), GetUnitY(expansionMine))
-                        if didBuild then
-                            set aiBuilder = null
-                            set idleWorker = null
-                        endif
-                    endif
-                endif
-
-                // One hero order per altar at a time; the third pick is delayed until Tier 3.
-                if altar != null and GetUnitCurrentOrder(altar) == 0 and udg_MatchSeconds >= udg_AINextHeroOrderAt[i] and heroCount < 3 then
-                    set productionId = 0
-                    if f == 5 then
-                        if WM_CountOwnedType(p, 'Hvsh') == 0 then
-                            set productionId = 'Hvsh'
-                        elseif tier >= 2 and WM_CountOwnedType(p, 'N004') == 0 then
-                            set productionId = 'N004'
-                        elseif tier >= 3 and WM_CountOwnedType(p, 'N001') == 0 then
-                            set productionId = 'N001'
-                        endif
-                    elseif f == 6 then
-                        if WM_CountOwnedType(p, 'Hkal') == 0 then
-                            set productionId = 'Hkal'
-                        elseif tier >= 2 and WM_CountOwnedType(p, 'Hvwd') == 0 then
-                            set productionId = 'Hvwd'
-                        elseif tier >= 3 and WM_CountOwnedType(p, 'Hlgr') == 0 then
-                            set productionId = 'Hlgr'
-                        endif
-                    elseif f == 7 then
-                        if WM_CountOwnedType(p, 'V001') == 0 then
-                            set productionId = 'V001'
-                        elseif tier >= 2 and WM_CountOwnedType(p, 'V002') == 0 then
-                            set productionId = 'V002'
-                        elseif tier >= 3 and WM_CountOwnedType(p, 'V003') == 0 then
-                            set productionId = 'V003'
-                        endif
-                    elseif f == 8 then
-                        if WM_CountOwnedType(p, 'T001') == 0 then
-                            set productionId = 'T001'
-                        elseif tier >= 2 and WM_CountOwnedType(p, 'T003') == 0 then
-                            set productionId = 'T003'
-                        elseif tier >= 3 and WM_CountOwnedType(p, 'T002') == 0 then
-                            set productionId = 'T002'
-                        endif
-                    endif
-                    if productionId != 0 and gold >= 425 and lum >= 100 then
-                        set issued = IssueImmediateOrderById(altar, productionId)
-                        if issued then
-                            set udg_AINextHeroOrderAt[i] = udg_MatchSeconds + 58
-                        endif
-                    endif
-                endif
-
-                // Faction-specific equipment research: choose only one accepted order per tick.
-                set weaponUpgrade = 0
-                set armorUpgrade = 0
-                if f == 5 then
-                    set weaponUpgrade = 'Rnat'
-                    set armorUpgrade = 'Rnam'
-                elseif f == 6 then
-                    set weaponUpgrade = 'Rhra'
-                    set armorUpgrade = 'Rhar'
-                elseif f == 7 then
-                    set weaponUpgrade = 'R000'
-                    set armorUpgrade = 'R001'
-                elseif f == 8 then
-                    set weaponUpgrade = 'R002'
-                    set armorUpgrade = 'R003'
-                endif
-                if weaponUpgrade != 0 and armory != null and GetUnitCurrentOrder(armory) == 0 and udg_MatchSeconds >= udg_AINextUpgradeOrderAt[i] and tier >= 1 and gold >= 160 and lum >= 100 then
-                    set weaponLevel = GetPlayerTechCount(p, weaponUpgrade, true)
-                    set armorLevel = GetPlayerTechCount(p, armorUpgrade, true)
-                    set productionId = 0
-                    if weaponLevel < tier and (weaponLevel <= armorLevel or armorLevel >= tier) then
-                        set productionId = weaponUpgrade
-                    elseif armorLevel < tier then
-                        set productionId = armorUpgrade
-                    endif
-                    if productionId != 0 then
-                        set issued = IssueImmediateOrderById(armory, productionId)
-                        if issued then
-                            set udg_AINextUpgradeOrderAt[i] = udg_MatchSeconds + 42
-                        endif
-                    endif
-                endif
-
-                // District-specific unit mixes react to observed air/ranged pressure while
-                // preserving each faction's baseline frontline and tech-gated roster.
-                set productionId = 0
-                set productionWait = 0
-                set unitFood = 2
-                set productionAdapted = false
-                if rax != null and GetUnitCurrentOrder(rax) == 0 and udg_MatchSeconds >= udg_AINextRaxOrderAt[i] then
-                    if f == 5 then
-                        if enemyAirCount >= 2 and WM_CountOwnedType(p, 'nsnp') < WM_CountOwnedType(p, 'nnmg') + 3 then
-                            set productionId = 'nsnp'
-                            set unitFood = 3
-                            set productionWait = 25
-                            set productionAdapted = true
-                        elseif enemyRangedCount >= 4 and tier >= 2 and WM_CountOwnedType(p, 'nmyr') < (armyCount / 4 + 2) then
-                            set productionId = 'nmyr'
-                            set unitFood = 4
-                            set productionWait = 33
-                            set productionAdapted = true
-                        elseif tier >= 3 and WM_CountOwnedType(p, 'nnrg') < 1 then
-                            set productionId = 'nnrg'
-                            set unitFood = 5
-                            set productionWait = 42
-                        elseif tier >= 2 and WM_CountOwnedType(p, 'nmyr') < (armyCount / 5 + 1) then
-                            set productionId = 'nmyr'
-                            set unitFood = 4
-                            set productionWait = 33
-                        elseif WM_CountOwnedType(p, 'nsnp') < 2 or WM_CountOwnedType(p, 'nsnp') <= WM_CountOwnedType(p, 'nnmg') then
-                            set productionId = 'nsnp'
-                            set unitFood = 3
-                            set productionWait = 25
-                        else
-                            set productionId = 'nnmg'
-                            set productionWait = 19
-                        endif
-                    elseif f == 6 then
-                        if enemyAirCount >= 2 and WM_CountOwnedType(p, 'nhea') < WM_CountOwnedType(p, 'hhes') + 3 then
-                            set productionId = 'nhea'
-                            set productionWait = 20
-                            set productionAdapted = true
-                        elseif enemyRangedCount >= 4 and WM_CountOwnedType(p, 'hhes') < WM_CountOwnedType(p, 'nhea') + 3 then
-                            set productionId = 'hhes'
-                            set productionWait = 20
-                            set productionAdapted = true
-                        elseif tier >= 3 and WM_CountOwnedType(p, 'hcth') < 1 then
-                            set productionId = 'hcth'
-                            set unitFood = 4
-                            set productionWait = 38
-                        elseif WM_CountOwnedType(p, 'nhea') < 2 or WM_CountOwnedType(p, 'nhea') <= WM_CountOwnedType(p, 'hhes') then
-                            set productionId = 'nhea'
-                            set productionWait = 20
-                        else
-                            set productionId = 'hhes'
-                            set productionWait = 20
-                        endif
-                    elseif f == 7 then
-                        if enemyAirCount >= 2 and WM_CountOwnedType(p, 'v012') < WM_CountOwnedType(p, 'v011') + 3 then
-                            set productionId = 'v012'
-                            set unitFood = 3
-                            set productionWait = 25
-                            set productionAdapted = true
-                        elseif enemyRangedCount >= 4 and tier >= 2 and WM_CountOwnedType(p, 'v013') < (armyCount / 4 + 2) then
-                            set productionId = 'v013'
-                            set unitFood = 4
-                            set productionWait = 32
-                            set productionAdapted = true
-                        elseif tier >= 2 and WM_CountOwnedType(p, 'v013') < (armyCount / 5 + 1) then
-                            set productionId = 'v013'
-                            set unitFood = 4
-                            set productionWait = 32
-                        elseif WM_CountOwnedType(p, 'v012') < 2 or WM_CountOwnedType(p, 'v012') <= WM_CountOwnedType(p, 'v011') then
-                            set productionId = 'v012'
-                            set unitFood = 3
-                            set productionWait = 25
-                        else
-                            set productionId = 'v011'
-                            set productionWait = 20
-                        endif
-                    elseif f == 8 then
-                        if enemyAirCount >= 2 and WM_CountOwnedType(p, 't012') < WM_CountOwnedType(p, 't011') + 3 then
-                            set productionId = 't012'
-                            set unitFood = 3
-                            set productionWait = 25
-                            set productionAdapted = true
-                        elseif enemyRangedCount >= 4 and tier >= 2 and WM_CountOwnedType(p, 't013') < (armyCount / 4 + 2) then
-                            set productionId = 't013'
-                            set unitFood = 4
-                            set productionWait = 32
-                            set productionAdapted = true
-                        elseif tier >= 2 and WM_CountOwnedType(p, 't013') < (armyCount / 5 + 1) then
-                            set productionId = 't013'
-                            set unitFood = 4
-                            set productionWait = 32
-                        elseif WM_CountOwnedType(p, 't012') < 2 or WM_CountOwnedType(p, 't012') <= WM_CountOwnedType(p, 't011') then
-                            set productionId = 't012'
-                            set unitFood = 3
-                            set productionWait = 25
-                        else
-                            set productionId = 't011'
-                            set productionWait = 20
-                        endif
-                    endif
-                    if productionId != 0 and foodUsed + unitFood <= foodCap and gold >= 120 then
-                        set issued = IssueImmediateOrderById(rax, productionId)
-                        if issued then
-                            set udg_AINextRaxOrderAt[i] = udg_MatchSeconds + productionWait
-                            if productionAdapted then
-                                set udg_AIMetricCounterOrders[i] = udg_AIMetricCounterOrders[i] + 1
-                            endif
-                        endif
-                    endif
-                endif
-
-                set productionId = 0
-                set productionWait = 0
-                set unitFood = 2
-                set productionAdapted = false
-                if sanctum != null and GetUnitCurrentOrder(sanctum) == 0 and udg_MatchSeconds >= udg_AINextSanctumOrderAt[i] and tier >= 2 then
-                    if f == 5 then
-                        if (enemyAirCount >= 2 or enemyCasterCount >= 2) and WM_CountOwnedType(p, 'nwgs') < WM_CountOwnedType(p, 'nnsw') + 3 then
-                            set productionId = 'nwgs'
-                            set productionAdapted = true
-                        elseif WM_CountOwnedType(p, 'nnsw') < 1 then
-                            set productionId = 'nnsw'
-                        else
-                            set productionId = 'nwgs'
-                        endif
-                    elseif f == 6 then
-                        if enemyCasterCount >= 2 and WM_CountOwnedType(p, 'hspt') < WM_CountOwnedType(p, 'nchp') + 2 then
-                            set productionId = 'hspt'
-                            set unitFood = 3
-                            set productionAdapted = true
-                        elseif WM_CountOwnedType(p, 'nchp') < 1 then
-                            set productionId = 'nchp'
-                        else
-                            set productionId = 'hspt'
-                            set unitFood = 3
-                        endif
-                    elseif f == 7 then
-                        if enemyAirCount >= 2 and WM_CountOwnedType(p, 'v015') < WM_CountOwnedType(p, 'v014') + 2 then
-                            set productionId = 'v015'
-                            set productionAdapted = true
-                        elseif enemyCasterCount >= 2 and WM_CountOwnedType(p, 'v014') < WM_CountOwnedType(p, 'v015') + 2 then
-                            set productionId = 'v014'
-                            set productionAdapted = true
-                        elseif WM_CountOwnedType(p, 'v014') <= WM_CountOwnedType(p, 'v015') then
-                            set productionId = 'v014'
-                        else
-                            set productionId = 'v015'
-                        endif
-                    elseif f == 8 then
-                        if enemyAirCount >= 2 and WM_CountOwnedType(p, 't015') < WM_CountOwnedType(p, 't014') + 2 then
-                            set productionId = 't015'
-                            set productionAdapted = true
-                        elseif enemyCasterCount >= 2 and WM_CountOwnedType(p, 't014') < WM_CountOwnedType(p, 't015') + 2 then
-                            set productionId = 't014'
-                            set productionAdapted = true
-                        elseif WM_CountOwnedType(p, 't014') <= WM_CountOwnedType(p, 't015') then
-                            set productionId = 't014'
-                        else
-                            set productionId = 't015'
-                        endif
-                    endif
-                    if productionId != 0 and foodUsed + unitFood <= foodCap and gold >= 135 then
-                        set issued = IssueImmediateOrderById(sanctum, productionId)
-                        if issued then
-                            set udg_AINextSanctumOrderAt[i] = udg_MatchSeconds + 28
-                            if productionAdapted then
-                                set udg_AIMetricCounterOrders[i] = udg_AIMetricCounterOrders[i] + 1
-                            endif
-                        endif
-                    endif
-                endif
-
-                set productionId = 0
-                set productionWait = 0
-                if heavyBay != null and GetUnitCurrentOrder(heavyBay) == 0 and udg_MatchSeconds >= udg_AINextHeavyOrderAt[i] and tier >= 2 then
-                    if f == 5 then
-                        if tier >= 3 and WM_CountOwnedType(p, 'nnrg') == 0 then
-                            set productionId = 'nnrg'
-                            set unitFood = 5
-                            set productionWait = 42
-                        elseif WM_CountOwnedType(p, 'nhyc') < 1 then
-                            set productionId = 'nhyc'
-                            set unitFood = 4
-                            set productionWait = 36
-                        endif
-                    elseif f == 6 then
-                        if tier >= 3 and WM_CountOwnedType(p, 'nbel') < 1 then
-                            set productionId = 'nbel'
-                            set unitFood = 4
-                            set productionWait = 38
-                        elseif WM_CountOwnedType(p, 'h006') < 1 then
-                            set productionId = 'h006'
-                            set unitFood = 3
-                            set productionWait = 36
-                        else
-                            set productionId = 'hgyr'
-                            set unitFood = 1
-                            set productionWait = 26
-                        endif
-                    elseif f == 7 then
-                        if tier >= 3 and WM_CountOwnedType(p, 'v017') < 1 then
-                            set productionId = 'v017'
-                            set unitFood = 5
-                            set productionWait = 42
-                        else
-                            set productionId = 'v016'
-                            set unitFood = 4
-                            set productionWait = 35
-                        endif
-                    elseif f == 8 then
-                        if tier >= 3 and WM_CountOwnedType(p, 't017') < 1 then
-                            set productionId = 't017'
-                            set unitFood = 5
-                            set productionWait = 42
-                        else
-                            set productionId = 't016'
-                            set unitFood = 4
-                            set productionWait = 35
-                        endif
-                    endif
-                    if productionId != 0 and foodUsed + unitFood <= foodCap and gold >= 180 then
-                        set issued = IssueImmediateOrderById(heavyBay, productionId)
-                        if issued then
-                            set udg_AINextHeavyOrderAt[i] = udg_MatchSeconds + productionWait
-                        endif
-                    endif
-                endif
-
-                if airBay != null and GetUnitCurrentOrder(airBay) == 0 and udg_MatchSeconds >= udg_AINextAirOrderAt[i] and tier >= 2 and f == 6 then
-                    set productionAdapted = false
-                    if enemyAirCount >= 2 and WM_CountOwnedType(p, 'hdhw') < WM_CountOwnedType(p, 'hgry') + 3 then
-                        set productionId = 'hdhw'
-                        set unitFood = 3
-                        set productionAdapted = true
-                    elseif WM_CountOwnedType(p, 'hdhw') <= WM_CountOwnedType(p, 'hgry') then
-                        set productionId = 'hdhw'
-                        set unitFood = 3
-                    else
-                        set productionId = 'hgry'
-                        set unitFood = 4
-                    endif
-                    if foodUsed + unitFood <= foodCap and gold >= 160 then
-                        set issued = IssueImmediateOrderById(airBay, productionId)
-                        if issued then
-                            set udg_AINextAirOrderAt[i] = udg_MatchSeconds + 32
-                            if productionAdapted then
-                                set udg_AIMetricCounterOrders[i] = udg_AIMetricCounterOrders[i] + 1
-                            endif
-                        endif
-                    endif
-                endif
-            endif
-
-            // Dynamic commander: visible threats and defense first, then creep/shrine,
-            // expansion guard, recent last-seen scouting, and finally public start-location scouting.
-            if f >= 5 and armyCount >= 5 and udg_MatchSeconds >= 70 then
-                call WM_AIChooseMarchObjective(p, i, armyCount, sx, sy, targetEnemy)
-                set tx = udg_AIObjectiveX[i]
-                set ty = udg_AIObjectiveY[i]
-                set objectiveChanged = false
-                if udg_AIObjectiveMode[i] != udg_AILastMarchObjectiveMode[i] then
-                    set objectiveChanged = true
-                else
-                    set dx = tx - udg_AILastMarchObjectiveX[i]
-                    set dy = ty - udg_AILastMarchObjectiveY[i]
-                    if dx * dx + dy * dy > 640000.0 or udg_MatchSeconds - udg_AILastMarchObjectiveAt[i] >= 45 then
-                        set objectiveChanged = true
-                    endif
-                endif
-                if objectiveChanged then
-                    set udg_AILastMarchObjectiveMode[i] = udg_AIObjectiveMode[i]
-                    set udg_AILastMarchObjectiveX[i] = tx
-                    set udg_AILastMarchObjectiveY[i] = ty
-                    set udg_AILastMarchObjectiveAt[i] = udg_MatchSeconds
-                endif
-                if armyCount >= 6 or (udg_AIDiff >= 4 and armyCount >= 5) then
-                    call GroupClear(udg_TempGroupA)
-                    call GroupEnumUnitsOfPlayer(udg_TempGroupA, p, null)
-                    loop
-                        set u = FirstOfGroup(udg_TempGroupA)
-                        exitwhen u == null
-                        call GroupRemoveUnit(udg_TempGroupA, u)
-                        if GetWidgetLife(u) > 0.405 and not IsUnitType(u, UNIT_TYPE_PEON) and not IsUnitType(u, UNIT_TYPE_STRUCTURE) and not WM_IsCustomAIWorker(f, GetUnitTypeId(u)) then
-                            set currentOrder = GetUnitCurrentOrder(u)
-                            if currentOrder == 0 or (objectiveChanged and currentOrder == attackOrder) then
-                                set issued = IssuePointOrder(u, "attack", tx, ty)
-                                if issued then
-                                    set udg_AIMetricObjectiveOrders[i] = udg_AIMetricObjectiveOrders[i] + 1
-                                    if udg_AIObjectiveMode[i] == 4 then
-                                        set udg_AIMetricDefenseOrders[i] = udg_AIMetricDefenseOrders[i] + 1
-                                    endif
-                                endif
-                            endif
-                        endif
-                    endloop
-                endif
+            // Sample enemy compositions every eight seconds; all unit reads remain
+            // filtered through IsUnitVisible inside WM_AIRefreshEnemyIntel.
+            if ModuloInteger(udg_MatchSeconds, 8) == 0 then
+                set startLoc = GetPlayerStartLocation(p)
+                set homeX = GetStartLocationX(startLoc)
+                set homeY = GetStartLocationY(startLoc)
+                set contact = WM_AIRefreshEnemyIntel(p, i, homeX, homeY)
             endif
         endif
         set i = i + 1
@@ -3199,20 +2077,7 @@ function WM_OnProAIMacroTick takes nothing returns nothing
 
     set p = null
     set u = null
-    set hall = null
-    set altar = null
-    set rax = null
-    set sanctum = null
-    set heavyBay = null
-    set airBay = null
-    set armory = null
-    set idleWorker = null
-    set aiBuilder = null
-    set mine = null
-    set expansionMine = null
-    set targetEnemy = null
-    set tree = null
-    set treeRect = null
+    set contact = null
 endfunction
 
 // ============================================================================
@@ -3327,9 +2192,9 @@ function WM_OnBootMenus takes nothing returns nothing
         call DialogClear(udg_HostAIDialog)
         call DialogSetMessage(udg_HostAIDialog, "|cffffd700★ CROWN OF WARMAHDI — AI DIFFICULTY ★|r\n|cff94a3b8Host: Decision quality rises by level; custom AI income support is shown on each option.|r")
         set udg_BtnDiff1 = DialogAddButton(udg_HostAIDialog, "|cff4ade80[1] Novice Commander|r  |cff94a3b8(Relaxed • no income bonus)|r", '1')
-        set udg_BtnDiff2 = DialogAddButton(udg_HostAIDialog, "|cff38bdf8[2] Veteran Tactician|r  |cff94a3b8(Improved micro • +2g/+1l per 4s)|r", '2')
-        set udg_BtnDiff3 = DialogAddButton(udg_HostAIDialog, "|cffa855f7[3] Grandmaster Pro|r  |cff94a3b8(Adaptive counters • +4g/+2l per 4s)|r", '3')
-        set udg_BtnDiff4 = DialogAddButton(udg_HostAIDialog, "|cfff43f5e[4] ★ WarMahdi Mythic ★|r  |cffd1d5db(Full micro • +7g/+3l per 4s)|r", '4')
+        set udg_BtnDiff2 = DialogAddButton(udg_HostAIDialog, "|cff38bdf8[2] Veteran Tactician|r  |cff94a3b8(Improved micro • +1g/+1l per 4s)|r", '2')
+        set udg_BtnDiff3 = DialogAddButton(udg_HostAIDialog, "|cffa855f7[3] Grandmaster Pro|r  |cff94a3b8(Adaptive counters • +2g/+1l per 4s)|r", '3')
+        set udg_BtnDiff4 = DialogAddButton(udg_HostAIDialog, "|cfff43f5e[4] ★ WarMahdi Mythic ★|r  |cffd1d5db(Full micro • +3g/+2l per 4s)|r", '4')
         call DialogDisplay(Player(udg_HostPlayerId), udg_HostAIDialog, true)
         call TimerStart(udg_DiffTimeoutTimer, 12.00, false, function WM_OnDiffTimeout)
     else
@@ -3381,18 +2246,40 @@ endfunction
 
 function WM_ShowAIMetrics takes player viewer returns nothing
     local integer i = 0
+    local integer f = 0
+    local integer extraHalls = 0
+    local integer gold = 0
+    local integer lumber = 0
     local boolean found = false
+    local string controller = "native melee AI"
     loop
         exitwhen i >= 8
-        if GetPlayerSlotState(Player(i)) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(Player(i)) == MAP_CONTROL_COMPUTER and udg_PlayerFaction[i] >= 5 then
+        if GetPlayerSlotState(Player(i)) == PLAYER_SLOT_STATE_PLAYING and GetPlayerController(Player(i)) == MAP_CONTROL_COMPUTER then
             set found = true
-            call DisplayTimedTextToPlayer(viewer, 0.0, 0.0, 12.0, "|cff38bdf8[AI]|r " + GetPlayerName(Player(i)) + " — " + WM_GetDiffLabel(udg_AIDiff) + " | plan: " + WM_AIObjectiveLabel(udg_AIObjectiveMode[i]) + " | seen: " + I2S(udg_AIMetricVisibleContacts[i]) + " | orders: " + I2S(udg_AIMetricObjectiveOrders[i]) + " | defend: " + I2S(udg_AIMetricDefenseOrders[i]))
-            call DisplayTimedTextToPlayer(viewer, 0.0, 0.0, 12.0, "  retreat: " + I2S(udg_AIMetricRetreatOrders[i]) + " | focus: " + I2S(udg_AIMetricFocusOrders[i]) + " | spell orders: " + I2S(udg_AIMetricSpellOrders[i]) + " | counter orders: " + I2S(udg_AIMetricCounterOrders[i]) + " | expansions: " + I2S(udg_AIMetricExpansionOrders[i]))
+            set f = udg_PlayerFaction[i]
+            if udg_AIDispatchSent[i] then
+                if f >= 5 then
+                    set controller = "custom melee dispatch sent"
+                else
+                    set controller = "classic melee dispatch sent"
+                endif
+            else
+                set controller = "melee dispatch not sent"
+            endif
+            set extraHalls = udg_AIMetricTownHalls[i] - 1
+            if extraHalls < 0 then
+                set extraHalls = 0
+            endif
+            set gold = GetPlayerState(Player(i), PLAYER_STATE_RESOURCE_GOLD)
+            set lumber = GetPlayerState(Player(i), PLAYER_STATE_RESOURCE_LUMBER)
+            call DisplayTimedTextToPlayer(viewer, 0.0, 0.0, 12.0, "|cff38bdf8[AI]|r " + GetPlayerName(Player(i)) + " — " + WM_GetFactionLabel(f) + " | " + WM_GetDiffLabel(udg_AIDiff) + " | " + controller)
+            call DisplayTimedTextToPlayer(viewer, 0.0, 0.0, 12.0, "  army: " + I2S(udg_AIMetricArmy[i]) + " | workers: " + I2S(udg_AIMetricWorkers[i]) + " | halls: " + I2S(udg_AIMetricTownHalls[i]) + " | tier: " + I2S(udg_AIMetricTier[i]) + " | attack orders: " + I2S(udg_AIMetricAttackOrders[i]))
+            call DisplayTimedTextToPlayer(viewer, 0.0, 0.0, 12.0, "  gold/lumber: " + I2S(gold) + "/" + I2S(lumber) + " | extra halls: " + I2S(extraHalls) + " | visible contacts seen: " + I2S(udg_AIMetricVisibleContacts[i]) + " | hero spells: " + I2S(udg_AIMetricSpellOrders[i]))
         endif
         set i = i + 1
     endloop
     if not found then
-        call DisplayTimedTextToPlayer(viewer, 0.0, 0.0, 8.0, "|cff38bdf8[AI]|r No custom-faction AI opponents are active in this match.")
+        call DisplayTimedTextToPlayer(viewer, 0.0, 0.0, 8.0, "|cff38bdf8[AI]|r No computer opponents are active in this match.")
     endif
     set viewer = null
 endfunction
@@ -3470,7 +2357,7 @@ function WM_CreateImperialCodexQuests takes nothing returns nothing
 
     call QuestSetTitle(q2, "Quick Commands & Pro AI")
     call QuestSetIconPath(q2, "ReplaceableTextures\\CommandButtons\\BTNHeroTinker.blp")
-    call QuestSetDescription(q2, "• Host picks AI Difficulty at 0:00; each custom-race income bonus is shown before selection.\n• Type -aistats during play to inspect AI objectives, visible contacts, defense, retreat, spell and counter-order counts.\n• Type -race (or -abyss / -sun / -void / -titan) in the opening 40s to switch empire.")
+    call QuestSetDescription(q2, "• Host picks AI Difficulty at 0:00; custom-race support is shown before selection.\n• Custom AI scripts contain worker/tech/army, creep/defense, expansion and attack-wave routines; JASS adds hero spell micro.\n• Type -aistats during play to inspect each AI's dispatch flag, army, workers, halls, tier, attack orders and resources; dispatch does not prove the script is executing.\n• Type -race (or -abyss / -sun / -void / -titan) in the opening 40s to switch empire.")
     call QuestSetRequired(q2, false)
     set q1 = null
     set q2 = null
@@ -3490,7 +2377,6 @@ function InitCustomRacesAndAI takes nothing returns nothing
     local trigger spellTrig = CreateTrigger()
     local trigger killTrig = CreateTrigger()
     local trigger trainTrig = CreateTrigger()
-    local trigger buildTrig = CreateTrigger()
     local location initLoc = null
 
     set udg_TempGroupA = CreateGroup()
@@ -3508,7 +2394,7 @@ function InitCustomRacesAndAI takes nothing returns nothing
         set udg_PlayerKills[i] = 0
         set udg_PlayerChoseRace[i] = false
         set udg_PlayerLockedInLobby[i] = false
-        set udg_AIStarted[i] = false
+        set udg_AIDispatchSent[i] = false
         set udg_PlayerFaction[i] = WM_GetVanillaFaction(p)
 
         call TriggerRegisterDialogEvent(raceTrig, udg_RaceDialog[i])
@@ -3516,7 +2402,6 @@ function InitCustomRacesAndAI takes nothing returns nothing
         call TriggerRegisterPlayerUnitEvent(spellTrig, p, EVENT_PLAYER_UNIT_SPELL_EFFECT, null)
         call TriggerRegisterPlayerUnitEvent(killTrig, p, EVENT_PLAYER_UNIT_DEATH, null)
         call TriggerRegisterPlayerUnitEvent(trainTrig, p, EVENT_PLAYER_UNIT_TRAIN_FINISH, null)
-        call TriggerRegisterPlayerUnitEvent(buildTrig, p, EVENT_PLAYER_UNIT_CONSTRUCT_FINISH, null)
 
         if GetPlayerSlotState(p) == PLAYER_SLOT_STATE_PLAYING then
             if GetPlayerController(p) == MAP_CONTROL_USER and udg_HostPlayerId < 0 then
@@ -3550,6 +2435,9 @@ function InitCustomRacesAndAI takes nothing returns nothing
                 call WM_ConfigureTechCaps(p)
             endif
         endif
+        // Warcraft III defaults the food ceiling to 100. Raise it for every player only after
+        // starting units/custom empires have initialized their player state.
+        call SetPlayerState(p, PLAYER_STATE_FOOD_CAP_CEILING, WM_FOOD_CAP_LIMIT)
         set i = i + 1
     endloop
 
@@ -3560,26 +2448,25 @@ function InitCustomRacesAndAI takes nothing returns nothing
     call TriggerAddCondition(spellTrig, Condition(function WM_OnCustomHeroSpellEffect))
     call TriggerAddCondition(killTrig, Condition(function WM_OnUnitDeathTrackKills))
     call TriggerAddCondition(trainTrig, Condition(function WM_OnHeroTrainedGrantScroll))
-    call TriggerAddCondition(buildTrig, Condition(function WM_OnAIFallbackBuildFinished))
 
     call WM_CreateImperialCodexQuests()
 
-    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v8 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc64 Hero-Specific Skills|r • |cfff97316Pro AI|r")
+    call DisplayTimedTextToPlayer(GetLocalPlayer(), 0.0, 0.0, 12.0, "|cffffd700★ (8) Crown of WarMahdi v9 ★|r — |cff22d3ee8 Playable Empires|r • |cffc084fc600 Supply Ceiling|r • |cffc084fc64 Hero-Specific Skills|r • |cfff97316Pro AI|r")
 
     set udg_BootTimer = CreateTimer()
     set udg_DiffTimeoutTimer = CreateTimer()
     set udg_RaceTimeoutTimer = CreateTimer()
     set udg_ChatLockTimer = CreateTimer()
     set udg_HUDTimer = CreateTimer()
-    set udg_AIBrainTimer = CreateTimer()
+    set udg_AIMaintenanceTimer = CreateTimer()
     set udg_AIMicroTimer = CreateTimer()
     set udg_UltWaveTimer = CreateTimer()
 
     call TimerStart(udg_BootTimer, 0.20, false, function WM_OnBootMenus)
     call TimerStart(udg_ChatLockTimer, 40.00, false, function WM_OnLockChatSwitch)
     call TimerStart(udg_HUDTimer, 2.00, true, function WM_OnHUDAndShrineTick)
-    call TimerStart(udg_AIBrainTimer, 4.00, true, function WM_OnProAIMacroTick)
-    call TimerStart(udg_AIMicroTimer, 1.60, true, function WM_OnAITacticalMicroTick)
+    call TimerStart(udg_AIMaintenanceTimer, 4.00, true, function WM_OnProAIMacroTick)
+    call TimerStart(udg_AIMicroTimer, 2.40, true, function WM_OnAITacticalMicroTick)
     call TimerStart(udg_UltWaveTimer, 0.55, true, function WM_OnUltWaveTick)
 
     set p = null
@@ -3589,7 +2476,6 @@ function InitCustomRacesAndAI takes nothing returns nothing
     set spellTrig = null
     set killTrig = null
     set trainTrig = null
-    set buildTrig = null
 endfunction
 """
     return globals_jass, functions_jass

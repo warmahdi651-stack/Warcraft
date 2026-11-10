@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>(8) Crown of WarMahdi v8 — ۸ امپراتوری، ۱۶ هیرو و ۶۴ اسکیل بازطراحی‌شده</title>
+  <title>(8) Crown of WarMahdi v9 — ۸ امپراتوری، ۱۶ هیرو و ۶۴ اسکیل بازطراحی‌شده</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -11,17 +11,17 @@
     <div class="brand-group">
       <div class="crest-badge" aria-hidden="true">👑</div>
       <div>
-        <div class="eyebrow">CLASSIC WARCRAFT III TFT 1.26a / 1.27b • 8-EMPIRE SUNKEN-ASTRAL ALTERED MELEE v8</div>
-        <h1>(8) Crown of WarMahdi v8 <span class="sub-fa">| ۸ نژاد (۴ امپراتوری جدید) • ۱۶ هیرو با ۶۴ اسکیل اختصاصی • ۶۴ آیکون و جلوهٔ MDX اختصاصی • مدل‌های نژادی درست</span></h1>
+        <div class="eyebrow">CLASSIC WARCRAFT III TFT 1.26a / 1.27b • 8-EMPIRE SUNKEN-ASTRAL ALTERED MELEE v9</div>
+        <h1>(8) Crown of WarMahdi v9 <span class="sub-fa">| ۸ نژاد (۴ امپراتوری جدید) • ۱۶ هیرو با ۶۴ اسکیل اختصاصی • ۶۴ آیکون و جلوهٔ MDX اختصاصی • مدل‌های نژادی درست</span></h1>
       </div>
     </div>
 
     <div class="topbar-actions">
-      <span class="verified-pill" title="MPQ + native race/building model references + 64 custom skill-icon pairs + 17 static checks + 64 skill VFX models + 3 unique Naga building MDXs">
-        ✓ ۱۷/۱۷ بررسی استاتیک، ۶۴ آیکون و اسکیل یکتا
+      <span class="verified-pill" title="MPQ + native race/building model references + 64 skill-icon pairs + 16 hero portrait pairs + 12 hall-tier icon pairs + 18 static checks + 70 VFX MDXs + 6 unique Naga building MDXs">
+        ✓ ۱۸/۱۸ بررسی استاتیک، ۱۶ پرتره، ۱۲ نشان تالار و ۶۴ آیکون مهارت
       </span>
       <button id="btnOpenManifest" class="btn-secondary" type="button">
-        ۳۵۹ فایل MPQ • ۲۶۱ بافت BLP1 • ۷۳ مدل MDX (۳ ساختمان) • ۱۷ آزمون
+        ۴۰۱ فایل MPQ • ۳۰۰ بافت BLP1 • ۷۶ مدل MDX (۶ ساختمان) • ۱۸ آزمون
       </button>
     </div>
   </header>
@@ -32,34 +32,32 @@
       <div class="dl-title-row">
         <img src="./crown_artwork.png" alt="Crown of WarMahdi Custom Lobby Artwork" style="width:76px;height:76px;border-radius:12px;border:2px solid #f59e0b;box-shadow:0 0 18px rgba(245,158,11,0.45);object-fit:cover;flex-shrink:0;" />
         <div>
-          <h2>دانلود مستقیم نسخه v8: <code dir="ltr">(8)CrownOfWarMahdi.w3x</code></h2>
-          <p>حجم: <strong id="mapSizeDisplay">— مگابایت</strong> (<code id="mapBytesDisplay">— bytes</code>) • <strong>۴ امپراتوری با مدل‌های نژادی مناسب، ۱۶ قهرمان، ۶۴ آیکون مهارت دست‌ساز و ۶۴ جلوهٔ اختصاصی، بازشدن صحیح مهارت‌ها، بازگشت Mana Burn و Phoenix و Resurrection، ۱۰ جفت پرتره و AI تاکتیکی‌تر</strong></p>
+          <h2>دانلود مستقیم نسخه v9: <code dir="ltr">(8)CrownOfWarMahdi.w3x</code></h2>
+          <p>حجم: <strong id="mapSizeDisplay">— مگابایت</strong> (<code id="mapBytesDisplay">— bytes</code>) • <strong>۴ امپراتوری با مدل‌های نژادی مناسب، سقف غذا ۶۰۰، ۱۶ قهرمان با پرترهٔ اختصاصی، ۶۴ آیکون مهارت دست‌ساز و ۶۴ جلوهٔ اختصاصی، ۱۲ نشان تالار با پیشرفت Tier، بازگشت Mana Burn و Phoenix و Resurrection، و اصلاح مسیر اجرای melee-AI</strong></p>
         </div>
       </div>
     </div>
 
     <div class="download-hero-buttons">
-      <button id="btnBlobDownload" type="button" class="btn-gold-xl">
-        ⬇ دانلود فوری فایل مپ (.w3x)
-      </button>
-      <a id="linkNewTabDownload" class="btn-newtab" href="./CrownOfWarMahdi.w3x" target="_blank" rel="noopener">
-        ↗ لینک مستقیم دانلود (در تب جدید)
+      <a id="btnDirectDownload" class="btn-gold-xl" href="./api/download" download="(8)CrownOfWarMahdi.w3x">
+        ⬇ دانلود مستقیم فایل مپ (.w3x)
+      </a>
+      <a id="linkDownloadFallback" class="btn-newtab" href="./api/download" download="(8)CrownOfWarMahdi.w3x">
+        ⤓ لینک دانلود جایگزین (در همین پیش‌نمایش)
       </a>
     </div>
 
-    <div class="direct-url-bar">
-      <span class="url-label">لینک مستقیم دانلود (کپی و در تب جدید باز کنید):</span>
-      <input id="directUrlInput" class="url-input" type="text" readonly dir="ltr" value="" />
-      <button id="btnCopyUrl" type="button" class="btn-copy">📋 کپی لینک دانلود</button>
-      <span id="dlStatusMsg" class="dl-status" aria-live="polite"></span>
+    <div class="direct-url-bar" role="note">
+      <span class="url-label">مسیر دانلود درون Preview:</span>
+      <code dir="ltr">./api/download</code>
     </div>
-    <div id="iframeNotice" class="iframe-notice hidden">
-      💡 <strong>نکته مهم مرورگر:</strong> پنل داخلی Preview در حالت Sandbox است و دانلود مستقیم فایل را مسدود می‌کند. برای دانلود تک‌کلیکی، <strong>روی لینک دانلود مستقیم GitHub در پیام چت کلیک کنید</strong>، یا دکمه <strong>«کپی لینک دانلود»</strong> بالا را بزنید و در یک تب جدید مرورگر Paste کنید!
+    <div class="download-sandbox-note" role="note">
+      ⚠️ اگر مرورگر داخل Preview اجازهٔ ذخیره نداد، فایل <code>(8)CrownOfWarMahdi.w3x</code> را از پیوست همین گفتگو دانلود کنید؛ لینک Preview را بیرون Arena باز نکنید.
     </div>
   </section>
 
   <main class="workspace-grid">
-    <!-- Right Panel (RTL start): v8 Menus, Hero Kits, Race Builds & Map Stats -->
+    <!-- Right Panel (RTL start): v9 Menus, Hero Kits, Race Builds & Map Stats -->
     <aside class="panel controls-panel">
       <section class="card">
         <h2 class="card-title">منوی جدید سختی AI (برای هاست) + انتخاب روان ۸ امپراتوری</h2>
@@ -81,34 +79,37 @@
       </section>
 
       <section class="card">
-        <h2 class="card-title">استراتژی‌های مستقل AI برای هر امپراتوری</h2>
+        <h2 class="card-title">اسکریپت‌های melee-AI برای چهار امپراتوری سفارشی</h2>
         <ul class="lobby-guide-list">
           <li><strong style="color:#fbbf24">Sunfury:</strong> Altar زودهنگام و Archers سریع، سپس swordsman، caster، siege و هوایی.</li>
           <li><strong style="color:#c084fc">Voidborn:</strong> Rift Gate و ranged pressure پیش از Altar دیرتر و ارتقای سریع Tier.</li>
           <li><strong style="color:#22d3ee">Abyssal:</strong> Coral Bed، Altar و Spawning Grounds برای فشار زودهنگام Naga.</li>
           <li><strong style="color:#f97316">Runeforged:</strong> Altar زودهنگام و Thunder Arquebusier، با سرمایه‌گذاری کنترل‌شده روی tech.</li>
-          <li><strong>دید منصفانه:</strong> counter و انتخاب هدف فقط از دشمن قابل‌مشاهده می‌آید؛ آخرین مختصات ۱۲۰ ثانیه اعتبار دارد و ترکیب هوایی/کستر/رنج نیز کهنه‌شدن تدریجی دارد.</li>
-          <li><strong>فرماندهی پویا:</strong> میان کریپ، Shrine، دفاع، حمله و گشتِ آخرین موقعیت/شروع عمومی انتخاب می‌کند؛ پس از Tier 3، اگر natural mine اکنون دیده و محلش معتبر باشد، گسترش می‌دهد.</li>
+          <li><strong>دید منصفانه و telemetry:</strong> اسکن‌های JASS فقط واحدهای قابل‌مشاهده را می‌خوانند؛ آخرین تماس با زمان مشاهده ثبت می‌شود و دادهٔ ترکیب دشمن با گذشت زمان کهنه می‌شود. این داده برای telemetry است، نه کنترل ساخت یا counter-production.</li>
+          <li><strong>منطق اسکریپت‌های سفارشی:</strong> هر چهار اسکریپت مسیرهای HarvestGold/HarvestWood، پیشرفت Tier، فراخوانی SetExpansion و تشکیل assault group با SingleMeleeAttack را دارند. این‌ها مسیرهای موجود در کد هستند؛ نتیجهٔ creeping، گسترش به معدن و حمله هنوز باید در Classic client آزمایش شود.</li>
+          <li><strong>سقف غذا:</strong> سقف Classic تا <code>600</code> بالا رفته است؛ اسکریپت‌های سفارشی برای ساخت supply/farmهای لازم تا این سقف تنظیم شده‌اند. رسیدن هر نژاد به این حد و کیفیت مدیریت سفارش‌ها باید داخل بازی بررسی شود.</li>
         </ul>
-        <p class="hint-text">AI نژادهای کلاسیک از melee AI خود بازی استفاده می‌کند؛ برای چهار نژاد سفارشی، کنترلر JASS یگانه با صف ساخت، cooldown آموزش، میکروی گروهی و ارزیابی جادوی هیرو فعال است. میزبان پیش از بازی پاداش دشواری را می‌بیند؛ بازیکنان می‌توانند ‎-aistats‎ را برای آمار هدف، تماس، دفاع، عقب‌نشینی، counter و گسترش وارد کنند.</p>
+        <p class="hint-text">در کد، نژادهای کلاسیک به melee-AI بازی و چهار نژاد سفارشی به اسکریپت‌های جداگانهٔ واردشده به آرشیو متصل شده‌اند. JASS برای AI سفارشی پاداش اقتصادِ دشواری، telemetry با دید منصفانه و پشتیبانی تاکتیکی/مهارت برای هیروها را فراهم می‌کند؛ صف ساخت، آموزش نیرو یا راهپیمایی ارتش را دوباره صادر نمی‌کند. ‎-aistats‎ وضعیت فراخوانی اسکریپت (نه اثبات اجرای آن)، ارتش، کارگرها، تالار/Tier، واحدهای روی دستور حمله، تماس‌های قابل‌مشاهده و تعداد دستور مهارت هیرو را نشان می‌دهد. بررسی خودکار پاس شده، اما آزمون داخل بازی Classic هنوز در انتظار است.</p>
       </section>
 
       <section class="card">
-        <h2 class="card-title">مدل‌های ساختمان نژادی و بدون تکرارِ نقش</h2>
+        <h2 class="card-title">مدل‌های ساختمان نژادی و پیشرفت تالارها</h2>
         <ul class="lobby-guide-list">
-          <li><strong style="color:#22d3ee">Abyssal / Naga:</strong> سه مدل تازه و اختصاصی برای Tidal Treasury، Coral Forge و Abyssal Behemoth Pool؛ مدل‌های بومی Shrine، Altar و Spawning Grounds برای ساختمان‌های اصلی‌شان حفظ شده‌اند.</li>
-          <li><strong style="color:#fbbf24">Sunfury:</strong> مدل‌های Human-native متناسب با نقش ساختمان‌ها برای Arcane Vault، Barracks، Workshop، Gryphon Aviary و Lumbermill.</li>
+          <li><strong style="color:#22d3ee">Abyssal / Naga:</strong> Temple of Tides، Sanctuary و Abyssal Citadel سه مدل تازهٔ T1/T2/T3 دارند؛ Tidal Treasury، Coral Forge و Behemoth Pool نیز هرکدام مدل جدا دارند. دیگر سازه‌ها از معماری بومی Naga استفاده می‌کنند.</li>
+          <li><strong style="color:#fbbf24">Sunfury:</strong> تالارهای T1/T2/T3 از زنجیره و خانوادهٔ مدل بومی Human Town Hall → Keep → Castle پیروی می‌کنند و مقیاس/رنگ ویژهٔ Sunfury دارند؛ Arcane Vault، Barracks، Workshop، Gryphon Aviary و Lumbermill نیز با نقش‌شان هماهنگ‌اند.</li>
           <li><strong style="color:#c084fc">Voidborn:</strong> Altar، Ziggurat Tower و Bone Yard از خانوادهٔ Undead؛ <strong style="color:#f97316">Runeforged:</strong> Altar، shop و Watch Tower از خانوادهٔ Orc.</li>
+          <li>۱۲ تالار چهار امپراتوری، آیکون‌های اختصاصیِ جناح و Tier دارند؛ نشان یک/دو/سه‌مرحله‌ای، ارتقای تالار را سریع‌تر قابل‌تشخیص می‌کند.</li>
         </ul>
-        <p class="hint-text">برای نقش‌های جدا مدل تکراری نیست؛ اشتراک‌ها فقط زنجیره‌های ارتقای بومی بازی‌اند: Town Hall، Great Hall، Necropolis، Tree of Life و Ziggurat، به‌علاوهٔ Temple/Sanctuary/Citadel ناگا و سه تالار Sunfury.</p>
+        <img src="./faction_halls_preview.png" alt="دوازده آیکون تالار برای چهار امپراتوری در Tierهای یک تا سه" loading="lazy" style="width:100%;margin:10px 0;border-radius:8px;border:1px solid rgba(148,163,184,0.28);" />
+        <p class="hint-text">مدل‌های Naga برای هر سه تالار و سه سازهٔ ویژه یکتا هستند. مدل‌های Human، Orc، Undead و Night Elf فقط در زنجیرهٔ ارتقای بومی خود تکرار می‌شوند؛ هزینه‌ها و قواعد بازی در این تغییر بصری دست‌نخورده‌اند.</p>
       </section>
 
       <section class="card">
-        <h2 class="card-title">کاور مپ + ۶۴ آیکون مهارت اصیل + ۱۰ جفت پرترهٔ اختصاصی</h2>
+        <h2 class="card-title">کاور مپ + ۶۴ آیکون مهارت اصیل + ۱۶ جفت پرترهٔ اختصاصی</h2>
         <div style="display:flex;flex-direction:column;gap:8px;">
-          <img src="./custom_icons_preview.png" alt="ده پرتره اختصاصی قهرمانان ناگا، الف، انسان و ویدبورن" style="width:100%;border-radius:8px;border:1px solid rgba(148,163,184,0.28);" />
+          <img src="./custom_icons_preview.png" alt="پرتره‌های اختصاصی هر ۱۶ قهرمانِ چهار امپراتوری سفارشی" style="width:100%;border-radius:8px;border:1px solid rgba(148,163,184,0.28);" />
           <p class="hint-text" style="margin:0;">
-            هر یک از ۶۴ مهارت Q/W/E/R، آیکون ۶۴×۶۴ اختصاصی و جفت عادی/غیرفعال هماهنگ با نژاد و قهرمان خود دارد؛ مدل MDX و مکانیک هر مهارت نیز جداست. اسکیل‌های عادی در سطح‌های ۱، ۳ و ۵ و آلتیمیت‌ها از سطح ۶ در دسترس‌اند. Mana Burn، Phoenix و Resurrection نیز بازگشته‌اند؛ ۱۰ قهرمان پرترهٔ اختصاصی دارند. نقشه شامل ۲۶۱ فایل BLP1 (۱۴۸ تصویر پالت‌دارِ پرتره و آیکون مهارت)، چهار اطلس نشانگر، ۶ نشان نژادی، ۶۴ جلوهٔ مهارت و ۳ مدل ساختمان اختصاصی Naga است. برای دیدن طرح کامل هر نژاد، گالری‌ها را باز کنید.
+            هر یک از ۶۴ مهارت Q/W/E/R، آیکون ۶۴×۶۴ اختصاصی و جفت عادی/غیرفعال هماهنگ با نژاد و قهرمان خود دارد؛ مدل MDX و مکانیک هر مهارت نیز جداست. اسکیل‌های عادی در سطح‌های ۱، ۳ و ۵ و آلتیمیت‌ها از سطح ۶ در دسترس‌اند. هر ۱۶ قهرمان پرترهٔ اختصاصی دارند و ۱۲ تالار، جفت آیکونِ جناح/Tier جداگانه دارند. آرشیو شامل ۳۰۰ فایل BLP1 است؛ ۱۸۴ آیکون پالت‌دار (۹۲ جفتِ پرتره، مهارت و تالار)، چهار اطلس نشانگر، ۶ نشان نژادی، ۶۴ جلوهٔ مهارت و ۶ مدل ساختمان Naga. برای دیدن طرح کامل هر نژاد، گالری‌ها را باز کنید.
           </p>
           <details open>
             <summary style="cursor:pointer;color:#67e8f9;font-weight:700;">🌊 گالری مهارت‌های Abyssal Tideborn (۱۶ آیکون)</summary>
@@ -130,7 +131,11 @@
       </section>
 
       <section class="card">
-        <h2 class="card-title">آمار کلی نقشه (Map Overview v8)</h2>
+        <h2 class="card-title">آمار کلی نقشه (Map Overview v9)</h2>
+        <div class="map-preview-art" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <img src="./crown_map_icon.png" alt="نشان تصویری اختصاصی نقشهٔ Crown of WarMahdi" loading="lazy" style="width:112px;height:112px;flex:0 0 112px;object-fit:cover;border-radius:12px;border:2px solid rgba(245,158,11,0.7);box-shadow:0 0 18px rgba(34,211,238,0.2);" />
+          <p class="hint-text" style="margin:0;">نشان اختصاصی نقشه؛ همین تصویر در <code>war3mapPreview.tga</code> داخل فایل W3X قرار می‌گیرد. نمای تاکتیکی کامل نیز در بوم تعاملی کنار این پنل نمایش داده می‌شود.</p>
+        </div>
         <div class="stats-grid" id="statsGrid">
           <div class="stat-box">
             <span class="stat-val" id="stPlayers">8 Races</span>
@@ -149,6 +154,10 @@
             <span class="stat-lbl">کمپ کریپ متعادل</span>
           </div>
           <div class="stat-box">
+            <span class="stat-val" id="stFood">600</span>
+            <span class="stat-lbl">سقف Supply در Classic</span>
+          </div>
+          <div class="stat-box">
             <span class="stat-val" id="stShops">17</span>
             <span class="stat-lbl">فروشگاه، چشمه و تاورن</span>
           </div>
@@ -156,6 +165,16 @@
             <span class="stat-val" id="stTrees">5,920</span>
             <span class="stat-lbl">درخت استوایی-کیهانی</span>
           </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">نشان‌های تصویری امپراتوری‌ها</h2>
+        <div class="faction-emblem-gallery">
+          <figure><img src="./faction_icon_abyssal.png" alt="نشان Abyssal Tideborn" loading="lazy" /><figcaption>Abyssal Tideborn</figcaption></figure>
+          <figure><img src="./faction_icon_sunfury.png" alt="نشان Sunfury Imperium" loading="lazy" /><figcaption>Sunfury Imperium</figcaption></figure>
+          <figure><img src="./faction_icon_voidborn.png" alt="نشان Voidborn Legion" loading="lazy" /><figcaption>Voidborn Legion</figcaption></figure>
+          <figure><img src="./faction_icon_runeforged.png" alt="نشان Runeforged Bastion" loading="lazy" /><figcaption>Runeforged Bastion</figcaption></figure>
         </div>
       </section>
 
@@ -227,7 +246,7 @@
 
       <div class="canvas-footer">
         <span>🖱 با اسکرول ماوس زوم کنید، با کشیدن جابه‌جا شوید و روی هر معدن، کمپ کریپ، فروشگاه یا مقر کلیک کنید.</span>
-        <span dir="ltr">(8) Crown of WarMahdi v8 • Classic TFT 1.26a / 1.27b</span>
+        <span dir="ltr">(8) Crown of WarMahdi v9 • Classic TFT 1.26a / 1.27b</span>
       </div>
     </section>
 
@@ -236,10 +255,10 @@
       <section class="card">
         <h2 class="card-title">۸ امپراتوری • ۱۶ هیرو • ۶۴ اسکیل و ۶۴ جلوهٔ سه‌بعدی یکتا</h2>
         <div class="race-tabs" id="raceTabs" style="flex-wrap:wrap;">
-          <button type="button" class="race-tab active" data-race="abyssal">🌊 Abyssal</button>
-          <button type="button" class="race-tab" data-race="sunfury">☀️ Sunfury</button>
-          <button type="button" class="race-tab" data-race="voidborn">🔮 Voidborn</button>
-          <button type="button" class="race-tab" data-race="runeforged">⚡ Runeforged</button>
+          <button type="button" class="race-tab active" data-race="abyssal"><img class="race-tab-icon" src="./faction_icon_abyssal.png" alt="" loading="lazy" /> Abyssal</button>
+          <button type="button" class="race-tab" data-race="sunfury"><img class="race-tab-icon" src="./faction_icon_sunfury.png" alt="" loading="lazy" /> Sunfury</button>
+          <button type="button" class="race-tab" data-race="voidborn"><img class="race-tab-icon" src="./faction_icon_voidborn.png" alt="" loading="lazy" /> Voidborn</button>
+          <button type="button" class="race-tab" data-race="runeforged"><img class="race-tab-icon" src="./faction_icon_runeforged.png" alt="" loading="lazy" /> Runeforged</button>
           <button type="button" class="race-tab" data-race="classic4">👑 Classic 4</button>
         </div>
         <div id="raceDetailBox" class="race-detail-box" dir="ltr"></div>
@@ -279,7 +298,7 @@
           <div>
             <h3>راهنمای نصب در بازی وارکرافت ۳</h3>
             <ol class="install-steps">
-              <li>فایل <code>(8)CrownOfWarMahdi.w3x</code> را از لینک مستقیم گیت‌هاب در چت یا دکمه بالای صفحه دانلود کنید.</li>
+              <li>فایل <code>(8)CrownOfWarMahdi.w3x</code> را با دکمهٔ دانلود همین پیش‌نمایش یا پیوست فایل در چت دریافت کنید.</li>
               <li>
                 <strong>در نسخه کلاسیک 1.26a / 1.27b (Atinad / GameRanger / LAN):</strong><br />
                 فایل را در مسیر زیر کپی کنید:
@@ -288,7 +307,7 @@
               <li>در ابتدای بازی ابتدا <strong>هاست سختی AI</strong> را انتخاب می‌کند و بلافاصله منوی تک‌کلیکی ۸ امپراتوری باز می‌شود (همچنین از لابی با <code>Handicap 90%/80%/70%/60%</code> هم قابل انتخاب است)!</li>
             </ol>
 
-            <h3>گزارش ۱۶ مرحله‌ای بررسی خودکار (استاتیک)</h3>
+            <h3>گزارش ۱۸ مرحله‌ای بررسی خودکار (استاتیک)</h3>
             <ul id="verifyChecksList" class="checks-list" dir="ltr"></ul>
           </div>
 
@@ -315,7 +334,6 @@
     </div>
   </div>
 
-  <script src="./w3x_b64.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

@@ -701,105 +701,8 @@
 
     canvas.addEventListener("click", handleCanvasClick);
 
-    // Bulletproof Multi-Method Download Setup (Blob + Direct Server URL + Iframe-Safe Copy)
-    const directUrl = new URL("./CrownOfWarMahdi.w3x", window.location.href).href;
-    const directInput = document.getElementById("directUrlInput");
-    const newTabLink = document.getElementById("linkNewTabDownload");
-    const statusEl = document.getElementById("dlStatusMsg");
-    const iframeNotice = document.getElementById("iframeNotice");
-    const inIframe = (() => {
-      try { return window.self !== window.top; } catch (_e) { return true; }
-    })();
-
-    if (inIframe && iframeNotice) {
-      iframeNotice.classList.remove("hidden");
-    }
-    if (directInput) {
-      directInput.value = directUrl;
-      directInput.addEventListener("click", () => {
-        directInput.focus();
-        directInput.select();
-      });
-    }
-    if (newTabLink) {
-      newTabLink.href = directUrl;
-    }
-
-    function copyDirectUrlFallback() {
-      let copied = false;
-      if (directInput) {
-        directInput.focus();
-        directInput.select();
-        directInput.setSelectionRange(0, directInput.value.length);
-        try {
-          copied = document.execCommand("copy");
-        } catch (_err) {
-          copied = false;
-        }
-      }
-      return copied;
-    }
-
-    const btnBlob = document.getElementById("btnBlobDownload");
-    if (btnBlob) {
-      btnBlob.addEventListener("click", async () => {
-        try {
-          let blob;
-          if (typeof window.W3X_MAP_B64 === "string" && window.W3X_MAP_B64.length > 100) {
-            const binStr = atob(window.W3X_MAP_B64);
-            const bytes = new Uint8Array(binStr.length);
-            for (let i = 0; i < binStr.length; i++) {
-              bytes[i] = binStr.charCodeAt(i);
-            }
-            blob = new Blob([bytes], { type: "application/octet-stream" });
-          } else {
-            const resp = await fetch("./CrownOfWarMahdi.w3x");
-            blob = await resp.blob();
-          }
-
-          const blobUrl = URL.createObjectURL(blob);
-          const tmpA = document.createElement("a");
-          tmpA.href = blobUrl;
-          tmpA.download = "(8)CrownOfWarMahdi.w3x";
-          document.body.appendChild(tmpA);
-          tmpA.click();
-          document.body.removeChild(tmpA);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
-
-          if (inIframe) {
-            copyDirectUrlFallback();
-            statusEl.textContent = "اگر مرورگر دانلود داخل کادر را مسدود کرد، لینک دانلود کپی شد — در تب جدید Paste کنید!";
-          } else {
-            statusEl.textContent = "✓ دانلود فایل (8)CrownOfWarMahdi.w3x آغاز شد!";
-          }
-        } catch (err) {
-          console.error(err);
-          copyDirectUrlFallback();
-          statusEl.textContent = "لینک دانلود کپی شد — در تب جدید مرورگر Paste کنید.";
-        }
-      });
-    }
-
-    const btnCopy = document.getElementById("btnCopyUrl");
-    if (btnCopy) {
-      btnCopy.addEventListener("click", async () => {
-        let ok = false;
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(directUrl);
-            ok = true;
-          }
-        } catch (_e) {
-          ok = false;
-        }
-        if (!ok) {
-          ok = copyDirectUrlFallback();
-        }
-        statusEl.textContent = ok
-          ? "✓ لینک مستقیم کپی شد! در یک تب جدید مرورگر Paste و Enter کنید."
-          : "روی کادر آدرس کلیک کرده و Ctrl+C بزنید.";
-      });
-    }
+    // Downloads use same-origin anchors to the server attachment endpoint.
+    // Keeping navigation in this browsing context preserves Arena preview authorization.
 
     // Modal controls
     const modal = document.getElementById("manifestModal");
@@ -866,7 +769,7 @@
     if (manifestButton) {
       const buildingModels = Number(data.stats.customBuildingModels || 0);
       const allModels = Number(data.stats.customVfxModels || 0) + buildingModels;
-      manifestButton.textContent = `${numberFa(data.stats.archiveFiles)} فایل MPQ • ${numberFa(data.stats.blpFiles)} بافت BLP1 • ${numberFa(allModels)} مدل MDX (${numberFa(buildingModels)} ساختمان) • ۱۶ آزمون`;
+      manifestButton.textContent = `${numberFa(data.stats.archiveFiles)} فایل MPQ • ${numberFa(data.stats.blpFiles)} بافت BLP1 • ${numberFa(allModels)} مدل MDX (${numberFa(buildingModels)} ساختمان) • ۱۸ آزمون`;
     }
     const sizeBytes = Number(data.fileSizeBytes || 0);
     const sizeDisplay = document.getElementById("mapSizeDisplay");

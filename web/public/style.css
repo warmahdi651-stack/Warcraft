@@ -157,6 +157,7 @@ code {
   gap: 8px;
   background: linear-gradient(180deg, #ffe388 0%, #eab308 55%, #ca8a04 100%);
   color: #171103;
+  text-decoration: none;
   font-family: inherit;
   font-weight: 900;
   font-size: 15px;
@@ -209,6 +210,16 @@ code {
 .url-label {
   color: var(--text-muted);
   font-weight: 600;
+}
+
+.download-sandbox-note {
+  color: #fde68a;
+  background: rgba(250, 204, 21, 0.1);
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  border-radius: 8px;
+  padding: 8px 11px;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .url-input {
@@ -862,12 +873,62 @@ code {
   color: var(--text-main);
   border: 1px solid var(--border-subtle);
   border-radius: 7px;
-  padding: 6px 6px;
+  padding: 5px 4px;
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 32px;
   transition: all 0.14s ease;
+}
+
+.race-tab-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  object-fit: cover;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 5px;
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.16);
+}
+
+.faction-emblem-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.faction-emblem-gallery figure {
+  margin: 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(8, 13, 22, 0.76);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+}
+
+.faction-emblem-gallery img {
+  width: min(100%, 112px);
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border: 1px solid rgba(148, 163, 184, 0.52);
+  border-radius: 8px;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.12);
+}
+
+.faction-emblem-gallery figcaption {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .race-tab.active {

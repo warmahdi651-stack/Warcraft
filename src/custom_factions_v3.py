@@ -1238,7 +1238,7 @@ def serialize_war3map_skin() -> bytes:
         "ARMOR_SMALL=Aegis: |cff6ee7b7Agile Guard|r",
         "ARMOR_NONE=Aegis: |cffc084fcAstral Shroud|r",
         "UPPER_BUTTON_QUEST_TIP=|cffffcc00WarMahdi Codex & Guide|r (|cffffcc00F9|r)",
-        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v8 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681-100 Supply:|r 40% Gold Income",
+        "RESOURCE_UBERTIP_UPKEEP=|cffffcc00Crown of WarMahdi v9 — 8 Playable Empires|r|n|cff6ee7b70-50 Supply:|r 100% Gold Income|n|cffffd16651-80 Supply:|r 70% Gold Income|n|cffff666681+ Supply:|r 40% Gold Income|n|cff94a3b8600 Maximum Supply|r",
         "",
     ]
     return "\r\n".join(lines).encode("utf-8")
@@ -1438,7 +1438,7 @@ function CFBuildLoop takes nothing returns nothing
             call SetProduce(1, CF_HALL_T1, -1)
         endif
 
-        if FoodUsed() + 6 >= FoodCap() and FoodCap() < 100 and GetUnitCount(CF_SUPPLY) < 11 then
+        if FoodUsed() + 9 >= FoodCap() and FoodCap() < 600 and GetUnitCount(CF_SUPPLY) < 70 then
             call CFNeedUnit(GetUnitCountDone(CF_SUPPLY) + 1, CF_SUPPLY, -1)
         endif
 

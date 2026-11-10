@@ -70,19 +70,21 @@ def build_archive_manifest() -> dict:
             f"Stage 1: HM3W header + PurePython MPQ v1 archive ({len(files)} files)",
             f"Stage 2: TFT v25 — {dimensions.get('tilesW', 0)}x{dimensions.get('tilesH', 0)} Sunken-Astral terrain + {doodad_count:,} placed doodads ({trees_count:,} trees + {scenic_doodads_count:,} scenic)",
             "Stage 3: Classic TFT JASS2 static typecheck vs 1.27b Common.j + Blizzard.j (1.26-era API proxy also checked)",
-            f"Stage 4 & 5: {unit_count} preplaced units, {string_count} strings, {minimap_icon_count} minimap icons and {minimap_width}x{minimap_height} BLP1 minimap synchronized",
-            f"Stage 6: {stats.get('startLocations', 0)} mirrored player starts and {stats.get('goldMines', 0)} mines; town-hall zones checked for buildability",
+            f"Stage 4: {unit_count} preplaced units and {string_count} map strings synchronized with the archive",
+            f"Stage 5: {minimap_icon_count} minimap icons and {minimap_width}x{minimap_height} BLP1 minimap synchronized",
+            f"Stage 6: {stats.get('startLocations', 0)} mirrored starts and {stats.get('goldMines', 0)} mines; {scenic_doodads_count} Shrine/moat scenic doodads D4-symmetric; base zones buildable",
             f"Stage 7: Zero collision footprints across {unit_count} units and {trees_count:,} harvestable trees",
             f"Stage 8: Dynamic pathing BFS on {dimensions.get('tilesW', 0)}x{dimensions.get('tilesH', 0)} terrain — all bases, mines, shops and creep camps reachable",
             "Stage 9: 200u creep-camp acquisition and Tavern/base safe-zones verified",
             f"Stage 10: Exact 8-way D4 terrain, pathing and forest symmetry on {dimensions.get('tilesW', 0)}x{dimensions.get('tilesH', 0)} map",
             f"Stage 11: {stats.get('playableRaces', 0)} empires/race slots, {stats.get('customHeroes', 0)} heroes, {stats.get('customSkills', 0)} custom icon pairs; distinct ultimate geometries verified",
-            f"Stage 12: {ai_script_count} race-AI scripts typechecked; native AI for classic races + authoritative JASS controller for custom factions",
+            f"Stage 12: {ai_script_count} race-AI scripts packaged/typechecked; stock melee AI for classic races + four dispatched custom melee-AI scripts with JASS hero support",
             "Stage 13: Combat-unit and hero ladder DPS/EHP/cost and stat audits",
-            f"Stage 14: {blp1_count} BLP1s ({palette_blp_count} paletted portrait/skill-button icons), {skill_mdx_count} skill MDX effects + {sigil_mdx_count} faction sigils + {building_mdx_count} Naga building MDXs; race/role model duplicates checked",
-            "Stage 15: TFT 1.26-era API compatibility proxy, explicit workers, sequential construction/training and AI safeguards",
+            f"Stage 14: {blp1_count} BLP1s ({palette_blp_count} paletted portrait/skill/hall-button icons), {skill_mdx_count} skill MDX effects + {sigil_mdx_count} faction sigils + {building_mdx_count} Naga hall/role MDXs; race/role model duplicates checked",
+            "Stage 15: TFT 1.26-era API compatibility proxy, safe summon/displacement checks and custom-AI dispatch safeguards",
             f"Stage 16: D4-symmetric neutral objectives; {stats.get('creepCamps', 0)} camp rosters/loot tiers, alliance-aware shrine rewards and equal race-pick economy",
-            "Stage 17: Fair-vision AI with expiring last-seen intel, adaptive counter-production, dynamic objectives, visible-natural expansion, coordinated micro, hero-spell evaluation, disclosed difficulty and -aistats telemetry",
+            "Stage 17: Fair-vision telemetry, four reachable custom melee-AI scripts with harvest/expansion/assault routines, no competing JASS macro orders, hero-only custom micro and -aistats",
+            "Stage 18: Classic 600 food ceiling, four custom-AI supply limits, explicit caster roster, per-hero spell throttling, bounded scans and safe hero retreat",
         ],
     }
 
@@ -91,7 +93,7 @@ ARCHIVE_MANIFEST_CACHE = build_archive_manifest()
 
 
 class MapPreviewHandler(BaseHTTPRequestHandler):
-    server_version = "CrownOfWarMahdiPreview/7.1"
+    server_version = "CrownOfWarMahdiPreview/8.0"
 
     def log_message(self, fmt: str, *args: object) -> None:
         sys.stdout.write("[HTTP] " + (fmt % args) + "\n")

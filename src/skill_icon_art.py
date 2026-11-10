@@ -177,9 +177,15 @@ def _draw_motif(d: ImageDraw.ImageDraw, cx: float, cy: float, motif: str, idx: i
         _line(d, cx, cy, [(-17,10),(-7,15),(-14,20)], second, 4)
         for x,y in [(-10,10),(-4,4),(2,-2)]: _ellipse(d,cx,cy,(x-2,y-2,x+2,y+2),gold,2)
     elif motif == "carapace_roar":
-        _poly(d, cx, cy, [(0,-22),(17,-14),(20,1),(8,20),(-8,20),(-20,1),(-17,-14)], main, gold, 4)
-        _line(d, cx, cy, [(0,-17),(0,15),(-14,-4),(14,-4)], glow, 3)
-        _line(d, cx, cy, [(-14,9),(-5,5),(2,10),(10,5),(16,8)], WHITE_HOT, 2)
+        # Segmented shell with side-claws: intentionally not another shield silhouette.
+        _poly(d, cx, cy, [(-19,10),(-18,-2),(-13,-13),(-5,-20),(5,-20),(13,-13),(18,-2),(19,10),(10,18),(-10,18)], main, gold, 5)
+        _line(d, cx, cy, [(0,-16),(0,11)], glow, 4)
+        _line(d, cx, cy, [(-12,-12),(-8,-4),(-9,9)], second, 3)
+        _line(d, cx, cy, [(12,-12),(8,-4),(9,9)], second, 3)
+        _poly(d, cx, cy, [(-17,7),(-24,2),(-21,14),(-12,18)], second, WHITE_HOT, 2)
+        _poly(d, cx, cy, [(17,7),(24,2),(21,14),(12,18)], second, WHITE_HOT, 2)
+        _line(d, cx, cy, _bezier((-23,-8),(-20,-15),(-16,-15),(-14,-17)), glow, 3)
+        _line(d, cx, cy, _bezier((23,-8),(20,-15),(16,-15),(14,-17)), glow, 3)
     elif motif == "kraken_wrath":
         for pts, col in [
             (_bezier((0,8),(-6,-1),(-3,-13),(-12,-21)),glow),
@@ -198,10 +204,12 @@ def _draw_motif(d: ImageDraw.ImageDraw, cx: float, cy: float, motif: str, idx: i
         for x in (-12,-5,2,9,15): _line(d,cx,cy,[(x,-15),(x*0.72,15)],main if x%2 else glow,3)
         _ellipse(d,cx,cy,(-5,-5,5,5),WHITE_HOT,2,(32,94,117,255))
     elif motif == "azshara_blessing":
-        for r,col in [(19,main),(12,glow),(5,WHITE_HOT)]: _ellipse(d,cx,cy,(-r,-r,r,r),col,3)
-        for a in range(8):
-            ang=a*math.pi/4
-            _line(d,cx,cy,[(math.cos(ang)*21,math.sin(ang)*21),(math.cos(ang)*26,math.sin(ang)*26)],gold,2)
+        # Royal tide-crown/diadem, separated from the ring and vortex motifs.
+        _poly(d,cx,cy,[(-22,12),(-18,-8),(-8,2),(0,-22),(8,2),(18,-8),(22,12),(15,19),(-15,19)],main,gold,4)
+        _line(d,cx,cy,[(-18,11),(-10,7),(0,11),(10,7),(18,11)],glow,4)
+        for x,y,r in [(-17,-5,3),(0,-17,4),(17,-5,3)]:
+            _poly(d,cx,cy,[(x,y-r),(x+r,y),(x,y+r),(x-r,y)],WHITE_HOT,glow,2)
+        _line(d,cx,cy,[(-12,15),(12,15)],second,3)
     elif motif == "nazjatar_eye":
         _line(d,cx,cy,_bezier((-22,0),(-10,-18),(10,-18),(22,0)),glow,4)
         _line(d,cx,cy,_bezier((-22,0),(-10,18),(10,18),(22,0)),main,4)
@@ -220,9 +228,12 @@ def _draw_motif(d: ImageDraw.ImageDraw, cx: float, cy: float, motif: str, idx: i
             _line(d,cx,cy,pts,glow,2)
         for x,y in [(-19,0),(0,-15),(17,4)]: _ellipse(d,cx,cy,(x-3,y-3,x+3,y+3),WHITE_HOT,2,(248,224,151,255))
     elif motif == "molten_barrier":
-        _poly(d,cx,cy,[(0,-22),(18,-14),(15,6),(0,22),(-15,6),(-18,-14)],main,gold,4)
-        _line(d,cx,cy,[(-11,4),(-4,-5),(2,4),(8,-7),(13,0)],glow,5)
-        _ellipse(d,cx,cy,(-3,-16,3,-10),WHITE_HOT,2,(255,255,239,255))
+        # A wall of raised magma columns, clearly distinct from the shield skills.
+        for x,height,col in [(-15,20,second),(0,27,main),(15,18,second)]:
+            _poly(d,cx,cy,[(x-7,19),(x-7,-height+5),(x-2,-height),(x+2,-height+4),(x+7,-height+1),(x+7,19)],col,gold,3)
+        _line(d,cx,cy,[(-23,20),(23,20)],glow,4)
+        _line(d,cx,cy,[(-10,3),(-4,-4),(0,2),(5,-7),(11,-1)],WHITE_HOT,3)
+        _ellipse(d,cx,cy,(-3,-24,3,-18),WHITE_HOT,1,(255,255,239,255))
     elif motif == "phoenix_alar":
         _poly(d,cx,cy,[(0,18),(-5,7),(-20,-1),(-13,-4),(-21,-14),(-6,-9),(0,-20),(6,-9),(21,-14),(13,-4),(20,-1),(5,7)],main,gold,4)
         _line(d,cx,cy,[(-12,1),(-4,6),(0,2),(4,6),(12,1)],glow,4)
@@ -254,9 +265,12 @@ def _draw_motif(d: ImageDraw.ImageDraw, cx: float, cy: float, motif: str, idx: i
         _poly(d,cx,cy,[(0,-20),(8,-2),(4,2),(7,13),(0,22),(-7,13),(-4,2),(-8,-2)],main,WHITE_HOT,3)
         _line(d,cx,cy,[(-13,0),(-7,-2)],second,2); _line(d,cx,cy,[(13,0),(7,-2)],second,2)
     elif motif == "iron_phalanx":
-        for x in (-12,0,12):
-            _poly(d,cx,cy,[(x,-18),(x+9,-14),(x+8,7),(x,19),(x-8,7),(x-9,-14)],main if x==0 else second,gold,3)
-        _line(d,cx,cy,[(0,-12),(0,12)],WHITE_HOT,2)
+        # Three upright lances and a shared crossbar read as a formation, not shields.
+        for x,col in [(-14,second),(0,glow),(14,main)]:
+            _line(d,cx,cy,[(x,18),(x,-13)],gold,4)
+            _poly(d,cx,cy,[(x,-23),(x+5,-11),(x,-7),(x-5,-11)],col,WHITE_HOT,2)
+            _line(d,cx,cy,[(x-5,5),(x+5,5)],col,3)
+        _line(d,cx,cy,[(-22,20),(22,20)],WHITE_HOT,3)
     elif motif == "cavalry_charge":
         _line(d,cx,cy,[(-21,-11),(21,5)],gold,4)
         _poly(d,cx,cy,[(-14,-6),(-5,-17),(4,-12),(13,-15),(18,-7),(9,-1),(4,10),(-7,13),(-17,5)],main,WHITE_HOT,3)
@@ -273,10 +287,11 @@ def _draw_motif(d: ImageDraw.ImageDraw, cx: float, cy: float, motif: str, idx: i
         _poly(d,cx,cy,[(0,-25),(3,-17),(0,-12),(-3,-17)],glow,WHITE_HOT,1)
         _line(d,cx,cy,[(-18,2),(-12,7)],second,3); _line(d,cx,cy,[(18,2),(12,7)],second,3)
     elif motif == "silverhand_aegis":
-        _poly(d,cx,cy,[(0,-22),(17,-14),(15,7),(0,22),(-15,7),(-17,-14)],main,gold,4)
-        _ellipse(d,cx,cy,(-5,-7,5,3),glow,2,(247,215,139,255))
-        for x in (-8,-3,2,7): _line(d,cx,cy,[(x,-8),(x,-17)],WHITE_HOT,3)
-        _line(d,cx,cy,[(-5,3),(0,8),(6,3)],second,3)
+        # Open gauntleted hand with a radiant palm-gem, rather than a second shield.
+        _poly(d,cx,cy,[(-8,19),(-11,10),(-18,4),(-18,-2),(-14,-5),(-8,1),(-8,-15),(-4,-20),(-1,-17),(0,-3),(2,-21),(6,-21),(8,-17),(7,-2),(11,-15),(15,-14),(15,-10),(12,1),(17,-5),(21,-2),(19,4),(12,12),(8,19)],main,gold,3)
+        _line(d,cx,cy,[(-8,7),(-1,10),(7,7),(12,10)],glow,3)
+        _poly(d,cx,cy,[(2,2),(7,7),(2,12),(-3,7)],WHITE_HOT,gold,2)
+        for x in (-14,-5,5,14): _line(d,cx,cy,[(x,-23),(x,-18)],second,2)
     elif motif == "resurrection":
         _line(d,cx,cy,[(0,20),(0,-13)],gold,5)
         _line(d,cx,cy,[(-13,-4),(0,-16),(13,-4)],glow,5)
@@ -339,11 +354,13 @@ def _draw_motif(d: ImageDraw.ImageDraw, cx: float, cy: float, motif: str, idx: i
             _line(d,cx,cy,_bezier((-22,y+4),(-12,y-12),(3,y+12),(22,y+offset)),col,4)
         _poly(d,cx,cy,[(0,-17),(6,-4),(0,4),(-6,-4)],WHITE_HOT,gold,2)
     elif motif == "thousand_shadows":
-        for a,col in [(0.65,glow),(-0.65,main)]:
-            pts=[(math.cos(a)*-22,math.sin(a)*-22),(0,0),(math.cos(a)*22,math.sin(a)*22)]
-            _line(d,cx,cy,pts,col,5)
-        _ellipse(d,cx,cy,(-21,-21,21,21),gold,2)
-        _ellipse(d,cx,cy,(-4,-4,4,4),WHITE_HOT,2,(16,12,25,255))
+        # Three offset phantom blades/afterimages; deliberately avoids another ring glyph.
+        for off,col in [(-13,second),(0,glow),(13,main)]:
+            _poly(d,cx,cy,[(off-5,17),(off-2,2),(off+1,-8),(off+6,-19),(off+7,-4),(off+4,7),(off+5,19)],col,gold,2)
+        _line(d,cx,cy,[(-22,13),(-12,6),(-2,10),(8,1),(21,5)],WHITE_HOT,3)
+        _poly(d,cx,cy,[(-5,-4),(0,-12),(5,-4),(2,1),(-3,1)],(16,12,25),glow,2)
+        _line(d,cx,cy,[(-16,-14),(-9,-8)],second,2)
+        _line(d,cx,cy,[(16,-14),(9,-8)],main,2)
     elif motif == "starfall_singularity":
         for x,y,rot,col in [(-14,-16,0.2,glow),(0,-22,0.0,WHITE_HOT),(15,-13,-0.3,main)]:
             _poly(d,cx,cy,[(x+sx,y+sy) for sx,sy in _star(7,4,rot)],col,gold,2)
@@ -375,9 +392,19 @@ def _draw_motif(d: ImageDraw.ImageDraw, cx: float, cy: float, motif: str, idx: i
         _line(d,cx,cy,[(-16,-15),(-8,-21)],WHITE_HOT,5); _line(d,cx,cy,[(16,-15),(8,-21)],gold,5)
         for x,y in [(-8,-4),(9,0),(0,10)]: _poly(d,cx,cy,[(x,y-4),(x+4,y),(x,y+4),(x-4,y)],second,WHITE_HOT,2)
     elif motif == "aegis_core":
-        _poly(d,cx,cy,[(0,-23),(20,-13),(18,9),(0,23),(-18,9),(-20,-13)],main,gold,4)
-        _poly(d,cx,cy,[(0,-12),(9,-5),(7,7),(0,13),(-7,7),(-9,-5)],glow,WHITE_HOT,2)
-        _line(d,cx,cy,[(-12,-12),(-6,-7)],second,3); _line(d,cx,cy,[(12,-12),(6,-7)],second,3)
+        # Runeforged turbine gear: radial teeth and a bright reactor iris, no shield outline.
+        gear=[]
+        for i in range(16):
+            ang=-math.pi/2+i*math.pi/8
+            r=23 if i%2==0 else 17
+            gear.append((math.cos(ang)*r,math.sin(ang)*r))
+        _poly(d,cx,cy,gear,main,gold,3)
+        _ellipse(d,cx,cy,(-13,-13,13,13),second,3,(9,27,39,255))
+        _ellipse(d,cx,cy,(-8,-8,8,8),glow,3,(14,42,56,255))
+        for a in range(6):
+            ang=a*math.pi/3
+            _line(d,cx,cy,[(math.cos(ang)*9,math.sin(ang)*9),(math.cos(ang)*15,math.sin(ang)*15)],WHITE_HOT,2)
+        _ellipse(d,cx,cy,(-3,-3,3,3),WHITE_HOT,1,(255,255,255,255))
     elif motif == "pantheon_wrath":
         for x,h,col in [(-14,18,second),(0,27,glow),(14,18,main)]:
             _poly(d,cx,cy,[(x-5,17),(x-5,17-h),(x,12-h),(x+5,17-h),(x+5,17)],col,gold,2)
@@ -393,10 +420,14 @@ def _draw_motif(d: ImageDraw.ImageDraw, cx: float, cy: float, motif: str, idx: i
         _poly(d,cx,cy,[(-10,-17),(15,-19),(20,-10),(14,-3),(-12,-4)],main,WHITE_HOT,3)
         _line(d,cx,cy,[(-20,-2),(20,-2)],glow,2)
     elif motif == "rune_plating":
-        _poly(d,cx,cy,[(0,-23),(19,-13),(16,13),(0,22),(-16,13),(-19,-13)],main,gold,4)
-        for x,y in [(-8,-7),(8,-7),(-8,8),(8,8)]:
-            _poly(d,cx,cy,[(x,y-4),(x+4,y),(x,y+4),(x-4,y)],glow,WHITE_HOT,1)
-        _line(d,cx,cy,[(-12,0),(12,0)],second,3)
+        # Rectangular articulated armor plate with stamped runes, unlike a hero shield.
+        _poly(d,cx,cy,[(-17,-21),(17,-21),(22,-15),(22,15),(17,21),(-17,21),(-22,15),(-22,-15)],main,gold,4)
+        _line(d,cx,cy,[(-15,-9),(15,-9)],second,3)
+        _line(d,cx,cy,[(-15,9),(15,9)],second,3)
+        for x,y in [(-12,-15),(12,-15),(-12,15),(12,15)]:
+            _poly(d,cx,cy,[(x,y-2),(x+2,y),(x,y+2),(x-2,y)],WHITE_HOT,gold,1)
+        _poly(d,cx,cy,[(-4,-5),(0,-11),(4,-5),(0,5)],glow,WHITE_HOT,2)
+        _line(d,cx,cy,[(0,5),(0,12)],glow,3)
     elif motif == "forge_colossus":
         _poly(d,cx,cy,[(-17,19),(-16,1),(-22,-6),(-15,-14),(-7,-10),(-5,-22),(5,-22),(7,-10),(15,-14),(22,-6),(16,1),(17,19)],main,gold,4)
         _ellipse(d,cx,cy,(-6,-7,6,3),glow,2,(10,21,31,255))
@@ -508,9 +539,8 @@ def build_skill_icon(ability_index: int) -> Image.Image:
         xx, yy = cx + math.cos(a) * rr, cy + math.sin(a) * rr
         d.ellipse((xx-2.6, yy-2.6, xx+2.6, yy+2.6), fill=(*PALE_GOLD, 235))
 
-    # Skill-specific silhouette, layered with metal outline then enamel/highlight stroke.
+    # Skill-specific silhouette is left unobstructed so the core shape survives 64px scaling.
     _draw_motif(d, cx, cy, motif, ability_index, main, glow, second)
-    d.ellipse((cx-6, cy-6, cx+6, cy+6), fill=(*_mix(main, glow, 0.48), 255), outline=(*WHITE_HOT, 255), width=2)
 
     # Small Q/W/E/R jewel is consistent for discoverability, while the main glyph stays unique.
     key = ("Q", "W", "E", "R")[slot]

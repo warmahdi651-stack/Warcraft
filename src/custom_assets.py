@@ -4,17 +4,17 @@ Artwork and UI asset pipeline for `(8) Crown of WarMahdi` v8.
 
 Generates Warcraft III binary assets while keeping gameplay art recognizable and
 patch-safe:
-  1. A 256x256 lobby preview TGA derived from the map's custom artwork.
+  1. A 256x256 Classic lobby-preview TGA derived from the dedicated `crown_map_icon.png` emblem.
   2. Four compatible animated cursor texture atlases.
   3. RPG infocard, resource and console textures for the existing in-game UI.
-  4. Ten AI-generated 64x64 hero portrait BLPs from source art in
-     `src/assets/hero_portraits/`; other heroes use authentic native WC3 portraits.
-  5. Six additive faction sigils plus 64 individually themed, geometrically distinct
-     skill textures and version-800 MDX models, compiled and roundtrip-checked with
-     `mdx-m3-viewer`.
+  4. Sixteen coordinated 64x64 hero portrait BTN/DISBTN pairs from source art in
+     `src/assets/hero_portraits/`, covering every custom hero in the four empires.
+  5. Twelve faction- and tier-specific hall icon BTN/DISBTN pairs, plus 64 individually
+     themed skill textures and version-800 MDX models, compiled and roundtrip-checked
+     with `mdx-m3-viewer`; six faction sigils remain for gameplay effects.
 
-Hero and building portraits keep recognizable Warcraft III artwork. All 64 custom
-hero skills use original, individually authored command-button silhouettes with
+Hero portraits and building buttons use coordinated, faction-aware Warcraft III artwork.
+All 64 custom hero skills use individually authored command-button silhouettes with
 faction-specific frames and matching disabled-state BLPs.
 """
 
@@ -39,7 +39,15 @@ except ImportError:  # Allow `python src/custom_assets.py` as a standalone comma
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ARTWORK_PNG = REPO_ROOT / "web" / "public" / "crown_artwork.png"
+MAP_ART_SOURCE_DIR = REPO_ROOT / "src" / "assets" / "map_art"
+MAP_ICON_SOURCE_PNG = MAP_ART_SOURCE_DIR / "crown_map_icon.png"
+MAP_ICON_PNG = REPO_ROOT / "web" / "public" / "crown_map_icon.png"
+FACTION_ICON_SPECS = (
+    ("abyssal", "Abyssal"),
+    ("sunfury", "Sunfury"),
+    ("voidborn", "Voidborn"),
+    ("runeforged", "Runeforged"),
+)
 PREVIEW_SHEET_PNG = REPO_ROOT / "web" / "public" / "custom_icons_preview.png"
 MDX_MODEL_JS = Path("/tmp/wc3ref/node_modules/mdx-m3-viewer/dist/cjs/parsers/mdlx/model")
 
@@ -564,6 +572,12 @@ HERO_PORTRAITS = (
     ("Huth", "uther", "UTHER"),
     ("V001", "xalathor", "XAL'ATHOR"),
     ("V002", "sargeneth", "SARGEN'ETH"),
+    ("V003", "akama", "AKAMA"),
+    ("V004", "aetheron", "AETHERON"),
+    ("T001", "thorim", "THORIM"),
+    ("T002", "ignis", "IGNIS"),
+    ("T003", "mimiron", "MIMIRON"),
+    ("T004", "loken", "LOKEN"),
 )
 HERO_PORTRAIT_SOURCE_DIR = REPO_ROOT / "src" / "assets" / "hero_portraits"
 
@@ -593,36 +607,257 @@ def build_hero_portrait_assets() -> Tuple[Dict[str, bytes], List[Tuple[str, Imag
 
 
 def save_hero_portrait_preview(samples: List[Tuple[str, Image.Image]]) -> None:
-    """Render a web-only contact sheet of the ten custom hero portraits."""
-    cols = 5
+    """Render all sixteen custom hero portraits in faction-aligned rows."""
+    cols = 4
     cell_w = 176
-    cell_h = 194
+    cell_h = 168
     margin = 16
-    title_h = 44
-    footer_h = 38
+    title_h = 48
+    footer_h = 34
     rows = (len(samples) + cols - 1) // cols
     sheet = Image.new("RGB", (margin * 2 + cols * cell_w, title_h + rows * cell_h + footer_h), (9, 13, 24))
     draw = ImageDraw.Draw(sheet)
     try:
-        font_title = ImageFont.truetype("DejaVuSans.ttf", 16)
+        font_title = ImageFont.truetype("DejaVuSans.ttf", 15)
         font_label = ImageFont.truetype("DejaVuSans.ttf", 12)
         font_footer = ImageFont.truetype("DejaVuSans.ttf", 10)
     except OSError:
         font_title = font_label = font_footer = ImageFont.load_default()
-    draw.text((margin, 13), "CUSTOM HERO PORTRAITS  |  10 ORIGINAL ARTWORKS", font=font_title, fill=(239, 205, 122))
+    draw.text((margin, 11), "CUSTOM HERO PORTRAITS  |  16 ORIGINAL ARTWORKS", font=font_title, fill=(239, 205, 122))
+    faction_colors = ((42, 202, 211), (244, 184, 72), (177, 116, 235), (111, 191, 220))
     for idx, (label, portrait) in enumerate(samples):
         x = margin + (idx % cols) * cell_w
         y = title_h + (idx // cols) * cell_h
+        faction_color = faction_colors[idx // 4]
         image = portrait.resize((148, 148), Image.Resampling.LANCZOS)
         sheet.paste(image, (x, y))
-        draw.rectangle((x, y, x + 147, y + 147), outline=(92, 132, 154), width=1)
+        draw.rectangle((x, y, x + 147, y + 147), outline=faction_color, width=2)
         box = draw.textbbox((0, 0), label, font=font_label)
         text_x = x + (148 - (box[2] - box[0])) // 2
-        draw.text((text_x, y + 155), label, font=font_label, fill=(231, 235, 242))
-    footer = "Other heroes use authentic native Warcraft III portraits; all 64 skills use effect-matched native buttons."
+        draw.text((text_x, y + 152), label, font=font_label, fill=(231, 235, 242))
+    footer = "All 16 custom heroes now share original, faction-coordinated portrait art."
     draw.text((margin, title_h + rows * cell_h + 9), footer, font=font_footer, fill=(151, 171, 190))
     PREVIEW_SHEET_PNG.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(PREVIEW_SHEET_PNG, optimize=True)
+
+
+# ==============================================================================
+# 5.5. CUSTOM FACTION HALL ICONS (T1/T2/T3 SILHOUETTE PROGRESSION)
+# ==============================================================================
+
+HALL_TIER_ICON_SPECS = (
+    ("nntt", "Temple of Tides", 0, 1), ("n001", "Sanctuary of Tides", 0, 2), ("n002", "Abyssal Citadel", 0, 3),
+    ("h001", "Silvermoon Sanctum", 1, 1), ("h002", "Sunwell Keep", 1, 2), ("h003", "Silvermoon Citadel", 1, 3),
+    ("v001", "Void Nexus", 2, 1), ("v002", "Astral Riftcore", 2, 2), ("v003", "Citadel of Oblivion", 2, 3),
+    ("t001", "Titan Foundry", 3, 1), ("t002", "Stormforge Hold", 3, 2), ("t003", "Apex Pantheon", 3, 3),
+)
+
+HALL_ICON_PALETTES = (
+    ((9, 45, 65), (25, 151, 164), (130, 239, 227), (225, 205, 140)),
+    ((48, 31, 31), (200, 127, 38), (255, 225, 138), (245, 185, 86)),
+    ((25, 16, 48), (128, 66, 193), (226, 184, 255), (183, 133, 236)),
+    ((17, 39, 57), (52, 151, 196), (179, 237, 255), (230, 195, 108)),
+)
+HALL_FACTION_LABELS = ("ABYSSAL TIDEBORN", "SUNFURY IMPERIUM", "VOIDBORN LEGION", "RUNEFORGED BASTION")
+
+
+def _hall_polygon(d: ImageDraw.ImageDraw, points: List[Tuple[float, float]], fill: Tuple[int, int, int], outline: Tuple[int, int, int], width: int = 5) -> None:
+    pts = [(int(round(x)), int(round(y))) for x, y in points]
+    d.polygon(pts, fill=(*fill, 255))
+    d.line(pts + [pts[0]], fill=(*outline, 255), width=width, joint="curve")
+
+
+def _hall_gear_points(cx: float, cy: float, outer: float, inner: float, teeth: int = 12) -> List[Tuple[float, float]]:
+    pts = []
+    for i in range(teeth * 4):
+        angle = -math.pi / 2 + i * math.tau / (teeth * 4)
+        radius = outer if i % 4 in (0, 1) else inner
+        pts.append((cx + math.cos(angle) * radius, cy + math.sin(angle) * radius))
+    return pts
+
+
+def build_hall_tier_icon(rawcode: str, faction: int, tier: int) -> Image.Image:
+    """Draw a faction-framed, tier-readable hall button at 192px and downsample to 64px."""
+    if not 0 <= faction < 4 or tier not in (1, 2, 3):
+        raise ValueError(f"Invalid hall icon faction/tier: {faction}/{tier}")
+    deep, main, glow, trim = HALL_ICON_PALETTES[faction]
+    image = Image.new("RGBA", (192, 192), (*deep, 255))
+    px = image.load()
+    for y in range(192):
+        for x in range(192):
+            dx, dy = x - 96, y - 92
+            radial = max(0.0, 1.0 - math.hypot(dx, dy) / 126.0)
+            edge = max(0.0, (abs(dx) + abs(dy) - 75.0) / 180.0)
+            amount = min(0.58, radial * 0.42 + edge * 0.08)
+            px[x, y] = tuple(int(deep[c] * (1.0 - amount) + main[c] * amount) for c in range(3)) + (255,)
+
+    d = ImageDraw.Draw(image, "RGBA")
+    cx = cy = 96
+    side_counts = (8, 12, 6, 16)
+    phase = (math.pi / 8, math.pi / 12, math.pi / 6, math.pi / 16)[faction]
+    sides = side_counts[faction]
+    outer = [(cx + math.cos(phase + i * math.tau / sides) * 91, cy + math.sin(phase + i * math.tau / sides) * 91) for i in range(sides)]
+    inner = [(cx + math.cos(phase + i * math.tau / sides) * 80, cy + math.sin(phase + i * math.tau / sides) * 80) for i in range(sides)]
+    d.polygon(outer, fill=(4, 7, 14, 255), outline=(2, 4, 10, 255))
+    d.line(outer + [outer[0]], fill=(*trim, 255), width=7, joint="curve")
+    d.polygon(inner, fill=(*deep, 255), outline=(*main, 255))
+    d.line(inner + [inner[0]], fill=(*glow, 190), width=2, joint="curve")
+
+    # Faction-specific ambient crest establishes identity before the hall silhouette.
+    if faction == 0:
+        d.arc((42, 34, 150, 142), 195, 345, fill=(*glow, 145), width=5)
+        d.arc((52, 43, 140, 132), 195, 345, fill=(*main, 170), width=3)
+    elif faction == 1:
+        for a in range(12):
+            ang = a * math.tau / 12
+            d.line((96 + math.cos(ang) * 55, 91 + math.sin(ang) * 55,
+                    96 + math.cos(ang) * 69, 91 + math.sin(ang) * 69), fill=(*trim, 140), width=3)
+    elif faction == 2:
+        d.ellipse((59, 43, 133, 117), outline=(*main, 170), width=4)
+        d.arc((48, 36, 144, 132), 202, 338, fill=(*glow, 150), width=3)
+    else:
+        _hall_polygon(d, _hall_gear_points(96, 91, 60, 51, 12), (*deep,), trim, 3)
+        d.ellipse((75, 70, 117, 112), outline=(*main, 180), width=4)
+
+    # Shared heavy base helps all models read as buildings; tier pips live below it.
+    d.polygon(((47, 145), (145, 145), (135, 157), (57, 157)), fill=(*trim, 255), outline=(5, 8, 14, 255))
+    d.line((57, 151, 135, 151), fill=(*glow, 255), width=3)
+
+    if faction == 0:  # tide temple -> twin-spired sanctuary -> crowned citadel
+        if tier == 1:
+            d.rectangle((66, 103, 126, 145), fill=(*main, 255), outline=(5, 14, 24, 255), width=5)
+            _hall_polygon(d, [(59, 107), (96, 66), (133, 107)], main, trim, 5)
+            d.arc((64, 71, 128, 135), 180, 360, fill=(*glow, 255), width=5)
+            for x in (77, 96, 115):
+                d.rounded_rectangle((x - 5, 111, x + 5, 144), radius=4, fill=(*deep, 255), outline=(*glow, 255), width=2)
+            d.ellipse((87, 75, 105, 93), fill=(*glow, 255), outline=(*trim, 255), width=2)
+        elif tier == 2:
+            d.rectangle((58, 100, 134, 145), fill=(*main, 255), outline=(5, 14, 24, 255), width=5)
+            _hall_polygon(d, [(61, 104), (96, 52), (131, 104)], main, trim, 5)
+            for x in (59, 133):
+                d.rectangle((x - 9, 80, x + 9, 145), fill=(*main, 255), outline=(5, 14, 24, 255), width=4)
+                _hall_polygon(d, [(x - 12, 83), (x, 55), (x + 12, 83)], glow, trim, 3)
+            d.arc((73, 86, 119, 137), 180, 360, fill=(*glow, 255), width=5)
+            _hall_polygon(d, [(96, 28), (108, 54), (96, 70), (84, 54)], glow, trim, 3)
+        else:
+            d.rectangle((54, 100, 138, 145), fill=(*main, 255), outline=(5, 14, 24, 255), width=5)
+            _hall_polygon(d, [(56, 104), (96, 47), (136, 104)], main, trim, 5)
+            for x in (57, 135):
+                d.rectangle((x - 9, 76, x + 9, 145), fill=(*main, 255), outline=(5, 14, 24, 255), width=4)
+                _hall_polygon(d, [(x - 13, 79), (x, 47), (x + 13, 79)], glow, trim, 3)
+            _hall_polygon(d, [(96, 22), (109, 52), (104, 91), (96, 101), (88, 91), (83, 52)], glow, trim, 4)
+            d.line((96, 61, 96, 90), fill=(*main, 255), width=5)
+    elif faction == 1:  # sunspire keep: warm stone, sun-disc, and three advancing spires
+        d.ellipse((72, 40, 120, 88), fill=(*trim, 185), outline=(*glow, 255), width=3)
+        d.ellipse((85, 53, 107, 75), fill=(*deep, 255), outline=(*main, 255), width=3)
+        if tier == 1:
+            d.rectangle((69, 97, 123, 145), fill=(*main, 255), outline=(20, 11, 9, 255), width=5)
+            _hall_polygon(d, [(63, 100), (96, 67), (129, 100)], main, trim, 5)
+            d.rectangle((89, 116, 103, 145), fill=(*deep, 255), outline=(*glow, 255), width=2)
+        elif tier == 2:
+            d.rectangle((61, 94, 131, 145), fill=(*main, 255), outline=(20, 11, 9, 255), width=5)
+            _hall_polygon(d, [(65, 97), (96, 52), (127, 97)], main, trim, 5)
+            for x in (61, 131):
+                d.rectangle((x - 8, 82, x + 8, 145), fill=(*main, 255), outline=(20, 11, 9, 255), width=3)
+                _hall_polygon(d, [(x - 11, 85), (x, 62), (x + 11, 85)], glow, trim, 3)
+            d.rectangle((90, 112, 102, 145), fill=(*deep, 255), outline=(*glow, 255), width=2)
+        else:
+            d.rectangle((54, 91, 138, 145), fill=(*main, 255), outline=(20, 11, 9, 255), width=5)
+            for x, top in ((65, 59), (96, 35), (127, 59)):
+                d.rectangle((x - 8, top + 20, x + 8, 145), fill=(*main, 255), outline=(20, 11, 9, 255), width=3)
+                _hall_polygon(d, [(x - 12, top + 22), (x, top), (x + 12, top + 22)], glow, trim, 3)
+            d.rectangle((91, 112, 101, 145), fill=(*deep, 255), outline=(*glow, 255), width=2)
+    elif faction == 2:  # void nexus -> riftcore -> obsidian crown portal
+        if tier == 1:
+            d.rectangle((61, 117, 131, 145), fill=(*main, 255), outline=(7, 5, 14, 255), width=4)
+            d.arc((64, 51, 128, 141), 180, 360, fill=(*glow, 255), width=10)
+            d.line((66, 97, 66, 143), fill=(*trim, 255), width=7)
+            d.line((126, 97, 126, 143), fill=(*trim, 255), width=7)
+            d.ellipse((84, 80, 108, 104), fill=(*deep, 255), outline=(*glow, 255), width=4)
+        elif tier == 2:
+            d.rectangle((56, 117, 136, 145), fill=(*main, 255), outline=(7, 5, 14, 255), width=4)
+            d.ellipse((66, 45, 126, 127), fill=(*deep, 255), outline=(*glow, 255), width=8)
+            d.ellipse((77, 57, 115, 115), outline=(*main, 255), width=5)
+            _hall_polygon(d, [(48, 90), (63, 53), (72, 89)], main, trim, 3)
+            _hall_polygon(d, [(144, 90), (129, 53), (120, 89)], main, trim, 3)
+            d.ellipse((88, 75, 104, 91), fill=(*glow, 255), outline=(*trim, 255), width=2)
+        else:
+            d.rectangle((49, 114, 143, 145), fill=(*main, 255), outline=(7, 5, 14, 255), width=4)
+            d.ellipse((58, 37, 134, 132), fill=(*deep, 255), outline=(*glow, 255), width=9)
+            d.ellipse((73, 53, 119, 112), outline=(*main, 255), width=5)
+            for x, y in ((47, 68), (145, 68), (96, 25)):
+                _hall_polygon(d, [(x, y - 15), (x + 9, y), (x, y + 15), (x - 9, y)], glow, trim, 3)
+            d.ellipse((87, 71, 105, 89), fill=(*glow, 255), outline=(*trim, 255), width=2)
+    else:  # runeforged foundry: unmistakable cog, rising gear towers, and a Titan core
+        if tier == 1:
+            _hall_polygon(d, _hall_gear_points(96, 102, 34, 28, 10), main, trim, 4)
+            d.rectangle((74, 99, 118, 145), fill=(*main, 255), outline=(5, 12, 18, 255), width=4)
+            _hall_polygon(d, [(70, 101), (96, 69), (122, 101)], main, glow, 4)
+            d.ellipse((87, 111, 105, 129), fill=(*glow, 255), outline=(*trim, 255), width=3)
+        elif tier == 2:
+            _hall_polygon(d, _hall_gear_points(96, 100, 43, 34, 12), main, trim, 4)
+            d.rectangle((64, 98, 128, 145), fill=(*main, 255), outline=(5, 12, 18, 255), width=4)
+            _hall_polygon(d, [(71, 100), (96, 48), (121, 100)], main, glow, 4)
+            for x in (68, 124):
+                d.rectangle((x - 7, 80, x + 7, 145), fill=(*main, 255), outline=(5, 12, 18, 255), width=3)
+                d.line((x, 74, x, 61), fill=(*glow, 255), width=6)
+            d.ellipse((88, 108, 104, 124), fill=(*glow, 255), outline=(*trim, 255), width=3)
+        else:
+            _hall_polygon(d, _hall_gear_points(96, 101, 51, 40, 14), main, trim, 4)
+            d.rectangle((54, 96, 138, 145), fill=(*main, 255), outline=(5, 12, 18, 255), width=4)
+            for x, top in ((67, 55), (96, 29), (125, 55)):
+                d.rectangle((x - 7, top + 22, x + 7, 145), fill=(*main, 255), outline=(5, 12, 18, 255), width=3)
+                _hall_polygon(d, [(x - 11, top + 25), (x, top), (x + 11, top + 25)], glow, trim, 3)
+            d.ellipse((88, 108, 104, 124), fill=(*glow, 255), outline=(*trim, 255), width=3)
+
+    # One/two/three illuminated tier runes give a fast, color-independent upgrade cue.
+    for pip in range(3):
+        x = 78 + pip * 18
+        color = glow if pip < tier else (37, 48, 61)
+        d.polygon(((x, 164), (x + 7, 171), (x, 178), (x - 7, 171)), fill=(*color, 255), outline=(*trim, 255))
+
+    d.rounded_rectangle((5, 5, 187, 187), radius=16, outline=(2, 4, 10, 255), width=6)
+    d.rounded_rectangle((9, 9, 183, 183), radius=13, outline=(*trim, 225), width=2)
+    return image.resize((64, 64), Image.Resampling.LANCZOS).convert("RGBA")
+
+
+def build_hall_tier_icons() -> Dict[str, Image.Image]:
+    icons = {
+        rawcode: build_hall_tier_icon(rawcode, faction, tier)
+        for rawcode, _name, faction, tier in HALL_TIER_ICON_SPECS
+    }
+    if len(icons) != 12 or len({img.tobytes() for img in icons.values()}) != 12:
+        raise AssertionError("All twelve custom hall tiers must have distinct command icons")
+    return icons
+
+
+def save_hall_tier_icon_preview(icons: Dict[str, Image.Image]) -> None:
+    """Save a compact 4-faction by 3-tier showcase used by the web preview."""
+    margin, title_h, cell_w, cell_h = 18, 42, 188, 142
+    sheet = Image.new("RGB", (margin * 2 + cell_w * 3, title_h + cell_h * 4 + 22), (8, 12, 22))
+    d = ImageDraw.Draw(sheet)
+    try:
+        title_font = ImageFont.truetype("DejaVuSans.ttf", 15)
+        label_font = ImageFont.truetype("DejaVuSans.ttf", 10)
+    except OSError:
+        title_font = label_font = ImageFont.load_default()
+    d.text((margin, 12), "CUSTOM EMPIRE HALLS  |  T1 / T2 / T3", font=title_font, fill=(239, 205, 122))
+    for row in range(4):
+        y = title_h + row * cell_h
+        color = HALL_ICON_PALETTES[row][2]
+        d.text((margin, y + 3), HALL_FACTION_LABELS[row], font=label_font, fill=color)
+        for tier in range(1, 4):
+            rawcode, name, faction, _tier = next(spec for spec in HALL_TIER_ICON_SPECS if spec[2] == row and spec[3] == tier)
+            icon = icons[rawcode].resize((82, 82), Image.Resampling.NEAREST)
+            x = margin + (tier - 1) * cell_w + 50
+            y_icon = y + 24
+            sheet.paste(icon, (x, y_icon))
+            label = f"T{tier}  {name}"
+            box = d.textbbox((0, 0), label, font=label_font)
+            d.text((x + (82 - (box[2] - box[0])) // 2, y_icon + 87), label, font=label_font, fill=(218, 229, 239))
+        d.line((margin, y + cell_h - 4, sheet.width - margin, y + cell_h - 4), fill=(42, 54, 74), width=1)
+    (REPO_ROOT / "web" / "public" / "faction_halls_preview.png").parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(REPO_ROOT / "web" / "public" / "faction_halls_preview.png", optimize=True)
 
 
 # ==============================================================================
@@ -893,17 +1128,22 @@ def _make_vfx_geoset(
 }}"""
 
 
-# Three Naga-only structures were formerly assigned the same Shrine/Altar/Spawning
-# Grounds models already used by nnsa/nnad/nnsg. These bespoke, low-poly buildings
-# keep the Warcraft III 1.26-compatible v800 MDX format while giving each role its own
-# silhouette and true-color texture.
+# Six custom Naga models now cover the three empire-hall tiers plus the Treasury,
+# Forge, and Behemoth Pool. Every model is a distinct low-poly silhouette with a
+# true-color texture and stays within Warcraft III Classic's v800 MDX format.
 NAGA_BUILDING_MODEL_DEFS = (
+    ("WM_Build_Naga_Temple_T1.mdx", "hall_t1"),
+    ("WM_Build_Naga_Temple_T2.mdx", "hall_t2"),
+    ("WM_Build_Naga_Temple_T3.mdx", "hall_t3"),
     ("WM_Build_Naga_TidalTreasury.mdx", "treasury"),
     ("WM_Build_Naga_CoralForge.mdx", "forge"),
     ("WM_Build_Naga_BehemothPool.mdx", "pool"),
 )
 
 NAGA_BUILDING_PALETTES = {
+    "hall_t1": ((9, 48, 67), (20, 96, 121), (45, 166, 172), (192, 193, 141), (225, 246, 225)),
+    "hall_t2": ((8, 40, 70), (18, 93, 132), (46, 176, 192), (204, 210, 169), (235, 250, 233)),
+    "hall_t3": ((10, 28, 60), (25, 78, 125), (61, 187, 210), (237, 190, 104), (245, 253, 240)),
     "treasury": ((13, 63, 86), (23, 116, 133), (87, 203, 198), (229, 205, 137), (216, 250, 233)),
     "forge": ((27, 43, 65), (93, 83, 93), (178, 103, 79), (246, 164, 74), (174, 237, 227)),
     "pool": ((7, 44, 78), (16, 92, 126), (33, 168, 177), (122, 213, 209), (227, 246, 222)),
@@ -936,7 +1176,39 @@ def build_naga_building_texture(kind: str) -> bytes:
         for x in range(offset, 256, 32):
             draw.line((x, y - 11, x, y + 11), fill=(*deep, 245), width=3)
 
-    if kind == "treasury":
+    if kind == "hall_t1":
+        # Tide-temple facade: low arch, four coral columns, and a single pearl crest.
+        draw.rectangle((42, 105, 214, 222), fill=(*deep, 255), outline=(*trim, 255), width=5)
+        draw.arc((50, 55, 206, 176), 180, 360, fill=(*pearl, 255), width=8)
+        for x in (58, 91, 165, 198):
+            draw.rounded_rectangle((x - 10, 103, x + 10, 214), radius=7, fill=(*mid, 255), outline=(*pearl, 255), width=3)
+        draw.rectangle((79, 146, 177, 220), fill=(*bright, 255), outline=(*trim, 255), width=4)
+        draw.polygon(((128, 54), (147, 91), (128, 108), (109, 91)), fill=(*pearl, 255), outline=(*trim, 255))
+        draw.ellipse((119, 75, 137, 93), fill=(*bright, 255), outline=(*pearl, 255), width=2)
+    elif kind == "hall_t2":
+        # Tier-two sanctuary adds a second arch, twin side turrets, and a taller tide-spire.
+        draw.rectangle((30, 108, 226, 224), fill=(*deep, 255), outline=(*trim, 255), width=5)
+        draw.arc((35, 61, 221, 184), 180, 360, fill=(*pearl, 255), width=8)
+        for x in (48, 82, 174, 208):
+            draw.rounded_rectangle((x - 11, 91, x + 11, 222), radius=8, fill=(*mid, 255), outline=(*pearl, 255), width=3)
+        draw.arc((73, 94, 183, 208), 180, 360, fill=(*bright, 255), width=6)
+        draw.polygon(((128, 27), (151, 75), (143, 115), (128, 131), (113, 115), (105, 75)), fill=(*bright, 255), outline=(*pearl, 255))
+        draw.polygon(((128, 42), (139, 77), (128, 91), (117, 77)), fill=(*pearl, 255), outline=(*trim, 255))
+        draw.ellipse((116, 145, 140, 169), fill=(*pearl, 255), outline=(*trim, 255), width=3)
+    elif kind == "hall_t3":
+        # Tier-three citadel: crowned central tower, layered battlements, and eight pearl windows.
+        draw.rectangle((20, 106, 236, 230), fill=(*deep, 255), outline=(*trim, 255), width=6)
+        draw.arc((26, 57, 230, 190), 180, 360, fill=(*pearl, 255), width=9)
+        for x in (39, 75, 181, 217):
+            draw.rectangle((x - 12, 77, x + 12, 225), fill=(*mid, 255), outline=(*pearl, 255), width=3)
+            draw.polygon(((x - 13, 80), (x, 42), (x + 13, 80)), fill=(*bright, 255), outline=(*trim, 255))
+        draw.rectangle((92, 63, 164, 227), fill=(*bright, 255), outline=(*pearl, 255), width=4)
+        draw.polygon(((128, 18), (147, 59), (140, 103), (128, 117), (116, 103), (109, 59)), fill=(*pearl, 255), outline=(*trim, 255))
+        draw.polygon(((128, 34), (138, 62), (128, 79), (118, 62)), fill=(*mid, 255), outline=(*bright, 255), width=3)
+        for x in (105, 151):
+            for y in (135, 179):
+                draw.ellipse((x - 7, y - 7, x + 7, y + 7), fill=(*pearl, 255), outline=(*trim, 255), width=2)
+    elif kind == "treasury":
         # Shell-scaled walls, arch windows, and a pearl-and-coral merchant crest.
         for x in range(18, 256, 32):
             draw.arc((x - 15, 42, x + 15, 83), 195, 345, fill=(*pearl, 230), width=3)
@@ -1075,7 +1347,42 @@ def _building_add_octahedron(
 
 def _naga_building_mesh(kind: str) -> Dict[str, list]:
     mesh: Dict[str, list] = {"vertices": [], "normals": [], "uvs": [], "faces": []}
-    if kind == "treasury":
+    if kind == "hall_t1":
+        # Compact Tide Temple: central pearl spire and four low shell-pillars.
+        _building_add_frustum(mesh, 0, 0, 0, 28, 170, 158, 16)
+        _building_add_frustum(mesh, 0, 0, 26, 96, 138, 120, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 90, 112, 152, 138, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 108, 238, 110, 28, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 232, 278, 30, 0, 8, math.pi / 8)
+        for x, y in ((-96, -96), (96, -96), (-96, 96), (96, 96)):
+            _building_add_frustum(mesh, x, y, 18, 94, 22, 19, 8, math.pi / 8)
+            _building_add_frustum(mesh, x, y, 88, 146, 28, 0, 8, math.pi / 8)
+        _building_add_octahedron(mesh, 0, 0, 288, 18, 22)
+    elif kind == "hall_t2":
+        # Sanctuary: wider double terrace, taller central spire, and four elevated pearl towers.
+        _building_add_frustum(mesh, 0, 0, 0, 32, 184, 172, 16)
+        _building_add_frustum(mesh, 0, 0, 30, 110, 150, 128, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 104, 132, 170, 152, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 128, 314, 128, 26, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 306, 354, 30, 0, 8, math.pi / 8)
+        for x, y in ((-118, -118), (118, -118), (-118, 118), (118, 118)):
+            _building_add_frustum(mesh, x, y, 20, 188, 25, 21, 8, math.pi / 8)
+            _building_add_frustum(mesh, x, y, 180, 278, 31, 0, 8, math.pi / 8)
+        _building_add_octahedron(mesh, 0, 0, 366, 22, 27)
+    elif kind == "hall_t3":
+        # Abyssal Citadel: broad crown terrace, six high perimeter spires, and a royal apex.
+        _building_add_frustum(mesh, 0, 0, 0, 38, 204, 190, 16)
+        _building_add_frustum(mesh, 0, 0, 36, 130, 166, 142, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 124, 154, 190, 170, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 148, 384, 145, 34, 12, math.pi / 12)
+        _building_add_frustum(mesh, 0, 0, 376, 424, 36, 0, 8, math.pi / 8)
+        for k in range(6):
+            angle = math.tau * k / 6
+            x, y = 146 * math.cos(angle), 146 * math.sin(angle)
+            _building_add_frustum(mesh, x, y, 24, 222, 28, 23, 8, angle)
+            _building_add_frustum(mesh, x, y, 214, 326, 36, 0, 8, angle)
+        _building_add_octahedron(mesh, 0, 0, 440, 26, 30)
+    elif kind == "treasury":
         # Low market platform + scallop-roofed central hall + four pearl sentinels.
         _building_add_frustum(mesh, 0, 0, 0, 28, 158, 150, 16)
         _building_add_frustum(mesh, 0, 0, 28, 112, 126, 116, 12, math.pi / 12)
@@ -1205,7 +1512,7 @@ PivotPoints 1 {{
 
 
 def build_naga_building_model_specs() -> Tuple[Dict[str, str], Dict[str, bytes]]:
-    """Return three distinct custom MDL specs and matching true-color BLP1 textures."""
+    """Return six distinct custom MDL specs and matching true-color BLP1 textures."""
     mdl_specs: Dict[str, str] = {}
     textures: Dict[str, bytes] = {}
     for model_name, kind in NAGA_BUILDING_MODEL_DEFS:
@@ -1509,9 +1816,24 @@ def compile_vfx_mdx_models(mdl_map: Dict[str, str], expected_geosets: int = 2) -
 # 7. MASTER ASSET BUNDLE & WEB PREVIEW SHOWCASE SHEET
 # ==============================================================================
 
+def save_map_and_faction_icon_previews() -> None:
+    """Generate optimized web renditions from the 1024px source emblem artwork."""
+    web_assets = [(MAP_ICON_SOURCE_PNG, MAP_ICON_PNG, 512)]
+    web_assets.extend(
+        (MAP_ART_SOURCE_DIR / f"faction_icon_{slug}.png", REPO_ROOT / "web" / "public" / f"faction_icon_{slug}.png", 256)
+        for slug, _label in FACTION_ICON_SPECS
+    )
+    for source, destination, size in web_assets:
+        assert source.is_file(), f"Missing source emblem artwork: {source}"
+        with Image.open(source) as src_img:
+            assert src_img.size == (1024, 1024), f"Source emblem must be 1024x1024: {source} ({src_img.size})"
+            optimized = src_img.convert("RGB").resize((size, size), Image.Resampling.LANCZOS)
+        optimized.save(destination, format="PNG", optimize=True, compress_level=9)
+
+
 def build_war3map_preview_tga() -> bytes:
-    assert ARTWORK_PNG.exists(), f"Missing custom artwork at {ARTWORK_PNG}"
-    img = Image.open(ARTWORK_PNG).convert("RGB").resize((256, 256), Image.Resampling.LANCZOS)
+    assert MAP_ICON_SOURCE_PNG.exists(), f"Missing dedicated map icon artwork at {MAP_ICON_SOURCE_PNG}"
+    img = Image.open(MAP_ICON_SOURCE_PNG).convert("RGB").resize((256, 256), Image.Resampling.LANCZOS)
     img = ImageEnhance.Contrast(img).enhance(1.10)
     draw = ImageDraw.Draw(img)
     draw.rectangle([0, 0, 255, 255], outline=(10, 12, 22), width=2)
@@ -1536,7 +1858,7 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
     files.update(infocard_blps)
     files.update(build_ui_resource_textures())
 
-    # 3. Ten full-bleed hero portraits; all remaining unit/building buttons keep native WC3 art.
+    # 3. Sixteen full-bleed, faction-coordinated portraits for all custom heroes.
     hero_blps, hero_samples = build_hero_portrait_assets()
     files.update(hero_blps)
 
@@ -1546,6 +1868,13 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
         files[f"ReplaceableTextures\\CommandButtons\\BTN_WM_Skill_{aid}.blp"] = encode_blp1_paletted(icon_img, alpha_bits=8)
         disabled_img = build_disabled_skill_icon(icon_img)
         files[f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_Skill_{aid}.blp"] = encode_blp1_paletted(disabled_img, alpha_bits=8)
+
+    # 3.75. Twelve faction-matched hall buttons make both empire and tier obvious.
+    hall_icons = build_hall_tier_icons()
+    for rawcode, icon_img in hall_icons.items():
+        files[f"ReplaceableTextures\\CommandButtons\\BTN_WM_Hall_{rawcode}.blp"] = encode_blp1_paletted(icon_img, alpha_bits=8)
+        disabled_img = build_disabled_skill_icon(icon_img)
+        files[f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_Hall_{rawcode}.blp"] = encode_blp1_paletted(disabled_img, alpha_bits=8)
 
     # 4. Additive faction sigils plus 64 distinct skill-specific spell models.
     sigil_defs = [
@@ -1583,9 +1912,11 @@ def generate_all_custom_assets(save_web_sheet: bool = True) -> Dict[str, bytes]:
     files.update(building_textures)
     files.update(compile_vfx_mdx_models(building_mdl_specs, expected_geosets=1))
 
-    # 5. Browser preview sheets expose every custom portrait and skill icon.
+    # 5. Browser preview assets expose map/faction emblems and every custom icon.
     if save_web_sheet:
+        save_map_and_faction_icon_previews()
         save_hero_portrait_preview(hero_samples)
+        save_hall_tier_icon_preview(hall_icons)
         save_skill_icon_galleries(skill_icons)
 
     return files

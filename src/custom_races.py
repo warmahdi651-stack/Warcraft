@@ -20,10 +20,10 @@ Retained Engineering, Art & Balance Guarantees:
   - Every `war3map.w3u`, `war3map.w3t`, and `war3map.w3q` modification uses exact
     `UnitMetaData.slk` / `UpgradeMetaData.slk` variable types (`VT_INT=0`,
     `VT_REAL=1`, `VT_UNREAL=2`, `VT_STR=3`) in cross-patch binary v2 format.
-  - Ten original hero portraits are shipped as icon-only paletted BLP pairs; all
-    other units/buildings inherit or receive verified native Warcraft III icons.
-  - Naga structures use native Naga architecture; Sunfury halls use the native
-    Human Town Hall model with inherited tier animations. UI/cursor/VFX BLPs stay truecolor.
+  - All sixteen custom heroes receive original icon-only paletted BLP portrait pairs;
+    twelve custom empire halls also get distinct faction/tier command-button pairs.
+  - Naga halls use unique T1/T2/T3 low-poly models; Sunfury halls follow the native
+    Human Town Hall/Keep/Castle tier chain and shared model family. UI/cursor/VFX BLPs stay truecolor.
 """
 from __future__ import annotations
 
@@ -54,8 +54,7 @@ VT_STR = 3
 ModEntry = Tuple[str, int, Any]
 LevelModEntry = Tuple[str, int, int, int, Any]
 
-# New high-resolution portrait BLPs for ten playable heroes. The remaining six
-# explicitly use the matching Blizzard-native campaign/hero portrait.
+# Coordinated custom portrait BLPs cover all sixteen playable heroes.
 HERO_ICON_OVERRIDES = {
     "Hvsh": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_Hvsh.blp",
     "N004": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_N004.blp",
@@ -67,12 +66,12 @@ HERO_ICON_OVERRIDES = {
     "Huth": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_Huth.blp",
     "V001": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_V001.blp",
     "V002": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_V002.blp",
-    "V003": "ReplaceableTextures\\CommandButtons\\BTNDranaiAkama.blp",
-    "V004": "ReplaceableTextures\\CommandButtons\\BTNHeroDreadLord.blp",
-    "T001": "ReplaceableTextures\\CommandButtons\\BTNHeroMountainKing.blp",
-    "T002": "ReplaceableTextures\\CommandButtons\\BTNHeroAvatarOfFlame.blp",
-    "T003": "ReplaceableTextures\\CommandButtons\\BTNHeroTinker.blp",
-    "T004": "ReplaceableTextures\\CommandButtons\\BTNHeroArchMage.blp",
+    "V003": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_V003.blp",
+    "V004": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_V004.blp",
+    "T001": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_T001.blp",
+    "T002": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_T002.blp",
+    "T003": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_T003.blp",
+    "T004": "ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_T004.blp",
 }
 
 
@@ -80,15 +79,24 @@ def _stock_button(stem: str) -> str:
     return "ReplaceableTextures\\CommandButtons\\" + stem + ".blp"
 
 
-# Custom models now use native buttons depicting those models/building roles;
-# unchanged stock units and buildings inherit their original Warcraft III art.
+# Custom halls use faction/tier-specific buttons; other custom models keep native
+# role-matched buttons, and unchanged stock objects inherit authentic Warcraft III art.
 OBJECT_ICON_OVERRIDES = {
+    "nntt": _stock_button("BTN_WM_Hall_nntt"),
+    "n001": _stock_button("BTN_WM_Hall_n001"),
+    "n002": _stock_button("BTN_WM_Hall_n002"),
+    "h001": _stock_button("BTN_WM_Hall_h001"),
+    "h002": _stock_button("BTN_WM_Hall_h002"),
+    "h003": _stock_button("BTN_WM_Hall_h003"),
+    "v001": _stock_button("BTN_WM_Hall_v001"),
+    "v002": _stock_button("BTN_WM_Hall_v002"),
+    "v003": _stock_button("BTN_WM_Hall_v003"),
+    "t001": _stock_button("BTN_WM_Hall_t001"),
+    "t002": _stock_button("BTN_WM_Hall_t002"),
+    "t003": _stock_button("BTN_WM_Hall_t003"),
     "n003": _stock_button("BTNShrineOfAszhara"),
     "n004": _stock_button("BTNAltarOfDepths"),
     "n005": _stock_button("BTNSpawningGrounds"),
-    "v001": _stock_button("BTNNecropolis"),
-    "v002": _stock_button("BTNDarkPortal"),
-    "v003": _stock_button("BTNDarkPortal"),
     "v004": _stock_button("BTNNerubianZiggurat"),
     "v005": _stock_button("BTNDemonGate"),
     "v006": _stock_button("BTNSacrificialPit"),
@@ -105,9 +113,6 @@ OBJECT_ICON_OVERRIDES = {
     "v017": _stock_button("BTNDoomGuard"),
     "v018": _stock_button("BTNTempleOfTheDamned"),
     "v019": _stock_button("BTNBlackDragonRoost"),
-    "t001": _stock_button("BTNAmmoDump"),
-    "t002": _stock_button("BTNArcaneObservatory"),
-    "t003": _stock_button("BTNWaygate"),
     "t004": _stock_button("BTNPowerGenerator"),
     "t005": _stock_button("BTNPocketFactory"),
     "t007": _stock_button("BTNAltarOfStorms"),
@@ -123,11 +128,14 @@ OBJECT_ICON_OVERRIDES = {
     "t019": _stock_button("BTNGoblinShipyard"),
 }
 
-# Original Naga structures retain their verified race-native models. Three added Naga
-# economy/forge/pool buildings use unique custom MDX assets instead of reusing the
-# Shrine, Altar, and Spawning Grounds already present in the same build menu. Sunfury
-# hall tiers retain the native Human Town Hall model and inherited upgrade animations.
+# Naga hall tiers use three authored, Classic-compatible silhouettes; their shop/forge/
+# pool additions remain role-specific. Sunfury halls use the native Human Town Hall,
+# Keep, and Castle models in order, making each upgrade visibly advance without changing
+# its familiar race language. All other custom structures retain verified native models.
 OBJECT_MODEL_OVERRIDES = {
+    "nntt": r"WM_Build_Naga_Temple_T1.mdx",
+    "n001": r"WM_Build_Naga_Temple_T2.mdx",
+    "n002": r"WM_Build_Naga_Temple_T3.mdx",
     "n003": r"WM_Build_Naga_TidalTreasury.mdx",
     "n004": r"WM_Build_Naga_CoralForge.mdx",
     "n005": r"WM_Build_Naga_BehemothPool.mdx",
@@ -144,7 +152,7 @@ def _normalize_object_icons(
 ) -> List[Tuple[str, str, List[Any]]]:
     """Replace generated glyph buttons while preserving all faction model overrides."""
     normalized: List[Tuple[str, str, List[Any]]] = []
-    null_id = "\\x00\\x00\\x00\\x00"
+    null_id = "\x00\x00\x00\x00"
     for original_id, new_id, mods in objects:
         effective_id = new_id if new_id != null_id else original_id
         # Drop obsolete generated icon overrides, but do not erase the real/custom
@@ -2076,7 +2084,7 @@ function NagaBuildLoop takes nothing returns nothing
             call SetProduce(1, NAGA_HALL_T1, -1)
         endif
 
-        if FoodUsed() + 6 >= FoodCap() and FoodCap() < 100 and GetUnitCount(NAGA_CORAL_BED) < 11 then
+        if FoodUsed() + 9 >= FoodCap() and FoodCap() < 600 and GetUnitCount(NAGA_CORAL_BED) < 70 then
             call NagaNeedUnit(GetUnitCountDone(NAGA_CORAL_BED) + 1, NAGA_CORAL_BED, -1)
         endif
 
@@ -2515,7 +2523,7 @@ function CHBuildLoop takes nothing returns nothing
             call SetProduce(1, CH_HALL_T1, -1)
         endif
 
-        if FoodUsed() + 5 >= FoodCap() and FoodCap() < 100 and GetUnitCount(CH_ELVEN_FARM) < 16 then
+        if FoodUsed() + 6 >= FoodCap() and FoodCap() < 600 and GetUnitCount(CH_ELVEN_FARM) < 110 then
             call CHNeedUnit(GetUnitCountDone(CH_ELVEN_FARM) + 1, CH_ELVEN_FARM, -1)
         endif
 

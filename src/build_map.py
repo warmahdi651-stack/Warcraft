@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Deterministic Procedural Generator for `(8) Crown of WarMahdi` v8.
+Deterministic Procedural Generator for `(8) Crown of WarMahdi` v9.
 An 8-player D4-symmetric Sunken-Astral Altered Melee map with 8 playable empires,
-64 exclusive hero skills, custom cursor/RPG UI, authoritative JASS custom-faction AI and native standard-race melee AI.
+64 exclusive hero skills, custom cursor/RPG UI, four imported custom-race melee-AI scripts and native standard-race melee AI.
 Targets classic Warcraft III: The Frozen Throne 1.26a/1.27b-era APIs only.
 """
 
@@ -48,11 +48,11 @@ MAP_DISPLAY_NAME = "(8) Crown of WarMahdi"
 MAP_AUTHOR = "WarMahdi Studio"
 MAP_RECOMMENDED_PLAYERS = "8 Empires • Host AI Menu"
 MAP_DESCRIPTION = (
-    "|cffffd700★ (8) Crown of WarMahdi v8 ★|r — 8-Empire Sunken-Astral Altered Melee (4v4 / 2v2 / FFA). "
-    "4 Classic Races + 4 Custom Empires: |cff22d3eeAbyssal Tideborn (with Illidan)|r, |cfffbbf24Sunfury Imperium|r, "
+    "|cffffd700★ (8) Crown of WarMahdi v9 ★|r — 8-Empire Sunken-Astral Altered Melee (4v4 / 2v2 / FFA). "
+    "4 Classic Races + 4 Custom Empires, with a 600 food ceiling: |cff22d3eeAbyssal Tideborn (with Illidan)|r, |cfffbbf24Sunfury Imperium|r, "
     "|cfff97316Voidborn Legion|r & |cff38bdf8Runeforged Bastion|r! "
-    "Features 16 heroes, 64 original custom skill icons and distinct spell VFX; core ranks unlock at levels 1/3/5 and ultimates at level 6. "
-    "Restored signature Mana Burn, Phoenix and Resurrection skills, race-matched role-distinct buildings (including three unique Naga shop/forge/pool models), and distinct custom-race AI openings. "
+    "Features 16 heroes with original portraits, 64 original custom skill icons and distinct spell VFX; core ranks unlock at levels 1/3/5 and ultimates at level 6. "
+    "Restored Mana Burn, Phoenix and Resurrection; added twelve faction/tier hall icon pairs and six unique Naga hall/role building models, alongside four faction-specific Classic melee-AI scripts with harvesting, expansion calls, and assault-group routines. "
     "Includes 64 skill-specific, geometrically varied spell MDX effects plus six faction sigils, custom cursor/RPG UI, and the preserved Sunken-Astral terrain."
 )
 
@@ -399,9 +399,13 @@ def evaluate_corner(cx: int, cy: int) -> Tuple[float, float, int, int, int, int]
         else:
             tex = TEX_DIRT  # Sandy/pebble shallow ford & shoreline
     elif r <= 820.0:
-        # Central Tavern courtyard stonework ring (no build needed at (0,0) since Tavern sits there)
+        # Crown Shrine courtyard: the raised stone dais stays unchanged, while eight
+        # buildable pale-stone spokes tie it visually into the cardinal/diagonal roads.
         if 360.0 <= r <= 620.0:
             tex = TEX_ROCK
+        elif 620.0 < r <= 820.0:
+            shrine_angle = math.atan2(u, v) if v else 0.0
+            tex = TEX_GRASSY_DIRT if math.cos(8.0 * shrine_angle) > 0.18 else TEX_ROUGH_DIRT
         else:
             tex = TEX_ROUGH_DIRT
     elif road_d < -60.0 and flat_weight < 0.7:
@@ -810,7 +814,7 @@ def generate_trees(
                 continue
 
             variation = thash % 10
-            scale = 0.92 + (thash % 25) * 0.01  # 0.92 .. 1.16 natural tree canopy height
+            scale = 0.86 + (thash % 29) * 0.012  # 0.86 .. 1.20; organic canopy variation (no pathing changes)
             angle_deg = float((thash >> 8) % 360)
 
             for px, py in pts:
@@ -852,28 +856,32 @@ def generate_trees(
             + terrain_heights[gy_p + 1][gx_p + 1]
         ) * 0.25 * 128.0
 
-    # 1) Floating Astral Crown Artifact (`ZZys` Eye of Sargeras) + 8 Glowing Runes (`ZZgr`) at (0,0)!
-    trees.append(PlacedTree("ZZys", 0, 0.0, 0.0, _ground_z(0.0, 0.0) + 42.0, 270.0, 1.35, editor_id, 255))
+    # 1) Floating Astral Crown Artifact (`ZZys`) and a brighter eight-rune courtyard.
+    trees.append(PlacedTree("ZZys", 0, 0.0, 0.0, _ground_z(0.0, 0.0) + 68.0, 270.0, 1.82, editor_id, 255))
     editor_id += 1
     for k in range(8):
         ang = k * (math.pi / 4.0)
-        rx, ry = 460.0 * math.cos(ang), 460.0 * math.sin(ang)
-        trees.append(PlacedTree("ZZgr", k % 6, rx, ry, _ground_z(rx, ry), k * 45.0, 1.18, editor_id, 255))
+        rx, ry = 430.0 * math.cos(ang), 430.0 * math.sin(ang)
+        trees.append(PlacedTree("ZZgr", k % 2, rx, ry, _ground_z(rx, ry), k * 45.0, 1.32, editor_id, 255))
         editor_id += 1
-        # Blue Bioluminescent Astral Flames (`YOfb`) flanking the 8 Crown Shrine bridgeheads!
-        bx, by = 920.0 * math.cos(ang + 0.14), 920.0 * math.sin(ang + 0.14)
-        trees.append(PlacedTree("YOfb", 0, bx, by, _ground_z(bx, by), 0.0, 1.15, editor_id, 255))
+        # Bioluminescent flames form an exact eightfold ring between the shrine avenues.
+        bx, by = 920.0 * math.cos(ang + math.pi / 8.0), 920.0 * math.sin(ang + math.pi / 8.0)
+        trees.append(PlacedTree("YOfb", 0, bx, by, _ground_z(bx, by), 0.0, 1.24, editor_id, 255))
         editor_id += 1
-        # Rising Bioluminescent Bubbles (`ZWbg`) & Lilypads (`ZPlp`) in the surrounding temple moat!
-        wx_m, wy_m = 2050.0 * math.cos(ang + 0.39), 2050.0 * math.sin(ang + 0.39)
-        trees.append(PlacedTree("ZWbg", 0, wx_m, wy_m, 0.0, 0.0, 1.25, editor_id, 255))
-        editor_id += 1
-        trees.append(PlacedTree("ZPlp", k % 3, wx_m + 96.0, wy_m - 96.0, 0.0, k * 30.0, 1.15, editor_id, 255))
-        editor_id += 1
+        # Two D4-matched bands of bubbles and lilies give each moat lagoon more depth.
+        for ring_index, radius in enumerate((2050.0, 2700.0)):
+            water_angle = ang + math.pi / 8.0
+            wx_m, wy_m = radius * math.cos(water_angle), radius * math.sin(water_angle)
+            trees.append(PlacedTree("ZWbg", 0, wx_m, wy_m, 0.0, 0.0, 1.10 if ring_index == 0 else 0.92, editor_id, 255))
+            editor_id += 1
+            pad_radius = radius + (96.0 if ring_index == 0 else -112.0)
+            px_m, py_m = pad_radius * math.cos(water_angle), pad_radius * math.sin(water_angle)
+            trees.append(PlacedTree("ZPlp", k % 2, px_m, py_m, 0.0, k * 45.0, 1.08 if ring_index == 0 else 0.96, editor_id, 255))
+            editor_id += 1
 
     # 2) Sacred Runic Circles (`ZZgr`) + Blue Astral Flames (`YOfb`) at all 8 Player Citadels!
     for idx_b, (sx_b, sy_b) in enumerate(PLAYER_BASES):
-        trees.append(PlacedTree("ZZgr", idx_b % 6, sx_b * 0.94, sy_b * 0.94, _ground_z(sx_b * 0.94, sy_b * 0.94), idx_b * 45.0, 1.10, editor_id, 255))
+        trees.append(PlacedTree("ZZgr", idx_b % 2, sx_b * 0.94, sy_b * 0.94, _ground_z(sx_b * 0.94, sy_b * 0.94), idx_b * 45.0, 1.10, editor_id, 255))
         editor_id += 1
 
     return trees
@@ -1147,8 +1155,8 @@ def serialize_wts() -> bytes:
         (3, MAP_DESCRIPTION),
         (4, MAP_RECOMMENDED_PLAYERS),
         (5, "Forces"),
-        (6, "8-Empire Sunken-Astral Altered Melee • v8"),
-        (7, "4 Custom Empires + 4 Classic Races, 16 Heroes with 64 unique skills and 64 distinct spell MDX effects, host-first AI difficulty, faction-specific build strategies, and tactical JASS AI."),
+        (6, "8-Empire Sunken-Astral Altered Melee • v9"),
+        (7, "4 Custom Empires + 4 Classic Races, 16 Heroes with 64 unique skills and 64 distinct spell MDX effects, host-first AI difficulty, faction-specific build strategies, and four dispatched custom melee-AI scripts with JASS hero micro and telemetry."),
     ]
     for pid in range(8):
         entries.append((10 + pid, f"Player {pid + 1}"))
@@ -1602,23 +1610,66 @@ def render_map_raster(
             rgba[off + 2] = b_c
             rgba[off + 3] = 255
 
-    # Paint lush emerald-teal Sunken Ruins tree canopies (`ZTtw` only)
-    tree_rad = max(1, int(round(size / 256.0 * 1.35)))
+    # Paint tree canopies with their authored variation and scale so forests read less tiled.
+    canopy_colors = ((18, 92, 78), (16, 84, 76), (21, 100, 79), (13, 82, 75), (23, 94, 81))
     for t in trees:
         if t.did != "ZTtw":
             continue
         cx = int((t.x - PLAYABLE_MIN_X) / PLAYABLE_SPAN * size)
         cy = int((PLAYABLE_MAX_Y - t.y) / PLAYABLE_SPAN * size)
+        tree_rad = max(1, int(round(size / 256.0 * 1.35 * t.scale)))
+        canopy_kind = t.variation % len(canopy_colors)
+        base_color = canopy_colors[canopy_kind]
         for dy in range(-tree_rad, tree_rad + 1):
             for dx in range(-tree_rad, tree_rad + 1):
-                if dx * dx + dy * dy <= tree_rad * tree_rad + 1:
+                dist2 = dx * dx + dy * dy
+                if canopy_kind == 0:
+                    inside = dist2 <= tree_rad * tree_rad + 1
+                elif canopy_kind == 1:
+                    inside = abs(dx) + abs(dy) <= tree_rad * 1.45
+                elif canopy_kind == 2:
+                    inside = dx * dx * 0.78 + dy * dy <= tree_rad * tree_rad + 1
+                elif canopy_kind == 3:
+                    inside = dist2 <= tree_rad * tree_rad + 1 and not (dx > 0 and dy > 0 and dx + dy > tree_rad)
+                else:
+                    inside = dist2 <= tree_rad * tree_rad + 1 and (dx == 0 or dy == 0 or dist2 <= tree_rad * tree_rad * 0.86)
+                if inside:
                     ix, iy = cx + dx, cy + dy
                     if 0 <= ix < size and 0 <= iy < size:
                         off = (iy * size + ix) * 4
-                        shade = 0.85 if (dx > 0 or dy > 0) else 1.16
-                        rgba[off] = max(0, min(255, int(18 * shade)))
-                        rgba[off + 1] = max(0, min(255, int(92 * shade)))
-                        rgba[off + 2] = max(0, min(255, int(78 * shade)))
+                        shade = 0.82 if (dx > 0 or dy > 0) else 1.13
+                        rgba[off] = max(0, min(255, int(base_color[0] * shade)))
+                        rgba[off + 1] = max(0, min(255, int(base_color[1] * shade)))
+                        rgba[off + 2] = max(0, min(255, int(base_color[2] * shade)))
+
+    # Tiny palette dots represent the actual non-blocking water flora and Shrine ornaments.
+    def paint_scenic(wx: float, wy: float, radius: int, color: Tuple[int, int, int], kind: str) -> None:
+        cx = int((wx - PLAYABLE_MIN_X) / PLAYABLE_SPAN * size)
+        cy = int((PLAYABLE_MAX_Y - wy) / PLAYABLE_SPAN * size)
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                if kind == "diamond":
+                    inside = abs(dx) + abs(dy) <= radius + 0.5
+                else:
+                    inside = dx * dx + dy * dy <= radius * radius + 1
+                if inside and 0 <= cx + dx < size and 0 <= cy + dy < size:
+                    off = ((cy + dy) * size + cx + dx) * 4
+                    rgba[off:off + 3] = bytes(color)
+
+    for t in trees:
+        if t.did == "ZZys":
+            r = max(4, int(round(size / 256.0 * 2.2 * t.scale)))
+            paint_scenic(t.x, t.y, r, (250, 216, 128), "circle")
+            paint_scenic(t.x, t.y, max(2, r - 2), (109, 68, 163), "circle")
+            paint_scenic(t.x, t.y, max(1, r // 3), (226, 250, 245), "diamond")
+        elif t.did == "ZZgr":
+            paint_scenic(t.x, t.y, max(1, int(round(size / 256.0 * 1.55 * t.scale))), (76, 221, 224), "diamond")
+        elif t.did == "YOfb":
+            paint_scenic(t.x, t.y, max(1, int(round(size / 256.0 * 1.15 * t.scale))), (47, 213, 239), "diamond")
+        elif t.did == "ZWbg":
+            paint_scenic(t.x, t.y, max(1, int(round(size / 256.0 * 1.25 * t.scale))), (139, 244, 242), "circle")
+        elif t.did == "ZPlp":
+            paint_scenic(t.x, t.y, max(1, int(round(size / 256.0 * 1.65 * t.scale))), (40, 145, 126), "circle")
 
     if draw_overlays and units:
         def draw_disc(wx: float, wy: float, rad: int, col: Tuple[int, int, int], ring: Tuple[int, int, int]) -> None:
@@ -1647,13 +1698,15 @@ def render_map_raster(
                     col = (242, 156, 38)
                 draw_disc(u.x, u.y, max(4, size // 140), col, (18, 18, 18))
 
-        # Neutral buildings & Gold Mines
+        # Neutral buildings & Gold Mines. Crown Shrine gets a deliberate double-ring marker.
         for u in units:
             if u.uid == "ngol":
                 draw_disc(u.x, u.y, max(5, size // 105), (255, 216, 48), (64, 42, 0))
+            elif u.uid == "ntav":
+                draw_disc(u.x, u.y, max(9, size // 88), (64, 205, 224), (255, 219, 127))
+                draw_disc(u.x, u.y, max(5, size // 175), (112, 73, 172), (244, 246, 237))
             elif u.player == 15:
-                col = (186, 128, 255) if u.uid == "ntav" else (72, 224, 255)
-                draw_disc(u.x, u.y, max(5, size // 115), col, (20, 24, 36))
+                draw_disc(u.x, u.y, max(5, size // 115), (72, 224, 255), (20, 24, 36))
 
         # Player start locations
         for u in units:
@@ -1751,7 +1804,7 @@ def export_web_metadata(
             {
                 "id": "abyssal",
                 "name": "Abyssal Tideborn (Naga Empire)",
-                "badge": "v8 • 16 Hero-Specific Skills • Level-6 Ultimates • 64 Unique Spell VFX",
+                "badge": "v9 • 16 Hero-Specific Skills • Level-6 Ultimates • 64 Unique Spell VFX",
                 "lobbyHandicap": "Menu [1] or 90% Handicap",
                 "color": "#22d3ee",
                 "halls": ["Temple of Tides (T1)", "Sanctuary of Tides (T2)", "Abyssal Citadel (T3)"],
@@ -1773,7 +1826,7 @@ def export_web_metadata(
             {
                 "id": "sunfury",
                 "name": "Sunfury Imperium (Solar Highborne)",
-                "badge": "v8 • Fast Altar/Ranged Opening • 64 Unique Spell VFX",
+                "badge": "v9 • Fast Altar/Ranged Opening • 64 Unique Spell VFX",
                 "lobbyHandicap": "Menu [2] or 80% Handicap",
                 "color": "#fbbf24",
                 "halls": ["Silvermoon Sanctum (T1)", "Sunwell Keep (T2)", "Silvermoon Citadel (T3)"],
@@ -1795,7 +1848,7 @@ def export_web_metadata(
             {
                 "id": "voidborn",
                 "name": "Voidborn Legion [NEW]",
-                "badge": "v8 • Fiend-Inspired Ranged Tech Opening • Unique Spell VFX",
+                "badge": "v9 • Fiend-Inspired Ranged Tech Opening • Unique Spell VFX",
                 "lobbyHandicap": "Menu [3] or 70% Handicap",
                 "color": "#c084fc",
                 "halls": ["Void Nexus (T1)", "Astral Riftcore (T2)", "Citadel of Oblivion (T3)"],
@@ -1817,7 +1870,7 @@ def export_web_metadata(
             {
                 "id": "runeforged",
                 "name": "Runeforged Bastion [NEW]",
-                "badge": "v8 • Fast Altar/Tech Opening • Unique Spell VFX",
+                "badge": "v9 • Fast Altar/Tech Opening • Unique Spell VFX",
                 "lobbyHandicap": "Menu [4] or 60% Handicap",
                 "color": "#f97316",
                 "halls": ["Titan Foundry (T1)", "Stormforge Hold (T2)", "Apex Pantheon (T3)"],
@@ -1930,7 +1983,7 @@ def build_all(repo_root: Path) -> Path:
     misc_bytes = serialize_war3map_misc()
     skin_bytes = serialize_war3map_skin()
 
-    print("[4.5/6] Generating portrait pairs, 64 skill BTN/DISBTN pairs, cursor atlases, RPG UI, 70 VFX MDXs, and 3 role-specific Naga building MDXs...")
+    print("[4.5/6] Generating 16 hero portrait pairs, 12 hall-tier icon pairs, 64 skill BTN/DISBTN pairs, cursor/RPG UI, 70 VFX MDXs, and 6 Naga hall/role building MDXs...")
     custom_assets_map = generate_all_custom_assets()
     imp_bytes = serialize_imp(list(custom_assets_map.keys()))
 

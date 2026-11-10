@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-17-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v8.
+18-Stage Automated Static/Binary Verification Suite for `(8) Crown of WarMahdi` v8.
 Checks the MPQ, TFT v25, JASS2 APIs (1.26-era proxy and official 1.27b), all 64 hero abilities and skill-specific VFX,
-16 unique hero kits, 8 empire spawn/build definitions, four AI scripts and the JASS AI fallback,
+16 unique hero kits, 8 empire spawn/build definitions, four dispatched custom melee-AI scripts and isolated JASS hero micro,
 object/card/rally flags, native icon/model references, portrait/UI BLP1s/MDXs, pathing, creep safety, D4 objective/camp symmetry, loot tiers and lobby-economy fairness.
 It cannot replace launching the map in an actual Warcraft III client.
 """
 
 from __future__ import annotations
+import base64
 import collections
+import hashlib
 import json
 import math
 import re
@@ -808,9 +810,22 @@ def run_verification(w3x_path: Path) -> None:
             assert did in valid_scenic_ids, f"Unexpected doodad ID {did!r} in war3map.doo!"
             assert d_life == 255, f"Scenic doodad {did} must have life=255, got {d_life}"
             scenic_doodads.append((did, tx, ty, d_life))
-    assert len(trees) == 5920 and len(scenic_doodads) == 41, (
-        f"Expected 5920 ZTtw trees + 41 scenic shrine doodads, got {len(trees)} + {len(scenic_doodads)}"
+    scenic_counts = collections.Counter(did for did, _x, _y, _life in scenic_doodads)
+    assert len(trees) == 5920 and len(scenic_doodads) == 57, (
+        f"Expected 5920 ZTtw trees + 57 scenic shrine/water doodads, got {len(trees)} + {len(scenic_doodads)}"
     )
+    assert scenic_counts == collections.Counter({"ZZys": 1, "ZZgr": 16, "YOfb": 8, "ZWbg": 16, "ZPlp": 16}), (
+        f"Unexpected Shrine and moat dressing counts: {dict(scenic_counts)}"
+    )
+    eye_record = next(d for d in scenic_doodads if d[0] == "ZZys")
+    assert abs(eye_record[1]) < 0.1 and abs(eye_record[2]) < 0.1, "Crown Shrine artifact must remain centered"
+    for doodad_id in ("ZZgr", "YOfb", "ZWbg", "ZPlp"):
+        positions = {(round(x, 1), round(y, 1)) for did, x, y, _life in scenic_doodads if did == doodad_id}
+        for x, y in positions:
+            for sx, sy in ((x, y), (-x, y), (x, -y), (-x, -y), (y, x), (-y, x), (y, -x), (-y, -x)):
+                assert (round(sx, 1), round(sy, 1)) in positions, (
+                    f"Scenic {doodad_id} layout is not D4-symmetric at ({x},{y}) -> ({sx},{sy})"
+                )
 
     for sl in slocs:
         sx, sy = float(sl["x"]), float(sl["y"])  # type: ignore
@@ -841,7 +856,7 @@ def run_verification(w3x_path: Path) -> None:
                     x_cur += step
                 y_cur += step
 
-    print("[PASS] Stage 6: All 8 Mirrored Player Starts, Gold Mines, Town-Hall Zones and Classic Race Spawn Terrain are buildable")
+    print("[PASS] Stage 6: 8 mirrored, buildable starts + mines; 57 Shrine/moat scenic doodads are D4-symmetric")
 
     # ------------------------------------------------------------------
     # STAGE 7: Pairwise Zero-Collision Prover (6,101 Objects)
@@ -1082,7 +1097,7 @@ def run_verification(w3x_path: Path) -> None:
                     if (mdl.version !== 800 || mdl.sequences.length < 2 || mdl.geosets.length !== 2) process.exit(2);
                 }}
                 const buildingMdxPaths = {building_mdx_paths_json};
-                if (buildingMdxPaths.length !== 3) process.exit(7);
+                if (buildingMdxPaths.length !== 6) process.exit(7);
                 for (const building of buildingMdxPaths) {{
                     const mdl = new MdxModel();
                     mdl.load(m.get(building).bytes());
@@ -1255,21 +1270,33 @@ def run_verification(w3x_path: Path) -> None:
             nid: {fid: str(value) for fid, _vt, _lvl, _dptr, value in mods}
             for _oid, nid, mods in w3u_cust if nid != "\x00\x00\x00\x00"
         }
+        modified_u_by_id: Dict[str, Dict[str, str]] = {}
+        for oid, nid, mods in w3u_orig + w3u_cust:
+            effective_id = nid if nid != "\x00\x00\x00\x00" else oid
+            modified_u_by_id[effective_id] = {fid: str(value) for fid, _vt, _lvl, _dptr, value in mods}
         custom_model_paths = {
             nid: mods["umdl"] for nid, mods in custom_u_by_id.items() if mods.get("umdl")
         }
-        assert len(custom_model_paths) == 55, (
-            f"Expected all 55 custom faction model overrides to survive icon normalization, got {len(custom_model_paths)}"
+        assert len(custom_model_paths) == 57, (
+            f"Expected all 57 custom faction model overrides to survive icon normalization, got {len(custom_model_paths)}"
         )
         native_model_paths = {
             str(row.get("file", "")).replace("/", "\\").lower()
             for row in native_unit_ui.values() if row.get("file")
         }
         generated_naga_building_models = {
+            "nntt": "WM_Build_Naga_Temple_T1.mdx",
+            "n001": "WM_Build_Naga_Temple_T2.mdx",
+            "n002": "WM_Build_Naga_Temple_T3.mdx",
             "n003": "WM_Build_Naga_TidalTreasury.mdx",
             "n004": "WM_Build_Naga_CoralForge.mdx",
             "n005": "WM_Build_Naga_BehemothPool.mdx",
         }
+        for rawcode, expected_model in generated_naga_building_models.items():
+            assert modified_u_by_id.get(rawcode, {}).get("umdl", "").lower() == expected_model.lower(), (
+                f"Naga building {rawcode} must use its dedicated tier/role model {expected_model}"
+            )
+            assert expected_model in files, f"Missing imported Naga building model {expected_model}"
         for custom_id, model_path in custom_model_paths.items():
             model_key = model_path.replace("/", "\\").removesuffix(".mdl").removesuffix(".mdx").lower()
             if custom_id in generated_naga_building_models:
@@ -1284,6 +1311,12 @@ def run_verification(w3x_path: Path) -> None:
                 )
 
         representative_models = {
+            "nntt": r"WM_Build_Naga_Temple_T1.mdx",
+            "n001": r"WM_Build_Naga_Temple_T2.mdx",
+            "n002": r"WM_Build_Naga_Temple_T3.mdx",
+            "h001": r"buildings\human\TownHall\TownHall.mdl",
+            "h002": r"buildings\human\TownHall\TownHall.mdl",
+            "h003": r"buildings\human\TownHall\TownHall.mdl",
             "h007": r"buildings\human\HumanBarracks\HumanBarracks.mdl",
             "h008": r"buildings\human\Workshop\Workshop.mdl",
             "h009": r"buildings\human\GryphonAviary\GryphonAviary.mdl",
@@ -1294,21 +1327,31 @@ def run_verification(w3x_path: Path) -> None:
             "t010": r"Units\Creeps\HeroTinkerRobot\HeroTinkerRobot.mdl",
         }
         for custom_id, expected_model in representative_models.items():
-            assert custom_u_by_id.get(custom_id, {}).get("umdl", "").lower() == expected_model.lower(), (
+            assert modified_u_by_id.get(custom_id, {}).get("umdl", "").lower() == expected_model.lower(), (
                 f"Faction model override for {custom_id} was removed or changed"
             )
 
+        mpq_path_sep = chr(92)
+        command_button_prefix = f"ReplaceableTextures{mpq_path_sep}CommandButtons{mpq_path_sep}"
+        naga_role_button_names = {
+            "n003": "BTNShrineOfAszhara.blp",
+            "n004": "BTNAltarOfDepths.blp",
+            "n005": "BTNSpawningGrounds.blp",
+        }
         for custom_id, expected_model in generated_naga_building_models.items():
-            actual_model = custom_u_by_id.get(custom_id, {}).get("umdl", "")
-            expected_button = {
-                "n003": r"ReplaceableTextures\CommandButtons\BTNShrineOfAszhara.blp",
-                "n004": r"ReplaceableTextures\CommandButtons\BTNAltarOfDepths.blp",
-                "n005": r"ReplaceableTextures\CommandButtons\BTNSpawningGrounds.blp",
-            }[custom_id]
-            texture_path = f"Textures\\{expected_model.removesuffix('.mdx')}.blp"
-            assert actual_model.lower() == expected_model.lower(), f"Wrong role-specific Naga building model on {custom_id}"
+            actual_model = modified_u_by_id.get(custom_id, {}).get("umdl", "")
+            if custom_id in custom_u_by_id:
+                assert custom_u_by_id[custom_id].get("umdl", "").lower() == expected_model.lower(), (
+                    f"Custom Naga building {custom_id} lost its generated model"
+                )
+            if custom_id in ("nntt", "n001", "n002"):
+                expected_button = f"{command_button_prefix}BTN_WM_Hall_{custom_id}.blp"
+            else:
+                expected_button = command_button_prefix + naga_role_button_names[custom_id]
+            texture_path = f"Textures{chr(92)}{expected_model.removesuffix('.mdx')}.blp"
+            assert actual_model.lower() == expected_model.lower(), f"Wrong Naga hall/role model on {custom_id}"
             assert expected_model in files and texture_path in files, f"Missing Naga building MDX/texture pair for {custom_id}"
-            actual_button = custom_u_by_id.get(custom_id, {}).get("uico", "")
+            actual_button = modified_u_by_id.get(custom_id, {}).get("uico", "")
             assert actual_button.lower() == expected_button.lower(), f"Naga building button no longer matches its construction role: {custom_id}"
 
         sunfury_native_building_parents = (
@@ -1329,7 +1372,7 @@ def run_verification(w3x_path: Path) -> None:
         }
 
         def building_model_key(rawcode: str) -> str:
-            model = custom_u_by_id.get(rawcode, {}).get("umdl", "")
+            model = modified_u_by_id.get(rawcode, {}).get("umdl", "")
             if not model:
                 parent_id = custom_parent_by_id.get(rawcode, rawcode)
                 native_row = native_unit_ui.get(parent_id)
@@ -1377,10 +1420,8 @@ def run_verification(w3x_path: Path) -> None:
             "Voidborn Legion": ("v001", "v002", "v003", "v004", "v005", "v006", "v007", "v008", "v009", "v018", "v019"),
             "Runeforged Bastion": ("t001", "t002", "t003", "t004", "t005", "t006", "t007", "t008", "t009", "t018", "t019"),
         }
-        intentional_tier_families = {
-            frozenset(("nntt", "n001", "n002")),
-            frozenset(("h001", "h002", "h003")),
-        }
+        # The native Human Town Hall model is shared across its Town Hall -> Keep -> Castle chain.
+        intentional_tier_families: Set[frozenset[str]] = {frozenset(("h001", "h002", "h003"))}
         for faction_name, building_ids in faction_building_ids.items():
             by_model: Dict[str, List[str]] = {}
             for rawcode in building_ids:
@@ -1391,7 +1432,10 @@ def run_verification(w3x_path: Path) -> None:
                 f"Duplicate building model assignments in {faction_name}: "
                 f"{[(key, ids) for key, ids in by_model.items() if len(ids) > 1]}"
             )
-        assert len({building_model_key(x) for x in ("n003", "n004", "n005")}) == 3, "Custom Naga role models must be unique"
+        naga_hall_and_role_ids = ("nntt", "n001", "n002", "n003", "n004", "n005")
+        assert len({building_model_key(x) for x in naga_hall_and_role_ids}) == 6, (
+            "All three Naga hall tiers and three role buildings must use distinct models"
+        )
 
         # Native art paths are external game assets: validate their metadata, rather
         # than incorrectly requiring Blizzard's icons to be imported into the map.
@@ -1420,8 +1464,17 @@ def run_verification(w3x_path: Path) -> None:
                 )
                 if fid == "uico":
                     icon_path = str(val)
-                    if r"\CommandButtons\BTN_WM_Portrait_" in icon_path:
-                        assert icon_path in files, f"Missing custom hero portrait icon {icon_path} in MPQ"
+                    is_custom_icon = (
+                        r"\CommandButtons\BTN_WM_Portrait_" in icon_path
+                        or r"\CommandButtons\BTN_WM_Hall_" in icon_path
+                    )
+                    if is_custom_icon:
+                        assert icon_path in files, f"Missing imported custom command icon {icon_path}"
+                        disabled_path = disabled_button_path(icon_path)
+                        imported_paths = {normalize_button_path(path) for path in files}
+                        assert normalize_button_path(disabled_path) in imported_paths, (
+                            f"Missing disabled-state pair for custom command icon {icon_path}"
+                        )
                     else:
                         assert normalize_button_path(icon_path) in native_button_art_paths, (
                             f"Unrecognized native object button art {icon_path} on {target_label}"
@@ -1863,9 +1916,9 @@ def run_verification(w3x_path: Path) -> None:
     skill_mdx_files = {name: data for name, data in mdx_files.items() if name.startswith("WM_Skill_")}
     faction_mdx_files = {name: data for name, data in mdx_files.items() if name.startswith("WM_FX_")}
     building_mdx_files = {name: data for name, data in files.items() if name.startswith("WM_Build_Naga_") and name.lower().endswith(".mdx")}
-    assert len(blp_files) == 261, f"Expected 261 portrait/skill-button/UI/VFX/building/minimap BLPs, got {len(blp_files)}"
+    assert len(blp_files) == 300, f"Expected 300 portrait/skill/hall-button/UI/VFX/building/minimap BLPs, got {len(blp_files)}"
     assert len(mdx_files) == 70 and len(faction_mdx_files) == 6, f"Expected 6 faction + 64 skill MDX effects, got {len(mdx_files)} total"
-    expected_naga_building_mdx = {"WM_Build_Naga_TidalTreasury.mdx", "WM_Build_Naga_CoralForge.mdx", "WM_Build_Naga_BehemothPool.mdx"}
+    expected_naga_building_mdx = set(generated_naga_building_models.values())
     expected_naga_building_blp = {f"Textures\\{name.removesuffix('.mdx')}.blp" for name in expected_naga_building_mdx}
     assert set(building_mdx_files) == expected_naga_building_mdx, "Unique Naga building MDX models are incomplete or misnamed"
     assert expected_naga_building_blp.issubset(blp_files), "A generated Naga building texture is missing"
@@ -1904,12 +1957,33 @@ def run_verification(w3x_path: Path) -> None:
         content, _alpha, width, height, _typ, _mips = struct.unpack_from("<6I", blp_files[name], 4)
         assert content == 0 and (width, height) == (256, 256), f"Naga building texture must be true-color 256x256: {name}"
 
-    portrait_rawcodes = ("Hvsh", "N004", "N001", "N002", "Hkal", "Hvwd", "Hlgr", "Huth", "V001", "V002")
+    portrait_rawcodes = (
+        "Hvsh", "N004", "N001", "N002", "Hkal", "Hvwd", "Hlgr", "Huth",
+        "V001", "V002", "V003", "V004", "T001", "T002", "T003", "T004",
+    )
     portrait_blp_paths: Set[str] = set()
     for rawcode in portrait_rawcodes:
         portrait_blp_paths.add(f"ReplaceableTextures\\CommandButtons\\BTN_WM_Portrait_{rawcode}.blp")
         portrait_blp_paths.add(f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_Portrait_{rawcode}.blp")
     assert portrait_blp_paths.issubset(blp_files), f"Missing custom portrait BLP pairs: {sorted(portrait_blp_paths - set(blp_files))}"
+
+    hall_rawcodes = ("nntt", "n001", "n002", "h001", "h002", "h003", "v001", "v002", "v003", "t001", "t002", "t003")
+    hall_normal_blps = {
+        f"ReplaceableTextures\\CommandButtons\\BTN_WM_Hall_{rawcode}.blp" for rawcode in hall_rawcodes
+    }
+    hall_disabled_blps = {
+        f"ReplaceableTextures\\CommandButtonsDisabled\\DISBTN_WM_Hall_{rawcode}.blp" for rawcode in hall_rawcodes
+    }
+    hall_icon_blp_paths = hall_normal_blps | hall_disabled_blps
+    assert hall_icon_blp_paths.issubset(blp_files), (
+        f"Missing faction/tier hall icon pairs: {sorted(hall_icon_blp_paths - set(blp_files))}"
+    )
+    for rawcode in hall_rawcodes:
+        expected_icon = f"ReplaceableTextures\\CommandButtons\\BTN_WM_Hall_{rawcode}.blp"
+        actual_icon = modified_u_by_id.get(rawcode, {}).get("uico", "")
+        assert actual_icon == expected_icon, (
+            f"Town Hall {rawcode} icon mismatch: got {actual_icon!r}, expected {expected_icon!r}"
+        )
 
     skill_icon_rawcodes = {f"A{i:03d}" for i in range(64)}
     skill_normal_blps = {
@@ -1922,7 +1996,7 @@ def run_verification(w3x_path: Path) -> None:
     assert skill_icon_blp_paths.issubset(blp_files), (
         f"Missing custom skill BTN/DISBTN assets: {sorted(skill_icon_blp_paths - set(blp_files))}"
     )
-    icon_blp_paths = portrait_blp_paths | skill_icon_blp_paths
+    icon_blp_paths = portrait_blp_paths | skill_icon_blp_paths | hall_icon_blp_paths
 
     palette_blp_paths: Set[str] = set()
     for name, data in blp_files.items():
@@ -1938,7 +2012,11 @@ def run_verification(w3x_path: Path) -> None:
             palette_blp_paths.add(name)
         else:
             assert name not in icon_blp_paths, f"Command-button icon must remain an icon-only paletted BLP: {name}"
-    assert palette_blp_paths == icon_blp_paths, "Palette BLP use must be limited to custom portrait/skill BTN-DISBTN pairs"
+    assert palette_blp_paths == icon_blp_paths, "Palette BLP use must be limited to custom portrait/skill/hall BTN-DISBTN pairs"
+    assert len({blp_files[name] for name in hall_normal_blps}) == 12, "All twelve faction/tier hall icons must be binary-distinct"
+    assert all(blp_files[normal] != blp_files[disabled] for normal, disabled in zip(sorted(hall_normal_blps), sorted(hall_disabled_blps))), (
+        "Every faction/tier hall must have a distinct normal/disabled icon pair"
+    )
     assert len({blp_files[name] for name in skill_normal_blps}) == 64, "All 64 normal skill icons must be binary-distinct"
     assert len({blp_files[name] for name in skill_disabled_blps}) == 64, "All 64 disabled skill icons must be binary-distinct"
     assert all(blp_files[normal] != blp_files[disabled] for normal, disabled in zip(sorted(skill_normal_blps), sorted(skill_disabled_blps))), (
@@ -1948,10 +2026,81 @@ def run_verification(w3x_path: Path) -> None:
     for race_cursor in ("Human", "Orc", "Undead", "NightElf"):
         name = f"UI\\Cursor\\{race_cursor}Cursor.blp"
         assert name in files and struct.unpack_from("<II", files[name], 12)[0:2] == (256, 128), f"Missing or invalid custom cursor atlas: {name}"
-    print(f"[PASS] Stage 14: Native race/building references + 10 portrait pairs + 64 skill BTN/DISBTN pairs + {len(blp_files)} BLP1s + 6 faction/64 skill MDX effects + 3 unique Naga building MDXs")
+
+    # Keep the downloadable web bundle, manifest, QA record, and preview galleries
+    # synchronized with the exact archive being verified.
+    repo_root = Path(__file__).resolve().parent.parent
+    web_public = repo_root / "web" / "public"
+    bundle_text = (web_public / "w3x_b64.js").read_text(encoding="utf-8")
+    embedded_match = re.search(r'window[.]W3X_MAP_B64 = "([A-Za-z0-9+/=]+)";', bundle_text)
+    size_match = re.search(r"window[.]W3X_MAP_BYTES = ([0-9]+);", bundle_text)
+    sha_match = re.search(r'window[.]W3X_MAP_SHA256 = "([0-9a-f]{64})";', bundle_text)
+    assert embedded_match and size_match and sha_match, "Web download bundle is missing its archive data/size/SHA metadata"
+    archive_bytes = w3x_path.read_bytes()
+    archive_sha256 = hashlib.sha256(archive_bytes).hexdigest()
+    assert base64.b64decode(embedded_match.group(1), validate=True) == archive_bytes, "Embedded web download does not exactly match the verified W3X"
+    assert int(size_match.group(1)) == len(archive_bytes), "Embedded web download byte count is stale"
+    assert sha_match.group(1) == archive_sha256, "Embedded web download SHA-256 is stale"
+
+    web_metadata = json.loads((web_public / "map_data.json").read_text(encoding="utf-8"))
+    assert web_metadata.get("fileSizeBytes") == len(archive_bytes), "Web map manifest file size is stale"
+    qa_record = (repo_root / "CLASSIC_CLIENT_QA.md").read_text(encoding="utf-8")
+    assert archive_sha256 in qa_record, "Classic-client QA record does not identify the verified W3X build"
+
+    gallery_names = (
+        "crown_map_icon.png",
+        "faction_icon_abyssal.png",
+        "faction_icon_runeforged.png",
+        "faction_icon_sunfury.png",
+        "faction_icon_voidborn.png",
+        "custom_icons_preview.png",
+        "faction_halls_preview.png",
+        "skill_icons_abyssal.png",
+        "skill_icons_runeforged.png",
+        "skill_icons_sunfury.png",
+        "skill_icons_voidborn.png",
+    )
+    index_html = (web_public / "index.html").read_text(encoding="utf-8")
+    expected_download = 'href="./api/download" download="(8)CrownOfWarMahdi.w3x"'
+    for link_id in ("btnDirectDownload", "linkDownloadFallback"):
+        link_start = index_html.find(f'<a id="{link_id}"')
+        assert link_start >= 0, f"Missing same-origin download anchor: {link_id}"
+        link_end = index_html.find(">", link_start)
+        link_tag = index_html[link_start : link_end + 1]
+        assert expected_download in link_tag, f"{link_id} must use the same-origin attachment route and filename"
+        assert "target=" not in link_tag, f"{link_id} must stay in the authenticated Arena preview context"
+    assert 'src="./w3x_b64.js"' not in index_html, "Browser page should not load a multi-megabyte base64 bundle just to download the map"
+    assert "download-sandbox-note" in index_html, "Preview must explain the Arena sandbox file-download fallback"
+    app_js = (web_public / "app.js").read_text(encoding="utf-8")
+    assert "W3X_MAP_B64" not in app_js and "URL.createObjectURL" not in app_js, "Downloads must use trusted same-origin attachment links, not a synthetic Blob click"
+
+    for gallery_name in gallery_names:
+        gallery_path = web_public / gallery_name
+        assert gallery_path.is_file() and gallery_path.stat().st_size > 0, f"Missing web preview gallery: {gallery_name}"
+        assert f"./{gallery_name}" in index_html, f"Web page no longer references preview gallery: {gallery_name}"
+
+    brand_icon_dimensions = {
+        "crown_map_icon.png": (512, 512),
+        "faction_icon_abyssal.png": (256, 256),
+        "faction_icon_runeforged.png": (256, 256),
+        "faction_icon_sunfury.png": (256, 256),
+        "faction_icon_voidborn.png": (256, 256),
+    }
+    for icon_name, expected_size in brand_icon_dimensions.items():
+        icon_png = (web_public / icon_name).read_bytes()
+        assert icon_png[:8] == bytes.fromhex("89504e470d0a1a0a"), f"Invalid web brand icon PNG: {icon_name}"
+        assert struct.unpack_from(">II", icon_png, 16) == expected_size, f"Unexpected optimized web icon size for {icon_name}"
+        source_png = (repo_root / "src" / "assets" / "map_art" / icon_name).read_bytes()
+        assert source_png[:8] == bytes.fromhex("89504e470d0a1a0a"), f"Invalid source brand icon PNG: {icon_name}"
+        assert struct.unpack_from(">II", source_png, 16) == (1024, 1024), f"Source brand icon must be 1024x1024: {icon_name}"
+
+    map_preview = (repo_root / "maps" / "(8)CrownOfWarMahdi_Preview.png").read_bytes()
+    assert map_preview[:8] == bytes.fromhex("89504e470d0a1a0a"), "Map preview is not a valid PNG"
+    assert struct.unpack_from(">II", map_preview, 16) == (1024, 1024), "Map preview dimensions changed unexpectedly"
+    print(f"[PASS] Stage 14: Native race/building references + 16 portrait pairs + 12 faction/tier hall icon pairs + 64 skill BTN/DISBTN pairs + {len(blp_files)} BLP1s + 6 faction/64 skill MDX effects + 6 unique Naga hall/role building MDXs + exact web W3X bundle/manifest/map/faction icon gallery/preview sync + same-origin attachment download links")
 
     # ------------------------------------------------------------------
-    # STAGE 15: TFT 1.26-era API Compatibility & AI Startup/Fallback Coverage
+    # STAGE 15: TFT 1.26-era API Compatibility & Single-Controller AI Dispatch
     # ------------------------------------------------------------------
     ref_124 = Path("/tmp/wc3ref/w3x2lni/data/zhCN-1.24.4/mpq/Scripts")
     if ref_124.exists():
@@ -1965,16 +2114,30 @@ def run_verification(w3x_path: Path) -> None:
     ai_entry_names = ("naga_melee.ai", "camphuman_melee.ai", "voidborn_melee.ai", "runeforged_melee.ai")
     for ai_name in ai_entry_names:
         assert ai_name in files, f"Missing imported race AI file {ai_name}!"
+    dispatch_src = jass_src.split("function WM_StartNativeAIScriptForPlayer", 1)[1].split("endfunction", 1)[0]
     for ai_path in (
         'StartMeleeAI(p, "naga_melee.ai")',
         'StartMeleeAI(p, "camphuman_melee.ai")',
         'StartMeleeAI(p, "voidborn_melee.ai")',
         'StartMeleeAI(p, "runeforged_melee.ai")',
     ):
-        assert ai_path not in jass_src, f"Custom faction must not start a competing native .ai controller: {ai_path}"
-    assert "if faction >= 5 then" in jass_src, "Custom factions must bypass StartMeleeAI"
+        assert ai_path in dispatch_src, f"Matching custom melee-AI script is not started: {ai_path}"
+    for faction, ai_name in ((5, "naga_melee.ai"), (6, "camphuman_melee.ai"), (7, "voidborn_melee.ai"), (8, "runeforged_melee.ai")):
+        assert f"if faction == {faction} then\n        call StartMeleeAI(p, \"{ai_name}\")" in dispatch_src, (
+            f"Faction {faction} must launch its own AI script, not another race's strategy"
+        )
     for standard_ai in ("Scripts\\\\human.ai", "Scripts\\\\orc.ai", "Scripts\\\\undead.ai", "Scripts\\\\elf.ai"):
-        assert standard_ai in jass_src, f"Standard race melee AI path missing: {standard_ai}"
+        assert standard_ai in dispatch_src, f"Standard race melee AI path missing: {standard_ai}"
+    for ai_name in ai_entry_names:
+        ai_src = files[ai_name].decode("utf-8")
+        assert "function main takes nothing returns nothing" in ai_src and "call SetMeleeAI()" in ai_src, (
+            f"{ai_name} must be a runnable melee-AI entry point"
+        )
+        assert "HarvestGold(" in ai_src and "HarvestWood(" in ai_src, f"{ai_name} must actively gather both resources"
+        assert "GetExpansionPeon()" in ai_src and "SetExpansion(" in ai_src, f"{ai_name} must be able to send a worker to an expansion"
+        assert "GetMinesOwned()" in ai_src and ("SingleMeleeAttack(" in ai_src or "SetAssaultGroup(" in ai_src), (
+            f"{ai_name} must include mine progression and an actual attack-wave routine"
+        )
     for ai_name, first_id, last_id in (("voidborn_melee.ai", 32, 47), ("runeforged_melee.ai", 48, 63)):
         ai_src = files[ai_name].decode("utf-8")
         expected_skill_ids = {f"A{i:03d}" for i in range(first_id, last_id + 1)}
@@ -1990,12 +2153,17 @@ def run_verification(w3x_path: Path) -> None:
             f"Naga AI data script must guard repeat research orders for {upgrade}"
         )
 
-    assert "function WM_AIFallbackBuild" in jass_src and "function WM_AIQueueFallbackBuild" in jass_src and "IssueBuildOrderById" in jass_src, "Sequential worker-build controller missing!"
-    assert "function WM_OnAIFallbackBuildFinished" in jass_src and "EVENT_PLAYER_UNIT_CONSTRUCT_FINISH" in jass_src, "AI construction latch is not cleared on completion!"
-    assert "udg_AIFallbackPendingRaw" in jass_src and "udg_AINextRaxOrderAt" in jass_src, "AI pending-build/production cooldown state missing!"
+    maintenance_src = jass_src.split("function WM_OnProAIMacroTick", 1)[1].split("endfunction", 1)[0]
+    assert "function WM_OnProAIMacroTick" in jass_src and "TimerStart(udg_AIMaintenanceTimer, 4.00, true, function WM_OnProAIMacroTick)" in jass_src, (
+        "The live AI telemetry/difficulty-support timer must run"
+    )
+    assert not any(order in maintenance_src for order in ("IssueBuildOrderById", "IssueImmediateOrderById", "IssuePointOrder", "IssueTargetOrder")), (
+        "The maintenance timer must never fight the common.ai script for macro or attack orders"
+    )
+    assert "function WM_AIRawcodeHallTier" in jass_src and "udg_AIMetricAttackOrders[i]" in maintenance_src, (
+        "AI telemetry must sample current army, worker, hall/tier, and attack-order state"
+    )
     assert "WM_IsCustomAIWorker(f, rawcode)" in jass_src and "'nmpe'" in jass_src and "'nhew'" in jass_src and "'v010'" in jass_src and "'t010'" in jass_src, "Explicit custom-worker detection is incomplete!"
-    assert "WM_AIChooseCustomHeroSkill(u, f)" in jass_src and "heroCount < 3" in jass_src, "Independent hero skill spending or altar hero-count guard missing!"
-    assert "udg_AINextHeroOrderAt[i]" in jass_src and "udg_AINextSanctumOrderAt[i]" in jass_src, "Sequential altar/caster orders are not guarded!"
     assert "function WM_AIUseInventory" in jass_src and "UnitUseItemPoint" in jass_src, "AI consumable/retreat micro fallback missing!"
 
     # Ensure each custom worker is typed as a peon and owns real harvesting/build abilities.
@@ -2039,7 +2207,7 @@ def run_verification(w3x_path: Path) -> None:
     assert "WM_UsesAmphibiousPathing(u)" in pull_src and "PATHING_TYPE_FLYABILITY" in pull_src, (
         "Pull/push must use movement-specific terrain checks for Naga amphibious units and flyers"
     )
-    print(f"[PASS] Stage 15: Classic TFT 1.26/1.27 API proxy ({legacy_fn_count} functions) + native race AI + safe summon/displacement + sequential custom-AI guards")
+    print(f"[PASS] Stage 15: Classic TFT 1.26/1.27 API proxy ({legacy_fn_count} functions) + 4 explicitly dispatched custom melee-AI scripts + single macro controller + safe summon/displacement")
 
     # ------------------------------------------------------------------
     # STAGE 16: Melee Fairness — Symmetric Objectives, Balanced Camp Loot & Lobby Teams
@@ -2238,12 +2406,9 @@ def run_verification(w3x_path: Path) -> None:
     )
 
     # ------------------------------------------------------------------
-    # STAGE 17: Fair-vision, adaptive objectives/counters, role micro, and AI telemetry
+    # STAGE 17: Fair vision, native melee-AI ownership, hero micro, and live telemetry
     # ------------------------------------------------------------------
     intel_src = jass_src.split("function WM_AIRefreshEnemyIntel", 1)[1].split("endfunction", 1)[0]
-    objective_src = jass_src.split("function WM_AIChooseMarchObjective", 1)[1].split("endfunction", 1)[0]
-    creep_src = objective_src
-    natural_mine_src = jass_src.split("function WM_AIFindVisibleNaturalMine", 1)[1].split("endfunction", 1)[0]
     spell_center_src = jass_src.split("function WM_AISelectSpellCenter", 1)[1].split("endfunction", 1)[0]
     visible_count_src = jass_src.split("function WM_AICountVisibleEnemies", 1)[1].split("endfunction", 1)[0]
     fallen_ally_src = jass_src.split("function WM_AIHasFallenAllyHero", 1)[1].split("endfunction", 1)[0]
@@ -2253,49 +2418,66 @@ def run_verification(w3x_path: Path) -> None:
     macro_src = jass_src.split("function WM_OnProAIMacroTick", 1)[1].split("endfunction", 1)[0]
     chat_src = jass_src.split("function WM_OnPlayerChatCommand", 1)[1].split("endfunction", 1)[0]
     metrics_src = jass_src.split("function WM_ShowAIMetrics", 1)[1].split("endfunction", 1)[0]
+    dispatch_src = jass_src.split("function WM_StartNativeAIScriptForPlayer", 1)[1].split("endfunction", 1)[0]
+    ai_sources = {name: files[name].decode("utf-8") for name in ai_entry_names}
+
+    common_ai_creep_verified = False
+    if common_ai_path.exists():
+        common_ai_src = common_ai_path.read_text(encoding="utf-8", errors="ignore")
+        melee_attack_src = common_ai_src.split("function SingleMeleeAttack", 1)[1].split("endfunction", 1)[0]
+        expansion_src = common_ai_src.split("function StartExpansion", 1)[1].split("endfunction", 1)[0]
+        assert all(f"call {routine}()" in melee_attack_src for routine in ("CreepAttackEx", "MajorCreepAttack", "MinorCreepAttack")), (
+            "The custom melee scripts' SingleMeleeAttack path must dispatch real creep-camp attacks"
+        )
+        assert "GetCreepCamp(" in common_ai_src and "GetExpansionPeon()" in expansion_src and "SetExpansion(peon,hall)" in expansion_src, (
+            "The Classic common.ai implementation must expose genuine neutral-camp and expansion-worker routines"
+        )
+        assert "AttackMoveKillA(" in melee_attack_src and "AnyPlayerAttack()" in melee_attack_src, (
+            "SingleMeleeAttack must include real opponent assault orders as well as creeping"
+        )
+        common_ai_creep_verified = True
 
     assert "IsUnitVisible(u, aiPlayer)" in intel_src, "Enemy intel must filter units through the AI player's current vision"
     assert "udg_AILastSeenX[slot]" in intel_src and "udg_AILastSeenY[slot]" in intel_src and "udg_AILastSeenAt[slot] = udg_MatchSeconds" in intel_src, (
         "Fair enemy memory must store only observed positions and their observation time"
     )
     assert "WM_AIObservedHallTier(rawcode)" in intel_src and "udg_AIEnemyAirSeen[slot]" in intel_src and "udg_AIEnemyCasterSeen[slot]" in intel_src, (
-        "AI must adapt to visible enemy tier, air, and caster observations—not hidden player technology"
+        "JASS telemetry must adapt its visible composition record without reading hidden enemy technology"
     )
     assert "seenAir >= udg_AIEnemyAirSeen[slot]" in intel_src and "seenCasters >= udg_AIEnemyCasterSeen[slot]" in intel_src and "age > 150" in intel_src and "udg_AIEnemyAirSeen[slot] - 1" in intel_src, (
-        "Composition evidence must refresh only at equal-or-higher observed counts and decay when that evidence gets stale"
+        "Composition evidence must refresh only at equal-or-higher observed counts and decay when stale"
     )
-    assert "age <= 120" in objective_src and "udg_AILastSeenX[bestSlot]" in objective_src, (
-        "Scouting must use only expiring last-seen coordinates, not hidden enemy unit positions"
+    for ai_name, ai_src in ai_sources.items():
+        assert "HarvestGold(" in ai_src and "HarvestWood(" in ai_src, f"{ai_name} must direct workers to gold and lumber"
+        assert "GetExpansionPeon()" in ai_src and "SetExpansion(" in ai_src and "GetMinesOwned()" in ai_src, (
+            f"{ai_name} must include a genuine worker/mine expansion path"
+        )
+        assert "SetMeleeAI()" in ai_src and ("SingleMeleeAttack(" in ai_src or "SetAssaultGroup(" in ai_src), (
+            f"{ai_name} must start its melee brain and dispatch an attack/assault group"
+        )
+    assert all(f'call StartMeleeAI(p, "{name}")' in dispatch_src for name in ai_entry_names), (
+        "Every packaged custom AI script must be reachable from the matching faction dispatcher"
     )
-    assert "IsUnitVisible(u, p)" in creep_src and "Player(PLAYER_NEUTRAL_AGGRESSIVE)" in creep_src, (
-        "Creep selection must use currently visible camps only"
+    assert "WM_AIRefreshEnemyIntel(p, i, homeX, homeY)" in macro_src and "IsUnitVisible(u, aiPlayer)" in intel_src, (
+        "The maintenance timer must keep fair-vision telemetry alive for active melee scripts"
     )
-    assert "GetStartLocationX(GetPlayerStartLocation(Player(j)))" in objective_src and "udg_AIObjectiveMode[pid] = 5" in objective_src, (
-        "Late scouting may use the public start-location prior, but must remain a point-search objective"
+    assert not any(order in macro_src for order in ("IssueBuildOrderById", "IssueImmediateOrderById", "IssuePointOrder", "IssueTargetOrder")), (
+        "JASS maintenance must not issue duplicate build, train, or march orders over the native AI script"
     )
-    assert "IsUnitVisible(u, p)" in natural_mine_src and "WM_AIIsTownHallRawcode(rawcode)" in natural_mine_src, (
-        "Natural expansion discovery must be visibility-gated and reject a visibly occupied town-hall site"
-    )
-    assert "WM_AIQueueExpansion" in macro_src and "tier >= 3" in macro_src and "hallCount == 1" in macro_src and "udg_AIExpansionPending" in macro_src, (
-        "Expansion must be a guarded worker build after tier 3, not a free hall or hidden-site placement"
-    )
-    assert "expansionWorkerCount < 3" in macro_src and "udg_AIObjectiveMode[i] == 4" in macro_src, (
-        "The expansion plan must staff a second mine and count defensive responses"
-    )
-    assert "enemyAirCount >= 2" in macro_src and "enemyCasterCount >= 2" in macro_src and "enemyTierCount > tier" in macro_src, (
-        "Composition and visible tech observations must change production and tech tempo"
-    )
-    assert "set productionId = 'hdhw'\n                        set unitFood = 3" in macro_src and "set productionId = 'hgry'\n                        set unitFood = 4" in macro_src and "foodUsed + unitFood <= foodCap and gold >= 160" in macro_src, (
-        "Adapted air production must respect the actual Dragonhawk/Gryphon food values"
+    assert "udg_AIMetricArmy[i]" in macro_src and "udg_AIMetricWorkers[i]" in macro_src and "udg_AIMetricTownHalls[i]" in macro_src and "udg_AIMetricAttackOrders[i]" in macro_src, (
+        "AI telemetry must report live army/economy/expansion progress rather than stale objective counters"
     )
     assert "udg_TempGroupB" in spell_center_src and "udg_TempGroupA" not in spell_center_src and "IsUnitVisible(nearby, owner)" in spell_center_src and "WM_IsCustomAIWorker" in spell_center_src, (
         "AOE scoring must use visible combat units and avoid clobbering the tactical outer unit group"
     )
     assert "WM_IsCustomAIWorker" in visible_count_src and "IsUnitVisible(u, owner)" in fallen_ally_src, (
-        "Spell triggers must not waste major AoE casts on custom workers or detect an unseen resurrection target"
+        "Spell logic must exclude custom workers and respect vision for resurrection targets"
     )
-    assert "not IsUnitType(foe, UNIT_TYPE_PEON)" in micro_src and "WM_IsCustomAIWorker(udg_PlayerFaction[enemyPid], rawcode)" in micro_src, (
-        "Local-force micro must assess visible combat units rather than worker counts"
+    assert "not IsUnitType(nearby, UNIT_TYPE_PEON)" in micro_src and "WM_IsCustomAIWorker(udg_PlayerFaction[enemyPid], rawcode)" in micro_src, (
+        "Local-force hero micro must assess visible combat units rather than worker counts"
+    )
+    assert "(udg_PlayerFaction[i] < 5 or IsUnitType(u, UNIT_TYPE_HERO))" in micro_src, (
+        "Custom melee soldiers must remain under the native attack-group controller; JASS micro may only steer their heroes"
     )
     assert all(code in spell_combo_src for code in ("'A005'", "'A013'", "'A017'", "'A037'", "'A045'", "'A031'", "'A025'")), (
         "Hero spell logic must include mana-target, Resurrection, and execution-specific decisions"
@@ -2303,22 +2485,84 @@ def run_verification(w3x_path: Path) -> None:
     assert "WM_AISelectSpellCenter" in spell_combo_src and "WM_AIShouldCastAreaE" in spell_combo_src and "GetUnitState(manaTarget, UNIT_STATE_MANA) >= 25.0" in spell_combo_src and "WM_IsCustomAIWorker" in spell_target_src, (
         "Hero spells must evaluate AOE density, support needs, and Mana Burn value before orders"
     )
-    assert "udg_PlayerFaction[i] >= 5" in micro_src and "localEnemyCount >= localAllyCount + 2" in micro_src and "udg_AIMetricRetreatOrders" in micro_src and "udg_AIMetricFocusOrders" in micro_src, (
-        "Custom-faction group micro must compare visible local strength, retreat when outnumbered, and focus fire without overriding native melee AI"
+    assert "WM_AIHeroSpellReady(hero)" in spell_combo_src and "udg_AIHeroSpellHandle[slot]" in jass_src and "udg_MatchSeconds + 4" in jass_src, (
+        "Custom hero spell orders must be throttled per hero rather than repeated on every micro tick"
     )
-    assert "f >= 5 and armyCount >= 5" in macro_src and "if f >= 5 then" in macro_src and "WM_AIRefreshEnemyIntel" in macro_src, (
-        "The custom JASS commander must leave classic races on native melee AI and run fair enemy intel only for custom factions"
+    assert "WM_GetDiffSupportLabel" in jass_src and "-aistats" in chat_src and all(metric in metrics_src for metric in ("udg_AIMetricArmy", "udg_AIMetricWorkers", "udg_AIMetricTier", "udg_AIMetricAttackOrders")), (
+        "Difficulty and actionable live-AI telemetry must remain queryable in-game"
     )
-    assert all(value in macro_src for value in ("set ecoBonusG = 2", "set ecoBonusG = 4", "set ecoBonusG = 7")), (
-        "Difficulty resource support must remain small and explicitly tiered"
+    creep_note = " + Classic common.ai creep/expansion/assault internals checked" if common_ai_creep_verified else ""
+    print("[PASS] Stage 17: Fair-vision telemetry + four reachable native custom melee-AI controllers (harvest/expansion/attack)" + creep_note + " + no competing JASS macro orders + hero-only custom micro + live -aistats")
+
+    # ------------------------------------------------------------------
+    # STAGE 18: 600 Food Ceiling, Melee-AI Supply Limits, and Tactical Cost Guards
+    # ------------------------------------------------------------------
+    init_src = jass_src.split("function InitCustomRacesAndAI", 1)[1].split("endfunction", 1)[0]
+    caster_src = jass_src.split("function WM_AIIsCasterUnit", 1)[1].split("endfunction", 1)[0]
+    spell_throttle_src = jass_src.split("function WM_AIHeroSpellReady", 1)[1].split("endfunction", 1)[0]
+    retreat_src = jass_src.split("function WM_AIRetreatFromUnit", 1)[1].split("endfunction", 1)[0]
+
+    assert "constant integer WM_FOOD_CAP_LIMIT = 600" in jass_src and "PLAYER_STATE_FOOD_CAP_CEILING" in jass_src, (
+        "The Classic food ceiling constant/state must be explicitly raised above 500"
     )
-    assert "WM_GetDiffSupportLabel" in jass_src and "-aistats" in chat_src and "udg_AIMetricVisibleContacts" in metrics_src and "udg_AIMetricCounterOrders" in metrics_src and "udg_PlayerFaction[i] >= 5" in metrics_src and "No custom-faction AI opponents" in metrics_src, (
-        "Difficulty and custom-AI decision metrics must be disclosed and queryable without presenting native-AI zeros as telemetry"
+    food_ceiling_call = "call SetPlayerState(p, PLAYER_STATE_FOOD_CAP_CEILING, WM_FOOD_CAP_LIMIT)"
+    assert food_ceiling_call in init_src and init_src.index(food_ceiling_call) > init_src.index("call MeleeStartingUnitsForPlayer") and init_src.index(food_ceiling_call) > init_src.index("call WM_SpawnPlayerEmpire"), (
+        "Every player must receive the 600 ceiling after default/custom starting units initialize"
     )
-    print("[PASS] Stage 17: Fair-vision AI (TTL intel, observed counter/tech adaptation, dynamic shrine/creep/expansion/defense/scouting, coordinated micro, hero spell evaluation, disclosed difficulty + -aistats telemetry)")
+
+    race_ai_sources = {
+        name: files[name].decode("utf-8")
+        for name in ("naga_melee.ai", "camphuman_melee.ai", "voidborn_melee.ai", "runeforged_melee.ai")
+    }
+    assert "FoodCap() < 600" in race_ai_sources["naga_melee.ai"] and "FoodUsed() + 9 >= FoodCap()" in race_ai_sources["naga_melee.ai"] and "GetUnitCount(NAGA_CORAL_BED) < 70" in race_ai_sources["naga_melee.ai"], (
+        "Naga AI must queue +9 supply buildings until it can reach the new ceiling"
+    )
+    assert "FoodCap() < 600" in race_ai_sources["camphuman_melee.ai"] and "FoodUsed() + 6 >= FoodCap()" in race_ai_sources["camphuman_melee.ai"] and "GetUnitCount(CH_ELVEN_FARM) < 110" in race_ai_sources["camphuman_melee.ai"], (
+        "Sunfury AI must account for its +6 supply farm and allow enough farms to exceed 500"
+    )
+    for ai_name in ("voidborn_melee.ai", "runeforged_melee.ai"):
+        assert "FoodCap() < 600" in race_ai_sources[ai_name] and "FoodUsed() + 9 >= FoodCap()" in race_ai_sources[ai_name] and "GetUnitCount(CF_SUPPLY) < 70" in race_ai_sources[ai_name], (
+            f"{ai_name} must account for +9 supply and remove its old 100-food/building-count ceiling"
+        )
+
+
+    assert "not IsUnitType(u, UNIT_TYPE_HERO) and WM_AIIsCasterUnit(rawcode)" in intel_src and "GetUnitState(u, UNIT_STATE_MAX_MANA)" not in intel_src, (
+        "Caster intel must explicitly exclude heroes and must not use generic max-mana as a caster proxy"
+    )
+    assert all(f"'{rawcode}'" in caster_src for rawcode in ("hmpr", "oshm", "uban", "unec", "uobs", "edot", "nnsw", "nchp", "nhym", "v014", "t014")), (
+        "The explicit caster table must cover the classic and custom-race spellcaster rosters"
+    )
+
+    assert "WM_AIHeroSpellReady(hero)" in spell_combo_src and "udg_AIHeroSpellHandle[slot]" in spell_throttle_src and "udg_MatchSeconds + 4" in spell_throttle_src, (
+        "Hero spell evaluation/orders must have a per-hero cooldown rather than repeat on every micro tick"
+    )
+    assert "candidateCount >= 8" in spell_center_src and "GroupEnumUnitsInRange(udg_SpellGroup, hx, hy, 560.0" in spell_center_src, (
+        "AoE-center search must have a bounded local candidate set to prevent quadratic full-army scans"
+    )
+    assert micro_src.count("GroupEnumUnitsInRange(udg_SpellGroup, ux, uy, 650.0") == 1 and "shouldScan = IsUnitType(u, UNIT_TYPE_HERO) or hpPct < 0.72" in micro_src, (
+        "Tactical micro must combine local ally/enemy scans and skip healthy units on non-combat orders"
+    )
+    assert "IsTerrainPathable(nx, ny, terrainPath)" in retreat_src and "Atan2(dy / dlen, dx / dlen)" in retreat_src and "WM_UsesAmphibiousPathing(u)" in retreat_src and "PATHING_TYPE_FLYABILITY" in retreat_src, (
+        "Retreat headings must be locally pathable and honor ground, flying, and amphibious movement"
+    )
+    assert "WM_AIRetreatFromUnit(u, nearFoe" in micro_src and 'IssuePointOrder(u, "move", homeX, homeY)' not in micro_src and "TimerStart(udg_AIMicroTimer, 2.40" in jass_src, (
+        "Hero retreat must be local to visible threats and micro scan frequency must be moderated"
+    )
+
+    assert all(label in jass_src for label in ("+1g/+1l per 4s", "+2g/+1l per 4s", "+3g/+2l per 4s")), (
+        "AI difficulty labels must match the rebalanced grant values"
+    )
+    assert all(value in macro_src for value in ("set ecoBonusG = 1", "set ecoBonusG = 2", "set ecoBonusG = 3", "set ecoBonusL = 1", "set ecoBonusL = 2")), (
+        "Difficulty support must be applied by the maintenance timer at the displayed rates"
+    )
+    skin_txt = files["war3mapSkin.txt"].decode("utf-8")
+    assert "81+ Supply" in skin_txt and "600 Maximum Supply" in skin_txt, (
+        "Upkeep tooltip must remain accurate after increasing the food ceiling"
+    )
+    print("[PASS] Stage 18: Classic 600 food ceiling; all four custom-AI supply ceilings; explicit caster roster; per-hero spell throttle; bounded scans, safe hero retreats and balanced income")
 
     print("======================================================================")
-    print("  ALL 17 VERIFICATION STAGES PASSED; static/binary checks found no known object/UI/AI-startup/fairness defects.")
+    print("  ALL 18 VERIFICATION STAGES PASSED; static/binary checks found no known object/UI/AI-startup/fairness/supply defects.")
     print("======================================================================")
 
 
